@@ -1,6 +1,6 @@
 # Dependências
 
-Registro de dependências e licenças (todas compatíveis com MIT/Apache).
+Registro de dependências e licenças. As bibliotecas de apoio são MIT/Apache-2.0 (ou equivalentes permissivos; exceções anotadas: symphonia é MPL-2.0, libopus é BSD-3-Clause). **A exceção que decide a licença do app é o Slint** (`slint`, `slint-build` e as crates `i-slint-*`): é GPL-3.0-only **ou** Royalty-free-2.0 **ou** comercial. Conforme a "Regra de custo" do `docs/BRIEF.md`, o Kazzu usa o Slint sob **GPL-3.0** (hipótese de trabalho, a confirmar pelo autor), o que faz o binário distribuído ser GPL-3.0. Esta tabela só registra; a decisão de licença do projeto é do autor.
 
 | Crate | Usada por | Licença | Uso |
 |---|---|---|---|
@@ -27,6 +27,16 @@ Registro de dependências e licenças (todas compatíveis com MIT/Apache).
 | `log` 0.4 | kazzu-audio | MIT OR Apache-2.0 | Logs (fora do callback de áudio) |
 | `hound` 3 (dev) | kazzu-audio | Apache-2.0 | Gerar WAVs de teste |
 | `flacenc` 0.5 (dev) | kazzu-audio | Apache-2.0 | Gerar FLACs de teste (16/24 bit) |
+| `slint` 1.19 (`std`, `backend-default`, `renderer-femtovg`, `renderer-software`, `accessibility`, `compat-1-2`) | kazzu-app | **GPL-3.0-only OU Royalty-free-2.0 OU Software-3.0** (ver `docs/research/ui-and-mobile.md`) | Interface. Renderer padrão FemtoVG (OpenGL; `backdrop-blur`); software como fallback sem blur. Skia fica atrás da feature `skia` |
+| `slint-build` 1.19 | kazzu-app (build) | idem | Compila `ui/*.slint` no `build.rs` |
+| `rfd` 0.15 (`xdg-portal`, `async-std`) | kazzu-app | MIT | Seletor de pasta nativo (portal do XDG no Linux; Windows/macOS usam o nativo) |
+| `pollster` 0.4 | kazzu-app | Apache-2.0 OR MIT | Roda o `AsyncFileDialog` do `rfd` numa thread, sem runtime assíncrono |
+| `toml` 0.9 | kazzu-app | MIT OR Apache-2.0 | Configuração do app (`config.toml`) |
+| `env_logger` 0.11 | kazzu-app | MIT OR Apache-2.0 | Logs no terminal (`RUST_LOG`); nada é enviado |
+| `serde` 1, `directories` 6, `image` 0.25 (jpeg, png), `crossbeam-channel` 0.5, `thiserror` 2, `log` 0.4 | kazzu-app | MIT OR Apache-2.0 | Configuração, capas e fundo desfocado, mensagens entre threads, erros e logs |
+| `hound` 3, `flacenc` 0.5, `lofty` 0.25 (feature `demo`) | kazzu-app | Apache-2.0 / Apache-2.0 / MIT OR Apache-2.0 | Biblioteca de demonstração gerada por programa (`--demo-library`) |
+| `tempfile` 3 (dev) | kazzu-app | MIT OR Apache-2.0 | Diretórios temporários nos testes |
+| Hanken Grotesk, Geist Mono (fontes embutidas em `crates/kazzu-app/ui/assets/fonts`) | kazzu-app | SIL OFL 1.1 | Tipografia do app; textos de licença ao lado dos arquivos |
 
 ## Notas de licença
 
