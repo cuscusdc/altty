@@ -44,6 +44,15 @@ fn row_to_track(r: &Row<'_>) -> rusqlite::Result<Track> {
     })
 }
 
+
+/// Chave textual do provedor (nome serde, ex.: `"yt_music"`).
+fn provider_key(p: kazzu_core::ProviderKind) -> Result<String> {
+    match serde_json::to_value(p) {
+        Ok(serde_json::Value::String(s)) => Ok(s),
+        _ => Err(Error::InvalidRemote("provedor não serializável".into())),
+    }
+}
+
 fn escape_like(s: &str) -> String {
     s.replace('\\', "\\\\")
         .replace('%', "\\%")
@@ -58,6 +67,59 @@ fn fts_query(q: &str) -> Option<String> {
         .map(|t| format!("\"{t}\"*"))
         .collect();
     (!toks.is_empty()).then(|| toks.join(" "))
+}
+
+/// Resultado da leitura de um item de playlist.
+enum ScannedKind {
+    /// Faixa local existente (id da faixa).
+    Local(i64),
+    /// Faixa remota com JSON válido.
+    Remote(Box<kazzu_core::Track>),
+    /// Órfão ou inválido: preservado no banco, fora dos índices visíveis.
+    Hidden,
+}
+
+struct ScannedItem {
+    item_id: i64,
+    kind: ScannedKind,
+}
+
+/// Lê todos os itens da playlist em ordem (`position, id`) e classifica cada
+/// um como visível ou oculto. É a única fonte da noção de "índice unificado":
+/// listar, remover e reordenar usam esta função (na mesma transação, quando
+/// há escrita).
+fn scan_playlist_items(conn: &rusqlite::Connection, id: PlaylistId) -> Result<Vec<ScannedItem>> {
+    let mut st = conn.prepare(
+        "SELECT i.id, i.track_id, i.remote_json, t.id IS NOT NULL
+         FROM playlist_items i LEFT JOIN tracks t ON t.id = i.track_id
+         WHERE i.playlist_id = ?1 ORDER BY i.position, i.id",
+    )?;
+    let rows: Vec<(i64, Option<i64>, Option<String>, bool)> = st
+        .query_map([id.0], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+        .collect::<std::result::Result<_, _>>()?;
+    let mut out = Vec::with_capacity(rows.len());
+    for (item_id, tid, json, track_exists) in rows {
+        let kind = match (tid, json) {
+            (Some(tid), _) if track_exists => ScannedKind::Local(tid),
+            (Some(_), _) => {
+                log::warn!("playlist {}: item {item_id} local órfão ignorado", id.0);
+                ScannedKind::Hidden
+            }
+            (None, Some(json)) => match serde_json::from_str(&json) {
+                Ok(t) => ScannedKind::Remote(Box::new(t)),
+                Err(e) => {
+                    log::warn!(
+                        "playlist {}: item {item_id} com remote_json inválido ignorado: {e}",
+                        id.0
+                    );
+                    ScannedKind::Hidden
+                }
+            },
+            (None, None) => ScannedKind::Hidden,
+        };
+        out.push(ScannedItem { item_id, kind });
+    }
+    Ok(out)
 }
 
 impl Library {
@@ -410,26 +472,109 @@ impl Library {
         Ok(v)
     }
 
-    /// Faixas da playlist na ordem definida pelo usuário (repetições permitidas).
+    /// Faixas **locais** da playlist na ordem definida pelo usuário
+    /// (repetições permitidas). Entradas remotas são ignoradas aqui; use
+    /// [`playlist_entries`](Self::playlist_entries) para a lista unificada.
     pub fn playlist_tracks(&self, id: PlaylistId) -> Result<Vec<Track>> {
-        let ids = self.playlist_item_ids(id)?;
-        let mut out = Vec::with_capacity(ids.len());
-        for (_, tid) in ids {
-            if let Some(t) = self.track(TrackId(tid))? {
+        let mut out = Vec::new();
+        for it in scan_playlist_items(&self.conn, id)? {
+            if let ScannedKind::Local(tid) = it.kind
+                && let Some(t) = self.track(TrackId(tid))?
+            {
                 out.push(t);
             }
         }
         Ok(out)
     }
 
-    /// `(item_id, track_id)` em ordem.
-    fn playlist_item_ids(&self, id: PlaylistId) -> Result<Vec<(i64, i64)>> {
-        let mut st = self.conn.prepare(
-            "SELECT id, track_id FROM playlist_items WHERE playlist_id = ?1 ORDER BY position, id",
+    /// Lista unificada (locais + remotas) na ordem de `position`.
+    ///
+    /// Esta é a **definição única de índice** usada também por
+    /// [`remove_from_playlist`](Self::remove_from_playlist) e
+    /// [`reorder_playlist`](Self::reorder_playlist). Itens inválidos (JSON
+    /// remoto corrompido) e órfãos (faixa local inexistente) ficam de fora,
+    /// com `log::warn!`; permanecem no banco e não entram na contagem de índices.
+    pub fn playlist_entries(&self, id: PlaylistId) -> Result<Vec<PlaylistEntry>> {
+        let mut out = Vec::new();
+        for it in scan_playlist_items(&self.conn, id)? {
+            match it.kind {
+                ScannedKind::Local(tid) => {
+                    if let Some(t) = self.track(TrackId(tid))? {
+                        out.push(PlaylistEntry::Local(t));
+                    }
+                }
+                ScannedKind::Remote(t) => out.push(PlaylistEntry::Remote(*t)),
+                ScannedKind::Hidden => {}
+            }
+        }
+        Ok(out)
+    }
+
+    /// Acrescenta faixas remotas ao fim da playlist, guardando os metadados
+    /// serializados (exibíveis offline). Faixas que não são
+    /// `TrackSource::Remote` são ignoradas, e faixas já presentes na playlist
+    /// (mesmo `(provider, id)`) ou repetidas em `tracks` são puladas, sem erro.
+    pub fn add_remote_to_playlist(
+        &mut self,
+        id: PlaylistId,
+        tracks: &[kazzu_core::Track],
+    ) -> Result<()> {
+        self.require_playlist(id)?;
+        let tx = self
+            .conn
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let mut next: i64 = tx.query_row(
+            "SELECT COALESCE(MAX(position) + 1, 0) FROM playlist_items WHERE playlist_id = ?1",
+            [id.0],
+            |r| r.get(0),
         )?;
-        Ok(st
-            .query_map([id.0], |r| Ok((r.get(0)?, r.get(1)?)))?
-            .collect::<std::result::Result<_, _>>()?)
+        let t = now();
+        for tr in tracks {
+            let kazzu_core::TrackSource::Remote { provider, id: rid } = &tr.source else {
+                continue;
+            };
+            let prov = provider_key(*provider)?;
+            let exists = tx
+                .query_row(
+                    "SELECT 1 FROM playlist_items
+                     WHERE playlist_id = ?1 AND remote_provider = ?2 AND remote_id = ?3",
+                    params![id.0, prov, rid],
+                    |_| Ok(()),
+                )
+                .is_ok();
+            if exists {
+                continue;
+            }
+            let json =
+                serde_json::to_string(tr).map_err(|e| Error::InvalidRemote(e.to_string()))?;
+            tx.execute(
+                "INSERT INTO playlist_items(playlist_id, remote_provider, remote_id, remote_json,
+                    position, added_at) VALUES (?1,?2,?3,?4,?5,?6)",
+                params![id.0, prov, rid, json, next, t],
+            )?;
+            next += 1;
+        }
+        tx.commit()?;
+        self.touch_playlist(id)
+    }
+
+    /// Se a playlist já contém a faixa remota `(provider, remote_id)`;
+    /// `provider` é o nome serde do `ProviderKind` (ex.: `"yt_music"`).
+    pub fn playlist_contains_remote(
+        &self,
+        id: PlaylistId,
+        provider: &str,
+        remote_id: &str,
+    ) -> Result<bool> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT 1 FROM playlist_items
+                 WHERE playlist_id = ?1 AND remote_provider = ?2 AND remote_id = ?3",
+                params![id.0, provider, remote_id],
+                |_| Ok(()),
+            )
+            .is_ok())
     }
 
     fn require_playlist(&self, id: PlaylistId) -> Result<()> {
@@ -449,7 +594,9 @@ impl Library {
     /// Acrescenta faixas ao fim.
     pub fn add_to_playlist(&mut self, id: PlaylistId, tracks: &[TrackId]) -> Result<()> {
         self.require_playlist(id)?;
-        let tx = self.conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let tx = self
+            .conn
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let next: i64 = tx.query_row(
             "SELECT COALESCE(MAX(position) + 1, 0) FROM playlist_items WHERE playlist_id = ?1",
             [id.0],
@@ -468,43 +615,72 @@ impl Library {
         self.touch_playlist(id)
     }
 
-    /// Remove o item na posição `index` (0-based).
+    /// Remove o item na posição `index` (0-based) da lista unificada
+    /// ([`playlist_entries`](Self::playlist_entries)): só itens visíveis contam.
+    /// Itens ocultos (órfãos/inválidos) são preservados. Delete e renumeração
+    /// ocorrem numa única transação; um índice inválido não altera nada.
     pub fn remove_from_playlist(&mut self, id: PlaylistId, index: usize) -> Result<()> {
-        let mut items = self.playlist_item_ids(id)?;
-        if index >= items.len() {
+        let tx = self
+            .conn
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let items = scan_playlist_items(&tx, id)?;
+        let visible: Vec<usize> = (0..items.len())
+            .filter(|&i| !matches!(items[i].kind, ScannedKind::Hidden))
+            .collect();
+        let Some(&slot) = visible.get(index) else {
             return Err(Error::InvalidPosition(index));
-        }
-        let (item, _) = items.remove(index);
-        self.conn
-            .execute("DELETE FROM playlist_items WHERE id = ?1", [item])?;
-        self.rewrite_positions(&items)?;
+        };
+        tx.execute(
+            "DELETE FROM playlist_items WHERE id = ?1",
+            [items[slot].item_id],
+        )?;
+        let rest: Vec<i64> = items
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| *i != slot)
+            .map(|(_, it)| it.item_id)
+            .collect();
+        rewrite_positions(&tx, &rest)?;
+        tx.commit()?;
         self.touch_playlist(id)
     }
 
-    /// Move o item de `from` para `to` (índices 0-based, como `Vec::remove` + `insert`).
+    /// Move o item visível de `from` para `to` na lista unificada (índices
+    /// 0-based, como `Vec::remove` + `insert`). Os itens ocultos mantêm suas
+    /// posições absolutas; só os slots visíveis são permutados. Atômico.
     pub fn reorder_playlist(&mut self, id: PlaylistId, from: usize, to: usize) -> Result<()> {
-        let mut items = self.playlist_item_ids(id)?;
-        if from >= items.len() {
+        let tx = self
+            .conn
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let items = scan_playlist_items(&tx, id)?;
+        let slots: Vec<usize> = (0..items.len())
+            .filter(|&i| !matches!(items[i].kind, ScannedKind::Hidden))
+            .collect();
+        if from >= slots.len() {
             return Err(Error::InvalidPosition(from));
         }
-        if to >= items.len() {
+        if to >= slots.len() {
             return Err(Error::InvalidPosition(to));
         }
-        let it = items.remove(from);
-        items.insert(to, it);
-        self.rewrite_positions(&items)?;
+        let mut vis_ids: Vec<i64> = slots.iter().map(|&i| items[i].item_id).collect();
+        let it = vis_ids.remove(from);
+        vis_ids.insert(to, it);
+        let mut all: Vec<i64> = items.iter().map(|i| i.item_id).collect();
+        for (slot, vid) in slots.iter().zip(vis_ids) {
+            all[*slot] = vid;
+        }
+        rewrite_positions(&tx, &all)?;
+        tx.commit()?;
         self.touch_playlist(id)
     }
+}
 
-    fn rewrite_positions(&mut self, items: &[(i64, i64)]) -> Result<()> {
-        let tx = self.conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-        for (pos, (item, _)) in items.iter().enumerate() {
-            tx.execute(
-                "UPDATE playlist_items SET position = ?2 WHERE id = ?1",
-                params![item, pos as i64],
-            )?;
-        }
-        tx.commit()?;
-        Ok(())
+fn rewrite_positions(conn: &rusqlite::Connection, items: &[i64]) -> Result<()> {
+    for (pos, item) in items.iter().enumerate() {
+        conn.execute(
+            "UPDATE playlist_items SET position = ?2 WHERE id = ?1",
+            params![item, pos as i64],
+        )?;
     }
+    Ok(())
 }

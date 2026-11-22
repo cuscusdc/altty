@@ -37,8 +37,8 @@ use rusqlite::Connection;
 
 pub use error::{Error, Result};
 pub use model::{
-    Album, AlbumId, Artist, ArtistId, Artwork, HistoryEntry, Playlist, PlaylistId, Rgb,
-    ScanProgress, ScanReport, SearchResults, Track, TrackId,
+    Album, AlbumId, Artist, ArtistId, Artwork, HistoryEntry, Playlist, PlaylistEntry, PlaylistId,
+    Rgb, ScanProgress, ScanReport, SearchResults, Track, TrackId,
 };
 
 /// Extensões de áudio reconhecidas pelo scanner.

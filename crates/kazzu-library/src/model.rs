@@ -156,3 +156,13 @@ pub struct ScanReport {
     /// Arquivos que não puderam ser lidos (caminho, motivo).
     pub failed: Vec<(PathBuf, String)>,
 }
+
+/// Item de uma playlist local: faixa da biblioteca ou faixa remota guardada
+/// por referência (metadados serializados para exibir offline).
+#[derive(Debug, Clone, PartialEq)]
+pub enum PlaylistEntry {
+    /// Faixa do banco local.
+    Local(Track),
+    /// Faixa de um provedor (ex.: YouTube Music), `TrackSource::Remote`.
+    Remote(kazzu_core::Track),
+}

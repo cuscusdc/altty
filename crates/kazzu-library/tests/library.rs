@@ -400,7 +400,7 @@ fn migrations_are_versioned_and_persistent() {
     let tmp = tempfile::tempdir().unwrap();
     {
         let lib = Library::open(tmp.path()).unwrap();
-        assert_eq!(lib.schema_version().unwrap(), 1);
+        assert_eq!(lib.schema_version().unwrap(), 2);
         lib.create_playlist("P").unwrap();
     }
     let lib = Library::open(tmp.path()).unwrap();
@@ -477,7 +477,8 @@ fn other_connection_can_write_while_a_scan_is_running() {
         let mut writes = 0;
         loop {
             ui.like(seed).expect("curtir durante o scan");
-            ui.record_play(seed, 1000).expect("histórico durante o scan");
+            ui.record_play(seed, 1000)
+                .expect("histórico durante o scan");
             ui.unlike(seed).expect("descurtir durante o scan");
             writes += 3;
             if flag.load(std::sync::atomic::Ordering::SeqCst) {
@@ -510,7 +511,9 @@ fn folder_removed_during_a_scan_gets_no_tracks_reinserted() {
     let target = other.clone();
     let report = lib
         .scan(&move |p| {
-            if matches!(p, kazzu_library::ScanProgress::Reading { .. }) && !removed.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            if matches!(p, kazzu_library::ScanProgress::Reading { .. })
+                && !removed.swap(true, std::sync::atomic::Ordering::SeqCst)
+            {
                 let mut second = Library::open(&data).unwrap();
                 second.remove_folder(&target).unwrap();
             }
@@ -518,6 +521,11 @@ fn folder_removed_during_a_scan_gets_no_tracks_reinserted() {
         .unwrap();
     assert!(report.added <= 8);
     let tracks = lib.tracks().unwrap();
-    assert_eq!(tracks.len(), 4, "só as 4 faixas da pasta que ficou: {:?}", tracks.iter().map(|t| t.path.clone()).collect::<Vec<_>>());
+    assert_eq!(
+        tracks.len(),
+        4,
+        "só as 4 faixas da pasta que ficou: {:?}",
+        tracks.iter().map(|t| t.path.clone()).collect::<Vec<_>>()
+    );
     assert!(tracks.iter().all(|t| t.path.starts_with(&music)));
 }

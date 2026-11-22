@@ -19,6 +19,8 @@ pub enum Error {
     SchemaTooNew { found: i64, supported: i64 },
     #[error("posição inválida: {0}")]
     InvalidPosition(usize),
+    #[error("faixa remota inválida no banco: {0}")]
+    InvalidRemote(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
