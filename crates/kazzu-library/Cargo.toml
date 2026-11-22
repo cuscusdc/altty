@@ -6,7 +6,8 @@ license.workspace = true
 
 [dependencies]
 directories = "6.0.0"
-image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"] }
+image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "webp"] }
+kazzu-core = { version = "0.1.0", path = "../kazzu-core" }
 lofty = "0.25.5"
 rayon = "1.12.0"
 rusqlite = { version = "0.43.0", features = ["bundled"] }
