@@ -9,7 +9,7 @@
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
-    <!-- Rede: YouTube Music (próxima etapa) e o que o usuário acionar. -->
+    <!-- Rede: YouTube Music (provedor padrão, sem conta) e as capas dos itens vistos; só na abertura do Início e por ação do usuário. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Ler as músicas da pasta Music: Android 13+ -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />

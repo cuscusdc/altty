@@ -1,6 +1,6 @@
 # Kazzu no Android
 
-Pipeline para compilar, assinar e publicar o APK do Kazzu **sem Android Studio, sem Gradle e sem nenhum serviço pago ou do Google**. Etapa inicial: o objetivo é ter um APK instalável para testar no celular enquanto a interface é refeita para mobile-first (`docs/BRIEF.md`, "Direção v2"). A UI do APK é a da versão atual (pensada para desktop, mas com layout para 390 px).
+Pipeline para compilar, assinar e publicar o APK do Kazzu **sem Android Studio, sem Gradle e sem nenhum serviço pago ou do Google**. A partir da v0.2 a UI do APK é a **v2 mobile-first** (vidro real, YouTube Music padrão; `docs/UI_NOTES.md`).
 
 Estado: **alpha**. Compila, assina, instala e abre num emulador Android 14 (x86_64, KVM). **Não foi testado em aparelho real** (nem em ARM); ver "Verificação".
 
@@ -8,7 +8,7 @@ Estado: **alpha**. Compila, assina, instala e abre num emulador Android 14 (x86_
 
 | Tema | Escolha | Por quê |
 |---|---|---|
-| Backend de UI | `slint` com feature `backend-android-activity-06` (NativeActivity) | É o backend oficial do Slint para Android; documentado e mantido pelo próprio projeto. **Não** usa winit; o renderer é sempre **Skia** (o backend não tem FemtoVG/software), que tem `backdrop-blur` real |
+| Backend de UI | `slint` com feature `backend-android-activity-06` (NativeActivity) | É o backend oficial do Slint para Android; documentado e mantido pelo próprio projeto. **Não** usa winit; o renderer é sempre **Skia** (conferido no código do backend; as features `renderer-femtovg`/`renderer-software` do `Cargo.toml` são inertes lá), que tem `backdrop-blur` real |
 | Atividade | `android.app.NativeActivity` do sistema (`hasCode="false"`) | Sem código Java/Kotlin próprio → sem Gradle. O Slint compila um pequeno helper Java (teclado/IME) no build e o embute em `libkazzu_app.so` |
 | Empacotamento | `scripts/build-apk.sh`: `cargo rustc --crate-type cdylib` + `aapt2` + `zipalign` + `apksigner` | Só usa ferramentas oficiais do SDK/NDK. `cargo-apk2`/`xbuild`/`cargo-ndk`+Gradle também funcionam com o Slint (a doc do Slint lista os quatro), mas cada um é mais uma ferramenta/versão a manter; o script tem ~120 linhas e roda igual no CI. O crate segue `lib` no desktop: o `cdylib` é pedido só na linha de comando do Android |
 | Áudio | `cpal` 0.18, backend **AAudio** nativo | O cpal 0.18 tem backend AAudio próprio (`cpal::host::aaudio`, via `ndk`); **não usa Oboe**, então não precisa de libc++ separada nem de C++ extra. API mínima 26 (Android 8) |
@@ -16,14 +16,14 @@ Estado: **alpha**. Compila, assina, instala e abre num emulador Android 14 (x86_
 | Seletor de pastas | **Sem seletor** nesta versão. O app lê a pasta **`Music`** do armazenamento compartilhado com a permissão `READ_MEDIA_AUDIO` (Android 13+) / `READ_EXTERNAL_STORAGE` (Android 8–12), pedida em tempo de execução via JNI. O botão "Adicionar pasta" adiciona/reescaneia `Music` | O seletor do sistema (SAF, `ACTION_OPEN_DOCUMENT_TREE`) devolve URIs de conteúdo, não caminhos: exigiria trocar o scan por `ContentResolver`/MediaStore. A permissão de mídia dá leitura direta por caminho nos arquivos de áudio, que é o que o scan (`walkdir` + `lofty`) já faz. `rfd` fica só no desktop |
 | Dados do app | Banco e configuração em `files/` do app (armazenamento interno, sem permissão). `directories` não funciona no Android, então o `android_main` passa os caminhos em `Options` | Nada da lógica do app precisou mudar |
 | Logs | `android_logger` → `adb logcat -s kazzu` | Nada sai do aparelho |
-| `targetSdk` | 34 (`minSdk` 26) | A partir do 35 o Android 15 força desenho de borda a borda (a UI desenharia sob a barra de status/navegação). Subir quando a UI v2 tratar as áreas seguras |
+| `targetSdk` | 34 (`minSdk` 26) | A UI v2 já usa as áreas seguras (`Window.safe-area-insets` do backend Slint → `AppState.safe-*`); dá para subir para 35 depois de testar em Android 15 |
 | ABIs | `arm64-v8a` (padrão, publicado). `x86_64` só para emulador. `armeabi-v7a` compila mas não é publicado | Celulares atuais são arm64; um APK universal triplicaria o tamanho (o Skia pesa ~20 MB por ABI) |
 
 ### Permissões (todas declaradas em `android/AndroidManifest.xml`)
 
 | Permissão | Para quê |
 |---|---|
-| `INTERNET` | YouTube Music (próxima etapa) e o que o usuário acionar. Nenhuma chamada de rede acontece hoje |
+| `INTERNET` | YouTube Music (provedor padrão, sem conta) e as capas dos itens vistos. Só há rede na abertura do Início e por ação do usuário |
 | `READ_MEDIA_AUDIO` | Ler as músicas locais (Android 13+) |
 | `READ_EXTERNAL_STORAGE` (`maxSdkVersion=32`) | Idem, Android 8 a 12 |
 
@@ -118,19 +118,29 @@ gh release create v0.1.0-alpha.2 --prerelease --title "Kazzu 0.1.0-alpha.2" --no
 
 **NÃO testado:** aparelho físico (nenhum, ARM ou não); o APK arm64 em si nunca foi executado (o emulador x86_64 não roda código arm64); som real, fones/Bluetooth, rotação, bloqueio de tela, Android 15+ (páginas de 16 KB), desempenho do blur em GPU real.
 
-**Problemas observados no emulador (fora do meu escopo, ficam para a UI v2):**
-- a UI desenha **por baixo** da barra de status e da barra de navegação do sistema (o botão de recentes do Android fica por cima da barra do app e "rouba" toques). O Slint expõe `Window.safe-area-inset-*`; a UI v2 precisa usá-las;
-- as capas aparecem em branco (nas listas e no destaque) — não investigado; sem avisos no logcat;
-- "Voltar" do Android não fecha player/detalhe.
+**Problemas da alpha.1 e o que foi feito na v0.2:**
+- desenhava **por baixo** das barras do sistema: a UI v2 usa `safe-area-insets` (o backend Android do Slint os preenche sozinho) e tem fade superior/inferior; verificado no emulador;
+- capas em branco: **causa encontrada**, não era render. Com a permissão só de áudio o Android não deixa ler `cover.jpg` da pasta; capas embutidas na tag aparecem. Capa ausente agora mostra o placeholder `disc`. Pedir `READ_MEDIA_IMAGES` fica como decisão do autor;
+- "Voltar" não fechava player/detalhe: agora o `FocusScope` raiz recebe `Key.Back` e chama `go-back()` (fecha folha → fila → player → detalhe → volta ao Início → sai).
+
+## Verificação (v0.2.0-alpha.3, emulador x86_64)
+
+Emulador AVD `kazzu34` (Android 14, KVM, `-gpu swiftshader_indirect`, 1080×2400, navegação por 3 botões), APK `--debug-sign`:
+
+- abre e o **Início do YouTube Music carrega** sozinho (rede do emulador funciona): banner, chips, destaques com capas reais, escolhas rápidas;
+- **tocar uma faixa remota**: toque na linha → resolve → stream HTTP → `AAudioStreamBuilder_openStream() returns 0 = AAUDIO_OK` → mini player e progresso andando; player com selo `OPUS 48 kHz`/`Do YouTube Music`/"Original, sem equalizador" (ajustado depois: o selo agora usa o formato que o provedor informou);
+- **safe areas**: wordmark abaixo da barra de status; barra inferior acima dos botões do sistema;
+- **Voltar**: fecha o player, fecha o detalhe de playlist, no Início sai do app;
+- biblioteca local (`adb push` em `/sdcard/Music`): indexa; capa embutida aparece, `cover.jpg` não (permissão).
+- **Não verificado**: som real (emulador sem áudio), aparelho físico (ARM), TalkBack, teclado sobre a folha Nova playlist, desempenho do blur em GPU real, segundo plano/tela apagada.
 
 ## Pendências para o Android (próximas etapas)
 
 - **Áudio em segundo plano**: hoje a música para quando o app vai para segundo plano/tela apagada (o sistema pode matar o processo). Falta *foreground service* (tipo `mediaPlayback`) + notificação com controles + `MediaSession` (fones, tela de bloqueio, Bluetooth) via JNI; exige código Java mínimo (ou `GameActivity`/helper dex) e as permissões `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK` e `POST_NOTIFICATIONS` (Android 13+). Gerenciar foco de áudio (`AudioManager`) e "ruído" (fone desconectado).
 - **Seletor de pastas / outras fontes**: SAF (`ACTION_OPEN_DOCUMENT_TREE`) + `ContentResolver`, ou scan por MediaStore, para músicas fora de `Music` (hoje só `Music`).
-- **Área segura / borda a borda**: subir `targetSdk` para 35 só depois que a UI v2 respeitar as áreas seguras (barra de status, navegação por gestos, recorte da câmera) e o teclado (`adjustResize`).
-- **Gestos de voltar** (`OnBackInvokedCallback`): hoje "Voltar" fecha o app em vez de fechar o player/detalhe.
+- **Área segura / borda a borda**: testar em Android 15 (targetSdk 35), navegação por gestos e recorte da câmera; teclado sobre as folhas (`adjustResize`).
 - **Desempenho**: medir blur/Skia em aparelho de entrada; a opção "reduzir transparência" já existe na UI.
 - **Teste em aparelho real** (arm64), com fones Bluetooth, rotação, bloqueio de tela, 16 KB de página.
-- Reprodução em rede (YouTube Music) herda a permissão `INTERNET` já declarada; *cleartext* continua bloqueado (HTTPS apenas).
+- Reprodução em rede (YouTube Music) usa a permissão `INTERNET` declarada; *cleartext* continua bloqueado (HTTPS apenas).
 - F-Droid: o APK é reproduzível em tese (sem binários proprietários além do Skia pré-compilado do `rust-skia`, que é baixado no build); para o F-Droid seria preciso compilar o Skia a partir do fonte.
 - iOS fica para depois (Slint 1.19 ainda trata como experimental).

@@ -40,6 +40,11 @@ Registro de dependências e licenças. As bibliotecas de apoio são MIT/Apache-2
 | `rfd` 0.15 (`xdg-portal`, `async-std`) | kazzu-app | MIT | Seletor de pasta nativo (portal do XDG no Linux; Windows/macOS usam o nativo) |
 | `pollster` 0.4 | kazzu-app | Apache-2.0 OR MIT | Roda o `AsyncFileDialog` do `rfd` numa thread, sem runtime assíncrono |
 | `toml` 0.9 | kazzu-app | MIT OR Apache-2.0 | Configuração do app (`config.toml`) |
+| `kazzu-ytm` (crate do workspace) | kazzu-app | MIT | Provedor padrão YouTube Music (sem conta): Início, busca, álbuns, rádio, streams, curtidas locais |
+| `ureq` 3.5 (`rustls`) | kazzu-app | MIT OR Apache-2.0 | Baixa as capas (miniaturas) dos itens que o usuário vê, só `https` e só de hosts de imagem do YouTube/Google (ver `src/covers.rs`); mesma cópia do lockfile do kazzu-audio/kazzu-ytm |
+| `sys-locale` 0.3 | kazzu-app | MIT OR Apache-2.0 | Idioma do sistema para as buscas temáticas do Início (Foco, Treino); mesma cópia do kazzu-ytm |
+| `image` 0.25 (+ `webp`) | kazzu-app | MIT OR Apache-2.0 | Decodifica as capas remotas (JPEG/PNG/WebP) fora da thread de UI |
+| `serde_json` 1 | kazzu-library | MIT OR Apache-2.0 | Guarda a faixa remota (por referência) em playlists locais |
 | `env_logger` 0.11 | kazzu-app | MIT OR Apache-2.0 | Logs no terminal (`RUST_LOG`); nada é enviado |
 | `serde` 1, `directories` 6, `image` 0.25 (jpeg, png), `crossbeam-channel` 0.5, `thiserror` 2, `log` 0.4 | kazzu-app | MIT OR Apache-2.0 | Configuração, capas e fundo desfocado, mensagens entre threads, erros e logs |
 | `hound` 3, `flacenc` 0.5, `lofty` 0.25 (feature `demo`) | kazzu-app | Apache-2.0 / Apache-2.0 / MIT OR Apache-2.0 | Biblioteca de demonstração gerada por programa (`--demo-library`) |

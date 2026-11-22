@@ -2917,6 +2917,7 @@ dependencies = [
  "kazzu-audio",
  "kazzu-core",
  "kazzu-library",
+ "kazzu-ytm",
  "lofty",
  "log",
  "pollster",
@@ -2925,9 +2926,11 @@ dependencies = [
  "slint",
  "slint-build",
  "symphonia-adapter-libopus",
+ "sys-locale",
  "tempfile",
  "thiserror 2.0.21",
  "toml 0.9.12+spec-1.1.0",
+ "ureq",
 ]
 
 [[package]]
@@ -2966,11 +2969,23 @@ dependencies = [
  "image",
  "kazzu-core",
  "lofty",
+ "log",
  "rayon",
  "rusqlite",
+ "serde_json",
  "tempfile",
  "thiserror 2.0.21",
  "walkdir",
+]
+
+[[package]]
+name = "kazzu-ui-gallery"
+version = "0.1.0"
+dependencies = [
+ "i-slint-backend-testing",
+ "image",
+ "slint",
+ "slint-build",
 ]
 
 [[package]]
