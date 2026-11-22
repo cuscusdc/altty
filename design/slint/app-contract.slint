@@ -1,0 +1,108 @@
+// Contrato entre a UI (Slint) e o kazzu-app (Rust). A UI só LÊ estas propriedades e CHAMA estes callbacks.
+// Tipos e nomes em inglês (código); textos visíveis em pt-BR vêm prontos do Rust (ex.: count-label "214 músicas").
+// Para usar no Rust: `export { AppState, Theme }` no .slint raiz e `ui.global::<AppState>()`.
+
+export enum Tab { home, explore, library, search, settings }
+export enum RepeatMode { off, all, one }
+export enum SearchState { idle, results, empty }
+export enum ThemeMode { auto, light, dark }
+export enum AccentMode { from-cover, brand }
+
+export struct Track {
+    id: string,
+    title: string,
+    artist: string,
+    album: string,
+    cover: image,
+    duration-label: string,   // "3:21"
+    codec: string,            // "FLAC" | "WAV" | "OPUS" | "MP3" ...
+    detail: string,           // "24/96" (curto, para o selo da lista) 
+    detail-long: string,      // "24-bit/96 kHz" (selo do player)
+    hires: bool,              // true se >= 24 bits (selo usa o acento)
+    source: string,           // "" = local; "YT Music", "Spotify"...
+    liked: bool,
+    playing: bool,            // linha atual (mostra barras e título em acento)
+}
+
+export struct Album { id: string, title: string, artist: string, cover: image }
+export struct Highlight { id: string, caption: string, title: string, subtitle: string, cover: image }
+export struct Playlist { id: string, name: string, count-label: string, covers: [image] }   // até 4 capas
+export struct Collection { id: string, title: string, count-label: string, covers: [image] } // baixados/curtidos/álbuns/playlists
+export struct OutputDevice { id: string, name: string, active: bool }
+export struct ProviderRow { id: string, name: string, status-label: string, connected: bool, available: bool }
+
+export global AppState {
+    // ---- navegação ---------------------------------------------------------------------------
+    in-out property <Tab> tab: Tab.home;
+    in-out property <bool> player-open: false;
+    in-out property <bool> queue-open: false;
+    callback navigate(Tab);
+    callback open-player();
+    callback close-player();
+
+    // ---- reprodução --------------------------------------------------------------------------
+    in property <Track> now;
+    in property <bool> has-now: false;
+    in property <bool> playing: false;
+    in property <float> progress: 0.0;             // 0..1
+    in property <string> position-label: "0:00";
+    in property <string> remaining-label: "-0:00";
+    in property <float> volume: 1.0;               // 0..1
+    in property <bool> shuffle: false;
+    in property <RepeatMode> repeat: RepeatMode.off;
+    in property <string> output-name: "Padrão do sistema";
+    in property <bool> bit-perfect: true;          // EQ desligado e sem reamostragem => mostra "Original, sem equalizador"
+    in property <string> source-label: "";         // "Tocando de Recentes"
+    in property <image> backdrop;                  // capa pré-desfocada 96x96 (Rust)
+    in property <image> ambient;                   // idem, usada pelo fundo das demais telas
+    callback toggle-play();
+    callback next();
+    callback previous();
+    callback seek(float);                          // 0..1, ao soltar
+    callback set-volume(float);
+    callback toggle-shuffle();
+    callback cycle-repeat();
+    callback toggle-like(string);                  // track id
+    callback play-track(string);
+    callback open-lyrics();
+    callback open-output-picker();
+
+    // ---- modelos -----------------------------------------------------------------------------
+    in property <[Highlight]> highlights;
+    in property <[Track]> recents;
+    in property <[Album]> albums;
+    in property <[Collection]> collections;        // sempre 4: baixados, curtidos, álbuns, playlists
+    in property <[Playlist]> playlists;
+    in property <[Track]> queue;
+    in property <string> queue-summary: "";        // "A seguir, 6 músicas, 24 min"
+    in property <[Track]> search-songs;
+    in property <[Album]> search-albums;
+    in property <SearchState> search-state: SearchState.idle;
+    in property <[string]> recent-searches;
+    in property <[OutputDevice]> outputs;
+    in property <[ProviderRow]> providers;
+    callback open-collection(string);
+    callback open-album(string);
+    callback open-playlist(string);
+    callback create-playlist();
+    callback queue-remove(int);
+    callback queue-move(int, int);
+    callback queue-clear();
+    callback set-autoplay(bool);
+    callback search(string);
+    callback search-filter-changed(int, [bool]);   // tipo (0..4), fontes marcadas
+    callback recognize-ambient();                  // botão "som ambiente" (etapa 5; pode abrir "Em breve")
+    callback add-folder();
+    callback connect-provider(string);
+
+    // ---- configurações -----------------------------------------------------------------------
+    in-out property <ThemeMode> theme-mode: ThemeMode.dark;
+    in-out property <AccentMode> accent-mode: AccentMode.from-cover;
+    in-out property <bool> eq-enabled: false;
+    callback theme-mode-changed(ThemeMode);
+    callback accent-mode-changed(AccentMode);
+    callback reduce-transparency-changed(bool);    // Rust também escreve Theme.reduce-transparency
+    callback reduce-motion-changed(bool);          // idem Theme.reduce-motion
+    callback eq-toggled(bool);
+    // "Sem telemetria" é uma constante: não há propriedade nem callback (não pode ser alterada).
+}

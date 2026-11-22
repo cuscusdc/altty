@@ -1,0 +1,47 @@
+// Pré-visualização dos átomos (slint-viewer design/slint/preview.slint). Não é parte do app.
+import { Theme } from "tokens.slint";
+import { GlassPanel, CoverImage, IconButton, FormatBadge, KSwitch, KSlider } from "atoms.slint";
+export { Theme }
+
+import "../fonts/HankenGrotesk-Regular.ttf";
+import "../fonts/HankenGrotesk-SemiBold.ttf";
+import "../fonts/HankenGrotesk-Bold.ttf";
+import "../fonts/GeistMono-Regular.ttf";
+import "../fonts/GeistMono-Medium.ttf";
+
+export component Preview inherits Window {
+    width: 390px; height: 560px;
+    default-font-family: Theme.font-sans;
+    background: Theme.bg;
+
+    Image { source: @image-url("../prototypes/covers/cover-07.svg"); width: parent.width; height: 300px; image-fit: cover; }
+    Rectangle { y: 0px; height: 300px; background: @linear-gradient(180deg, #00000000 40%, Theme.bg 100%); }
+
+    Text { x: 20px; y: 24px; text: "Átomos Kazzu"; font-size: Theme.fs-title-1; font-weight: Theme.fw-title-1; color: Theme.ink; }
+
+    GlassPanel {
+        x: 12px; y: 250px; width: parent.width - 24px; height: Theme.mini-h; radius: Theme.mini-radius;
+        CoverImage { x: 8px; y: 8px; width: 48px; height: 48px; source: @image-url("../prototypes/covers/cover-07.svg"); radius: 12px; }
+        Text { x: 68px; y: 12px; text: "Quase Verão"; font-size: Theme.fs-callout; font-weight: 600; color: Theme.ink; }
+        Text { x: 68px; y: 34px; text: "Nina Sabiá"; font-size: Theme.fs-subhead; color: Theme.ink-3; }
+        IconButton { x: parent.width - 96px; y: 10px; icon: @image-url("../assets/icons/pause.svg"); label: "Pausar"; tint: Theme.ink; glyph: 28px; }
+        IconButton { x: parent.width - 52px; y: 10px; icon: @image-url("../assets/icons/next.svg"); label: "Próxima faixa"; tint: Theme.ink; }
+    }
+
+    VerticalLayout {
+        x: 20px; y: 340px; width: parent.width - 40px; spacing: 14px;
+        HorizontalLayout { spacing: 12px; alignment: start;
+            FormatBadge { codec: "FLAC"; detail: "24/96"; hires: true; }
+            FormatBadge { codec: "MP3"; detail: "320"; }
+            KSwitch { checked: true; label: "Equalizador"; }
+            KSwitch { locked: true; label: "Sem telemetria"; }
+        }
+        KSlider { value: 0.31; immersive: false; label: "Progresso"; value-text: "1:02 de 3:21"; }
+        HorizontalLayout { spacing: 8px; alignment: start;
+            IconButton { icon: @image-url("../assets/icons/shuffle.svg"); label: "Aleatório"; }
+            IconButton { icon: @image-url("../assets/icons/heart-fill.svg"); label: "Curtir"; active: true; }
+            IconButton { icon: @image-url("../assets/icons/queue.svg"); label: "Fila"; }
+            IconButton { icon: @image-url("../assets/icons/more.svg"); label: "Mais"; enabled: false; }
+        }
+    }
+}
