@@ -1,0 +1,41 @@
+//! Preferências do sistema operacional (movimento reduzido). Melhor esforço: se não der para ler, a chave manual manda.
+
+use crate::controller::SystemPrefs;
+
+/// Linux (GNOME e derivados): `enable-animations`. Outros sistemas: o Slint já cuida do Windows; o resto fica manual.
+pub fn system_prefs() -> SystemPrefs {
+    SystemPrefs { reduce_motion: read_reduce_motion() }
+}
+
+#[cfg(target_os = "linux")]
+fn read_reduce_motion() -> Option<bool> {
+    let out = std::process::Command::new("gsettings").args(["get", "org.gnome.desktop.interface", "enable-animations"]).output().ok()?;
+    parse_gsettings_bool(&String::from_utf8_lossy(&out.stdout)).map(|animations| !animations)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn read_reduce_motion() -> Option<bool> {
+    None
+}
+
+/// "true\n" / "false\n" -> Some(bool).
+pub fn parse_gsettings_bool(text: &str) -> Option<bool> {
+    match text.trim() {
+        "true" => Some(true),
+        "false" => Some(false),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_gsettings_output() {
+        assert_eq!(parse_gsettings_bool("true\n"), Some(true));
+        assert_eq!(parse_gsettings_bool(" false "), Some(false));
+        assert_eq!(parse_gsettings_bool(""), None);
+        assert_eq!(parse_gsettings_bool("'prefer-dark'"), None);
+    }
+}
