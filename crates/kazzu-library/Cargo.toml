@@ -1,0 +1,18 @@
+[package]
+name = "kazzu-library"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+directories = "6.0.0"
+image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"] }
+lofty = "0.25.5"
+rayon = "1.12.0"
+rusqlite = { version = "0.43.0", features = ["bundled"] }
+thiserror = "2.0.21"
+walkdir = "2.5.1"
+
+[dev-dependencies]
+hound = "3.5.1"
+tempfile = "3.27.0"

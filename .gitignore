@@ -1,0 +1,6 @@
+/target
+**/*.rs.bk
+.refs/
+.taste-skill/
+*.log
+.DS_Store
