@@ -1,6 +1,7 @@
-// Pré-visualização dos átomos (slint-viewer design/slint/preview.slint). Não é parte do app.
+// Pré-visualização dos átomos v2 (slint-viewer design/slint/preview.slint). Não é parte do app.
+// Mostra o PALCO VIVO e o vidro nos 3 níveis (mini player/dock = nível 2, cartão = nível 1, folha = nível 3).
 import { Theme } from "tokens.slint";
-import { GlassPanel, CoverImage, IconButton, FormatBadge, KSwitch, KSlider } from "atoms.slint";
+import { Stage, GlassPanel, CoverImage, Chip, IconButton, FormatBadge, KSwitch, KSlider } from "atoms.slint";
 export { Theme }
 
 import "../fonts/HankenGrotesk-Regular.ttf";
@@ -10,38 +11,59 @@ import "../fonts/GeistMono-Regular.ttf";
 import "../fonts/GeistMono-Medium.ttf";
 
 export component Preview inherits Window {
-    width: 390px; height: 560px;
+    width: 390px; height: 844px;
     default-font-family: Theme.font-sans;
-    background: Theme.bg;
+    background: Theme.stage-base;
 
-    Image { source: @image-url("../prototypes/covers/cover-07.svg"); width: parent.width; height: 300px; image-fit: cover; }
-    Rectangle { y: 0px; height: 300px; background: @linear-gradient(180deg, #00000000 40%, Theme.bg 100%); }
+    Stage { width: parent.width; height: parent.height; has-cover: true; backdrop: @image-url("../prototypes/covers/cover-07.svg"); }
 
-    Text { x: 20px; y: 24px; text: "Átomos Kazzu"; font-size: Theme.fs-title-1; font-weight: Theme.fw-title-1; color: Theme.ink; }
+    Text { x: 16px; y: 22px; text: "Vidro v2"; font-size: Theme.fs-title-1; font-weight: Theme.fw-title-1; color: Theme.ink; }
 
+    // nível 1: cartão de conteúdo
     GlassPanel {
-        x: 12px; y: 250px; width: parent.width - 24px; height: Theme.mini-h; radius: Theme.mini-radius;
-        CoverImage { x: 8px; y: 8px; width: 48px; height: 48px; source: @image-url("../prototypes/covers/cover-07.svg"); radius: 12px; }
-        Text { x: 68px; y: 12px; text: "Quase Verão"; font-size: Theme.fs-callout; font-weight: 600; color: Theme.ink; }
-        Text { x: 68px; y: 34px; text: "Nina Sabiá"; font-size: Theme.fs-subhead; color: Theme.ink-3; }
-        IconButton { x: parent.width - 96px; y: 10px; icon: @image-url("../assets/icons/pause.svg"); label: "Pausar"; tint: Theme.ink; glyph: 28px; }
-        IconButton { x: parent.width - 52px; y: 10px; icon: @image-url("../assets/icons/next.svg"); label: "Próxima faixa"; tint: Theme.ink; }
+        x: 16px; y: 80px; width: parent.width - 32px; height: 120px; radius: 24px; level: 1;
+        Text { x: 16px; y: 16px; text: "Nível 1, conteúdo"; font-size: Theme.fs-headline; font-weight: Theme.fw-headline; color: Theme.ink; }
+        Text { x: 16px; y: 44px; width: parent.width - 32px; wrap: word-wrap; text: "Cartões e grupos. Blur 20, fill leve: o palco aparece por baixo."; font-size: Theme.fs-subhead; color: Theme.ink-2; }
     }
-
-    VerticalLayout {
-        x: 20px; y: 340px; width: parent.width - 40px; spacing: 14px;
-        HorizontalLayout { spacing: 12px; alignment: start;
+    HorizontalLayout { x: 16px; y: 216px; width: parent.width - 32px; height: 40px; spacing: 8px; alignment: start;
+        Chip { text: "Para você"; selected: true; }
+        Chip { text: "Descobrir"; }
+        Chip { text: "Mixes"; }
+    }
+    // nível 3: folha
+    GlassPanel {
+        x: 16px; y: 276px; width: parent.width - 32px; height: 150px; radius: Theme.sheet-radius; level: 3;
+        Text { x: 20px; y: 18px; text: "Nível 3, folha"; font-size: Theme.fs-headline; font-weight: Theme.fw-headline; color: Theme.ink; }
+        Text { x: 20px; y: 46px; width: parent.width - 40px; wrap: word-wrap; text: "Menus, folhas e diálogos: mais opaco, blur 40, sombra grande."; font-size: Theme.fs-subhead; color: Theme.ink-2; }
+        HorizontalLayout { x: 20px; y: 96px; spacing: 12px; alignment: start;
+            FormatBadge { codec: "OPUS"; detail: "160"; }
             FormatBadge { codec: "FLAC"; detail: "24/96"; hires: true; }
-            FormatBadge { codec: "MP3"; detail: "320"; }
             KSwitch { checked: true; label: "Equalizador"; }
-            KSwitch { locked: true; label: "Sem telemetria"; }
         }
-        KSlider { value: 0.31; immersive: false; label: "Progresso"; value-text: "1:02 de 3:21"; }
-        HorizontalLayout { spacing: 8px; alignment: start;
-            IconButton { icon: @image-url("../assets/icons/shuffle.svg"); label: "Aleatório"; }
-            IconButton { icon: @image-url("../assets/icons/heart-fill.svg"); label: "Curtir"; active: true; }
-            IconButton { icon: @image-url("../assets/icons/queue.svg"); label: "Fila"; }
-            IconButton { icon: @image-url("../assets/icons/more.svg"); label: "Mais"; enabled: false; }
+    }
+    KSlider { x: 16px; y: 450px; width: parent.width - 32px; value: 0.31; label: "Progresso"; value-text: "1:02 de 3:21"; }
+
+    // nível 2: mini player + dock
+    GlassPanel {
+        x: 12px; y: parent.height - 12px - 64px - 8px - 64px; width: parent.width - 24px; height: Theme.mini-h; radius: Theme.mini-radius; level: 2;
+        CoverImage { x: 8px; y: 8px; width: 48px; height: 48px; source: @image-url("../prototypes/covers/cover-07.svg"); radius: 16px; }
+        Text { x: 68px; y: 11px; text: "Quase Verão"; font-size: Theme.fs-callout; font-weight: 600; color: Theme.ink; }
+        Text { x: 68px; y: 33px; text: "Nina Sabiá"; font-size: Theme.fs-subhead; color: Theme.ink-2; }
+        IconButton { x: parent.width - 108px; y: 8px; icon: @image-url("../assets/icons/pause.svg"); label: "Pausar"; tint: Theme.ink; glyph: 28px; }
+        IconButton { x: parent.width - 56px; y: 8px; icon: @image-url("../assets/icons/next.svg"); label: "Próxima faixa"; tint: Theme.ink; }
+    }
+    GlassPanel {
+        x: 12px; y: parent.height - 12px - 64px; width: parent.width - 24px - 64px; height: Theme.dock-h; radius: Theme.dock-radius; level: 2;
+        HorizontalLayout { padding: 6px; spacing: 4px;
+            Rectangle { background: Theme.ink.with-alpha(0.2); border-radius: 26px;
+                IconButton { x: (parent.width - self.width) / 2; y: 0px; icon: @image-url("../assets/icons/home.svg"); label: "Início"; active: true; }
+            }
+            Rectangle { IconButton { x: (parent.width - self.width) / 2; y: 0px; icon: @image-url("../assets/icons/explore.svg"); label: "Explorar"; tint: Theme.ink; } }
+            Rectangle { IconButton { x: (parent.width - self.width) / 2; y: 0px; icon: @image-url("../assets/icons/library.svg"); label: "Biblioteca"; tint: Theme.ink; } }
         }
+    }
+    GlassPanel {
+        x: parent.width - 12px - Theme.dock-search; y: parent.height - 12px - Theme.dock-search; width: Theme.dock-search; height: Theme.dock-search; radius: Theme.dock-search / 2; level: 2;
+        IconButton { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; icon: @image-url("../assets/icons/search.svg"); label: "Buscar"; tint: Theme.ink; }
     }
 }

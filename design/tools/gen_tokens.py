@@ -88,6 +88,11 @@ def contrast(fg, bg):
     return (l1 + 0.05) / (l2 + 0.05)
 
 
+def gamma_from_lum(y):
+    """luminância relativa -> valor sRGB de um cinza."""
+    return lin_to_gamma(max(0.0, min(1.0, y)))
+
+
 def kebab(s):
     return s.replace("_", "-")
 
@@ -128,15 +133,34 @@ def run_checks():
         for k in ("success", "warning", "danger"):
             check(f"{k} / bg", c[k], c["bg"], 4.5)
         check("line-strong / bg (borda de campo 1.4:1)", c["line-strong"], c["bg"], 1.4)
-        # texto sobre vidro: composição do fill sobre bg
-        gf = over(c["glass-fill-strong"], c["bg"])
-        check("ink / glass-fill-strong sobre bg", c["ink"], gf, 7.0)
-        check("ink-2 / glass-fill-strong sobre bg", c["ink-2"], gf, 4.5)
-        check("ink / glass-solid (fallback sem blur)", c["ink"], c["glass-solid"], 7.0)
-        check("ink-3 / glass-solid (fallback sem blur)", c["ink-3"], c["glass-solid"], 4.5)
-        # pior caso do vidro SEM blur: fill translúcido sobre texto/capa clara atrás (conteúdo branco) — por isso o fallback é sólido
-        worst = (1.0, 1.0, 1.0, 1.0) if mode == "dark" else (0.0, 0.0, 0.0, 1.0)
-        check("ink / glass-fill sobre pior fundo (c/ blur dilui)", c["ink"], over(c["glass-fill-strong"], worst), 3.0)
+        # --- palco vivo: pior manchão (o mais claro no escuro, o mais escuro no claro) ---------------------------
+        st = {k: c[k] for k in ("stage-base", "stage-a", "stage-b", "stage-c", "stage-d")}
+        worst = max(st.values(), key=luminance) if mode == "dark" else min(st.values(), key=luminance)
+        check("ink / palco (pior manchão)", c["ink"], worst, 4.5)
+        check("ink-2 / palco (pior manchão)", c["ink-2"], worst, 4.5)
+        check("accent / palco (ícone, foco, trilho 3:1; texto só sobre vidro)", acc, worst, 3.0)
+        # --- vidro, 3 níveis, sobre o pior manchão ---------------------------------------------------------------
+        for tier, key in (("1", "glass-fill"), ("2", "glass-fill-strong"), ("3", "glass-fill-3")):
+            gf = over(c[key], worst)
+            check(f"ink / vidro {tier} sobre palco", c["ink"], gf, 7.0)
+            check(f"ink-2 / vidro {tier} sobre palco", c["ink-2"], gf, 4.5)
+            check(f"ink-3 / vidro {tier} sobre palco", c["ink-3"], gf, 4.5)
+            check(f"accent / vidro {tier} (ícone 3:1)", acc, gf, 3.0)
+        for key in ("glass-solid", "glass-solid-strong", "glass-solid-3"):
+            check(f"ink / {key} (reduzir transparência)", c["ink"], c[key], 7.0)
+            check(f"ink-3 / {key} (reduzir transparência)", c["ink-3"], c[key], 4.5)
+            check(f"accent / {key} (ícone 3:1)", acc, c[key], 3.0)
+        # --- teto de luminância do que pode ficar ATRÁS do vidro (conteúdo rolando, capas) ------------------------
+        for tier, key in (("1", "glass-fill"), ("2", "glass-fill-strong"), ("3", "glass-fill-3")):
+            lo, hi = 0.0, 1.0
+            for _ in range(24):  # busca binária do cinza de fundo mais extremo que ainda dá 4.5:1 para ink-2
+                mid = (lo + hi) / 2
+                g = gamma_from_lum(mid) if mode == "dark" else gamma_from_lum(1 - mid)
+                bgc = (g, g, g, 1.0)
+                ok = contrast(c["ink-2"], over(c[key], bgc)) >= 4.5
+                if ok: lo = mid
+                else: hi = mid
+            print(f"  info  vidro {tier}: ink-2 mantém 4.5:1 com atrás até {'luminância relativa' if mode=='dark' else 'escuridão'} {lo:.2f}")
     # imersivo: pior caso = capa branca
     im = {k: parse(v) for k, v in colors("immersive").items()}
     base = T["color"]["immersive"]["base-darken"]
@@ -167,10 +191,13 @@ def slint():
     w("    in-out property <bool> reduce-motion: false;")
     w("    /// largura da janela; o AppWindow atualiza em `changed width`.")
     w("    in property <length> window-w: 390px;")
+    w("    /// classes de janela (Material 3): compact < 600 (celular, base) | medium 600–839 | expanded 840–1199 | wide >= 1200.")
     w("    out property <bool> compact: window-w < bp-regular;")
+    w("    out property <bool> expanded: window-w >= bp-expanded;")
     w("    out property <bool> wide: window-w >= bp-wide;")
     bp = T["breakpoint"]
     w(f"    out property <length> bp-regular: {bp['regular-min']}px;")
+    w(f"    out property <length> bp-expanded: {bp['expanded-min']}px;")
     w(f"    out property <length> bp-wide: {bp['wide-min']}px;")
     w("")
     w("    // ---- transparência / blur (Slint 1.19 backdrop-blur: Skia e FemtoVG) --------------------------")
@@ -191,18 +218,38 @@ def slint():
     w(f"    out property <color> accent-soft: accent.with-alpha(dark ? {T['color']['dark']['accent-soft-alpha']} : {T['color']['light']['accent-soft-alpha']});")
     w("    out property <color> focus-ring: accent;")
     w("")
-    w("    // ---- paleta (claro/escuro) -----------------------------------------------------------------")
+    w("    // ---- palco vivo (fundo ambiente) e matiz do vidro: o Rust escreve as duas variantes a partir do acento da capa")
+    w("    //      (DESIGN.md §3.5: stage = fórmula [L, C, dh] sobre o matiz); sem capa tocando valem os padrões em âmbar.")
     dk, lt = colors("dark"), colors("light")
+    for k in ("stage-a", "stage-b", "stage-c", "stage-d", "glass-tint"):
+        w(f"    in-out property <color> {k}-dark: {to_hex(parse(dk[k]))};")
+        w(f"    in-out property <color> {k}-light: {to_hex(parse(lt[k]))};")
+        w(f"    out property <color> {k}: dark ? {k}-dark : {k}-light;")
+    w("")
+    w("    // ---- paleta (claro/escuro) -----------------------------------------------------------------")
+    SPECIAL = {"stage-a", "stage-b", "stage-c", "stage-d", "glass-tint", "glass-fill", "glass-fill-strong", "glass-fill-3"}
     for k in dk:
-        if k.startswith("_"):
+        if k.startswith("_") or k in SPECIAL:
             continue
         w(f"    out property <color> {kebab(k)}: dark ? {to_hex(parse(dk[k]))} : {to_hex(parse(lt[k]))};")
-    w(f"    out property <length> glass-blur-radius: glass-live ? {T['glass']['blur']}px : 0px;")
-    w(f"    out property <length> glass-blur-strong-radius: glass-live ? {T['glass']['blur-strong']}px : 0px;")
-    w(f"    out property <length> glass-blur-light-radius: glass-live ? {T['glass']['blur-light']}px : 0px;")
-    w("    /// fundo do painel: translúcido com blur ao vivo; sólido sem blur (renderer software / reduzir transparência).")
+    # preenchimentos do vidro: matiz dinâmico (glass-tint) + alfa fixa por nível
+    for k in ("glass-fill", "glass-fill-strong", "glass-fill-3"):
+        ad, al = parse(dk[k])[3], parse(lt[k])[3]
+        w(f"    out property <color> {k}: glass-tint.with-alpha(dark ? {ad:.2f} : {al:.2f});")
+    G = T["glass"]
+    w("    // blur por nível de profundidade (0 quando não há blur: renderer software ou reduzir transparência)")
+    for n in ("1", "2", "3"):
+        w(f"    out property <length> glass-blur-{n}: glass-live ? {G['blur'][n]}px : 0px;")
+    w("    out property <length> glass-blur-radius: glass-blur-1;          // legado v1 = nível 1")
+    w("    out property <length> glass-blur-strong-radius: glass-blur-2;   // legado v1 = nível 2")
+    w(f"    out property <length> glass-blur-light-radius: glass-live ? {G['blur-light']}px : 0px;")
+    w("    /// fundo do painel por nível: translúcido com blur ao vivo; sólido sem blur.")
     w("    out property <color> glass-bg: glass-live ? glass-fill : glass-solid;")
     w("    out property <color> glass-bg-strong: glass-live ? glass-fill-strong : glass-solid-strong;")
+    w("    out property <color> glass-bg-3: glass-live ? glass-fill-3 : glass-solid-3;")
+    for n in ("1", "2", "3"):
+        w(f"    out property <length> glass-shadow-blur-{n}: {G['shadow'][n]['blur']}px;")
+        w(f"    out property <length> glass-shadow-y-{n}: {G['shadow'][n]['y']}px;")
     w(f"    out property <float> ambient-opacity: dark ? {T['color']['dark']['ambient-opacity']} : {T['color']['light']['ambient-opacity']};")
     w("")
     w("    // ---- imersivo (player em tela cheia): independe do tema --------------------------------------")
@@ -262,14 +309,16 @@ def css():
         return "\n".join(out)
 
     d, l = T["color"]["dark"], T["color"]["light"]
-    dark_extra = [f"  --accent: {to_hex(brand['ember'])};", f"  --accent-ink: {to_hex(brand['ember-ink-on-dark'])};",
+    def galpha(m):
+        return [f"  --glass-a{n}: {parse(T['color'][m][k])[3]:.2f};" for n, k in (("1", "glass-fill"), ("2", "glass-fill-strong"), ("3", "glass-fill-3"))]
+    dark_extra = galpha("dark") + [f"  --accent: {to_hex(brand['ember'])};", f"  --accent-ink: {to_hex(brand['ember-ink-on-dark'])};",
                   f"  --accent-soft-alpha: {d['accent-soft-alpha']};", f"  --ambient-opacity: {d['ambient-opacity']};",
                   "  color-scheme: dark;"]
-    light_extra = [f"  --accent: {to_hex(brand['ember-on-light'])};", f"  --accent-ink: {to_hex(brand['ember-ink-on-light'])};",
+    light_extra = galpha("light") + [f"  --accent: {to_hex(brand['ember-on-light'])};", f"  --accent-ink: {to_hex(brand['ember-ink-on-light'])};",
                    f"  --accent-soft-alpha: {l['accent-soft-alpha']};", f"  --ambient-opacity: {l['ambient-opacity']};",
                    "  color-scheme: light;"]
     S = ["/* GERADO por design/tools/gen_tokens.py. NÃO edite à mão. */"]
-    S.append(block("dark", ":root", dark_extra))
+    S.append(block("dark", ":root, .scope-dark", dark_extra))
     S.append(block("light", ':root[data-theme="light"]', light_extra))
     S.append("@media (prefers-color-scheme: light) {\n" + block("light", ':root:not([data-theme="dark"])', light_extra).replace("\n", "\n  ").replace(":root:not", "  :root:not", 1) + "\n}")
     im = ["/* imersivo */", ":root {"]
@@ -298,7 +347,15 @@ def css():
         if k.startswith("_"):
             continue
         g.append(f"  --{k}: 0 {v['y']}px {v['blur']}px var(--shadow);")
-    g.append(f"  --glass-blur: {T['glass']['blur']}px; --glass-blur-strong: {T['glass']['blur-strong']}px; --glass-blur-light: {T['glass']['blur-light']}px;")
+    G = T["glass"]
+    g.append(f"  --glass-blur-1: {G['blur']['1']}px; --glass-blur-2: {G['blur']['2']}px; --glass-blur-3: {G['blur']['3']}px; --glass-blur-light: {G['blur-light']}px;")
+    g.append(f"  --glass-sat: {G['sat']};")
+    for n in ('1', '2', '3'):
+        g.append(f"  --glass-shadow-{n}: 0 {G['shadow'][n]['y']}px {G['shadow'][n]['blur']}px var(--shadow);")
+    stg = T["stage"]
+    g.append(f"  --stage-cover-scale: {stg['cover-layer-scale']}; --stage-cover-blur: {stg['cover-layer-blur']}px;")
+    for k, v in stg["layout"].items():
+        g.append(f"  --stage-{k}-x: {v[0]*100:.0f}%; --stage-{k}-y: {v[1]*100:.0f}%; --stage-{k}-r: {v[2]*100:.0f}%;")
     g.append("}")
     g.append("@media (prefers-reduce-motion: reduce) { :root { --dur-micro: 0ms; --dur-short: 0ms; --dur-medium: 0ms; --dur-long: 0ms; } }")
     S.append("\n".join(g))

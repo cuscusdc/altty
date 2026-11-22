@@ -190,6 +190,15 @@ ICON_DEFS = {
     "moon": ("stroke", '<path d="M19.5 14.2A7.75 7.75 0 0 1 9.8 4.5a7.75 7.75 0 1 0 9.7 9.7z"/>'),
     "sun": ("stroke", '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/>'),
     "info": ("stroke", '<circle cx="12" cy="12" r="8.75"/><path d="M12 11v5.25"/><circle cx="12" cy="7.9" r=".6" fill="currentColor"/>'),
+    "gear": ("stroke", '<circle cx="12" cy="12" r="3.1"/><path d="M12 3.5l1.3 2.1 2.4-.6.9 2.3 2.3.9-.6 2.4 2.1 1.3-2.1 1.3.6 2.4-2.3.9-.9 2.3-2.4-.6L12 20.5l-1.3-2.1-2.4.6-.9-2.3-2.3-.9.6-2.4L3.5 12l2.1-1.3-.6-2.4 2.3-.9.9-2.3 2.4.6z"/>'),
+    "refresh": ("stroke", '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4"/>'),
+    "cloud": ("stroke", '<path d="M7 18.5a4.25 4.25 0 0 1-.6-8.45 5.75 5.75 0 0 1 11.1 1.2 3.65 3.65 0 0 1-.4 7.25z"/>'),
+    "stats": ("stroke", '<path d="M5 20V12M12 20V5M19 20v-5"/>'),
+    "timer": ("stroke", '<circle cx="12" cy="13.5" r="7"/><path d="M12 10v3.5l2.2 1.3M9.5 3.5h5"/>'),
+    "arrow-up": ("stroke", '<path d="M12 19V5M6 11l6-6 6 6"/>'),
+    "arrow-down": ("stroke", '<path d="M12 5v14M6 13l6 6 6-6"/>'),
+    "minus": ("stroke", '<path d="M5 12h14"/>'),
+    "badge-check": ("stroke", '<circle cx="12" cy="12" r="8.75"/><path d="m8.2 12.3 2.6 2.6 5-5.4"/>'),
     "cloud-off": ("stroke", '<path d="M4 4l16 16M8.6 8.2A5 5 0 0 0 7 18h10.6M17 10.2a4 4 0 0 1 3 3.8"/>'),
 }
 
