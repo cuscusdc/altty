@@ -1,0 +1,28 @@
+[package]
+name = "kazzu-ytm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Kazzu: YouTube Music provider (no account, innertube client in pure Rust)"
+
+[dependencies]
+kazzu-core = { path = "../kazzu-core" }
+async-trait = "0.1"
+# Runs the blocking HTTP calls on a small thread pool and exposes them as
+# futures, without tying the crate to a specific async runtime (no tokio).
+blocking = "1.7"
+# Same client/TLS stack as kazzu-audio's StreamSource::Url (rustls + ring,
+# webpki roots: no OpenSSL, no cmake, cross-compiles to Android). `gzip` is
+# only for the JSON responses (they shrink ~8x).
+ureq = { version = "3.5", default-features = false, features = ["rustls", "gzip"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+log = "0.4"
+sys-locale = "0.3"
+directories = "6"
+
+[dev-dependencies]
+kazzu-audio = { path = "../kazzu-audio" }
+pollster = "0.4"
+tempfile = "3"
