@@ -430,3 +430,94 @@ fn unreadable_file_is_reported_not_fatal() {
         .unwrap()
         .primary_tag();
 }
+
+/// Cria `dirs` pastas com `per` faixas cada (WAV curtos, com tags).
+fn make_many(music: &Path, dirs: usize, per: usize) {
+    for d in 0..dirs {
+        for n in 0..per {
+            make(
+                &music.join(format!("alb{d}")),
+                &Spec {
+                    file: &format!("{n:03}.wav"),
+                    title: &format!("Faixa {d}-{n}"),
+                    artist: "Artista",
+                    album: &format!("Álbum {d}"),
+                    album_artist: Some("Artista"),
+                    track: n as u32 + 1,
+                    cover: None,
+                },
+            );
+        }
+    }
+}
+
+fn file_library(root: &Path) -> (Library, PathBuf) {
+    let music = root.join("music");
+    std::fs::create_dir_all(&music).unwrap();
+    let lib = Library::open(root.join("data")).unwrap();
+    lib.add_folder(&music).unwrap();
+    (lib, std::fs::canonicalize(music).unwrap())
+}
+
+#[test]
+fn other_connection_can_write_while_a_scan_is_running() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (mut lib, music) = file_library(tmp.path());
+    make_many(&music, 1, 3);
+    lib.scan(&quiet).unwrap();
+    let seed = lib.tracks().unwrap()[0].id;
+    make_many(&music, 12, 25); // 300 faixas novas: vários lotes de gravação
+
+    let data = tmp.path().join("data");
+    let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = done.clone();
+    // A conexão da UI curte, descurte e registra escutas sem parar enquanto o scan escreve: nada pode falhar.
+    let writer = std::thread::spawn(move || {
+        let ui = Library::open(&data).expect("abrir 2ª conexão");
+        let mut writes = 0;
+        loop {
+            ui.like(seed).expect("curtir durante o scan");
+            ui.record_play(seed, 1000).expect("histórico durante o scan");
+            ui.unlike(seed).expect("descurtir durante o scan");
+            writes += 3;
+            if flag.load(std::sync::atomic::Ordering::SeqCst) {
+                return (writes, ui.track_count().unwrap());
+            }
+        }
+    });
+    let report = lib.scan(&quiet).unwrap();
+    done.store(true, std::sync::atomic::Ordering::SeqCst);
+    let (writes, count) = writer.join().unwrap();
+    assert!(writes >= 3);
+    assert_eq!(report.added, 297); // 3 das 300 já estavam indexadas (semente)
+    assert_eq!(count, 300);
+}
+
+#[test]
+fn folder_removed_during_a_scan_gets_no_tracks_reinserted() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (mut lib, music) = file_library(tmp.path());
+    let other = tmp.path().join("other");
+    std::fs::create_dir_all(&other).unwrap();
+    lib.add_folder(&other).unwrap();
+    let other = std::fs::canonicalize(other).unwrap();
+    make_many(&music, 1, 4);
+    make_many(&other, 1, 4);
+
+    // no primeiro aviso de leitura, outra conexão remove a pasta `other`
+    let data = tmp.path().join("data");
+    let removed = std::sync::atomic::AtomicBool::new(false);
+    let target = other.clone();
+    let report = lib
+        .scan(&move |p| {
+            if matches!(p, kazzu_library::ScanProgress::Reading { .. }) && !removed.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                let mut second = Library::open(&data).unwrap();
+                second.remove_folder(&target).unwrap();
+            }
+        })
+        .unwrap();
+    assert!(report.added <= 8);
+    let tracks = lib.tracks().unwrap();
+    assert_eq!(tracks.len(), 4, "só as 4 faixas da pasta que ficou: {:?}", tracks.iter().map(|t| t.path.clone()).collect::<Vec<_>>());
+    assert!(tracks.iter().all(|t| t.path.starts_with(&music)));
+}

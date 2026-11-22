@@ -449,7 +449,7 @@ impl Library {
     /// Acrescenta faixas ao fim.
     pub fn add_to_playlist(&mut self, id: PlaylistId, tracks: &[TrackId]) -> Result<()> {
         self.require_playlist(id)?;
-        let tx = self.conn.transaction()?;
+        let tx = self.conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let next: i64 = tx.query_row(
             "SELECT COALESCE(MAX(position) + 1, 0) FROM playlist_items WHERE playlist_id = ?1",
             [id.0],
@@ -497,7 +497,7 @@ impl Library {
     }
 
     fn rewrite_positions(&mut self, items: &[(i64, i64)]) -> Result<()> {
-        let tx = self.conn.transaction()?;
+        let tx = self.conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         for (pos, (item, _)) in items.iter().enumerate() {
             tx.execute(
                 "UPDATE playlist_items SET position = ?2 WHERE id = ?1",

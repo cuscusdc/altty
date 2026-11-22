@@ -112,7 +112,11 @@ const MIGRATIONS: &[&str] = &[
 
 pub(crate) const SCHEMA_VERSION: i64 = MIGRATIONS.len() as i64;
 
+/// Quanto uma conexão espera por outra que esteja escrevendo (o app usa uma conexão para o scan e outra para a UI).
+pub(crate) const BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
 pub(crate) fn configure(conn: &Connection) -> Result<()> {
+    conn.busy_timeout(BUSY_TIMEOUT)?;
     conn.pragma_update(None, "foreign_keys", true)?;
     // Ignora erro em bancos em memória (WAL não se aplica).
     let _ = conn.pragma_update(None, "journal_mode", "WAL");
@@ -129,7 +133,7 @@ pub(crate) fn migrate(conn: &mut Connection) -> Result<()> {
         });
     }
     for (idx, sql) in MIGRATIONS.iter().enumerate().skip(current as usize) {
-        let tx = conn.transaction()?;
+        let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         tx.execute_batch(sql)?;
         tx.pragma_update(None, "user_version", idx as i64 + 1)?;
         tx.commit()?;

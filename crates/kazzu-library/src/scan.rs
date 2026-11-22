@@ -13,6 +13,32 @@ use crate::model::{Rgb, ScanProgress, ScanReport};
 use crate::scanner::{self, FileEntry, ParsedTrack};
 use crate::{Library, now};
 
+/// Faixas gravadas por transação durante o scan (lotes fecham em fronteira de pasta, então um álbum nunca é dividido).
+pub(crate) const SCAN_BATCH: usize = 100;
+
+/// Agrupa `parsed` (já ordenado por pasta) em lotes de pelo menos `size` faixas, sem separar uma pasta.
+fn batches_by_dir(parsed: &[ParsedTrack], size: usize) -> Vec<&[ParsedTrack]> {
+    let mut out = Vec::new();
+    let mut start = 0;
+    for i in 1..=parsed.len() {
+        let boundary = i == parsed.len() || parsed[i].entry.path.parent() != parsed[i - 1].entry.path.parent();
+        if boundary && i - start >= size.max(1) {
+            out.push(&parsed[start..i]);
+            start = i;
+        }
+    }
+    if start < parsed.len() {
+        out.push(&parsed[start..]);
+    }
+    out
+}
+
+fn folders_in(tx: &Transaction<'_>) -> Result<Vec<PathBuf>> {
+    let mut st = tx.prepare("SELECT path FROM music_folders ORDER BY path")?;
+    let rows = st.query_map([], |r| r.get::<_, String>(0))?;
+    Ok(rows.collect::<std::result::Result<Vec<_>, _>>()?.into_iter().map(PathBuf::from).collect())
+}
+
 /// Artista de álbuns com faixas de artistas diferentes e sem tag de artista do álbum.
 pub const VARIOUS_ARTISTS: &str = "Various Artists";
 
@@ -58,7 +84,7 @@ impl Library {
 
     fn delete_tracks_where_outside_folders(&mut self) -> Result<()> {
         let roots = self.folders()?;
-        let tx = self.conn.transaction()?;
+        let tx = self.conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let rows: Vec<(i64, String)> = {
             let mut st = tx.prepare("SELECT id, path FROM tracks")?;
             st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
@@ -146,7 +172,7 @@ impl Library {
                 r
             })
             .collect();
-        let mut parsed = Vec::with_capacity(results.len());
+        let mut parsed: Vec<ParsedTrack> = Vec::with_capacity(results.len());
         for r in results {
             match r {
                 Ok(p) => parsed.push(p),
@@ -154,26 +180,36 @@ impl Library {
             }
         }
 
-        // 4. Banco: remoções + upserts em uma transação.
-        let touched_albums;
+        // 4. Banco. Remoções numa transação; upserts em lotes (por pasta, para não separar um álbum), cada um
+        //    numa transação curta: o scan não segura a escrita do banco por muito tempo (curtir, histórico, outra
+        //    conexão do app). As pastas são relidas DENTRO de cada transação: pasta removida durante o scan não
+        //    tem faixas reinseridas.
+        let mut touched_albums = HashSet::new();
         {
-            let tx = self.conn.transaction()?;
+            let tx = self.conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+            let roots_now = folders_in(&tx)?;
             let gone: Vec<i64> = existing
                 .iter()
                 .filter(|(p, _)| {
                     let path = Path::new(p.as_str());
                     let under_live = live_roots.iter().any(|r| path.starts_with(r));
-                    let under_any = roots.iter().any(|r| path.starts_with(r));
+                    let under_any = roots_now.iter().any(|r| path.starts_with(r));
                     (under_live && !seen.contains(p.as_str())) || !under_any
                 })
                 .map(|(_, (id, _, _))| *id)
                 .collect();
             report.removed = gone.len();
             delete_tracks(&tx, &gone)?;
-
-            let resolved = resolve_albums(&tx, &parsed)?;
-            let mut albums = HashSet::new();
-            for (p, album) in parsed.iter().zip(resolved) {
+            cleanup_orphans(&tx)?;
+            tx.commit()?;
+        }
+        parsed.sort_by(|a, b| a.entry.path.parent().cmp(&b.entry.path.parent()).then_with(|| a.entry.path.cmp(&b.entry.path)));
+        for chunk in batches_by_dir(&parsed, SCAN_BATCH) {
+            let tx = self.conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+            let roots_now = folders_in(&tx)?;
+            let chunk: Vec<ParsedTrack> = chunk.iter().filter(|p| roots_now.iter().any(|r| p.entry.path.starts_with(r))).cloned().collect();
+            let resolved = resolve_albums(&tx, &chunk)?;
+            for (p, album) in chunk.iter().zip(resolved) {
                 let path = path_str(&p.entry.path).unwrap_or_default();
                 let is_new = !existing.contains_key(path);
                 let album_id = match &album {
@@ -181,7 +217,7 @@ impl Library {
                     None => None,
                 };
                 if let Some(a) = album_id {
-                    albums.insert(a);
+                    touched_albums.insert(a);
                 }
                 upsert_track(&tx, p, album_id)?;
                 if is_new {
@@ -190,7 +226,6 @@ impl Library {
                     report.updated += 1
                 }
             }
-            touched_albums = albums;
             cleanup_orphans(&tx)?;
             tx.commit()?;
         }
@@ -216,7 +251,7 @@ impl Library {
                 st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
                     .collect::<std::result::Result<_, _>>()?
             };
-            let tx = self.conn.transaction()?;
+            let tx = self.conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
             for (id, key) in rows {
                 let retry = if key.is_empty() {
                     touched.contains(&id)
@@ -271,7 +306,7 @@ impl Library {
                 (*id, r)
             })
             .collect();
-        let tx = self.conn.transaction()?;
+        let tx = self.conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         for (id, r) in results {
             match r {
                 Some((key, accent)) => tx.execute(
