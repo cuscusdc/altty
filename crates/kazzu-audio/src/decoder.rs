@@ -15,7 +15,7 @@ use symphonia::core::codecs::registry::CodecRegistry;
 use symphonia::core::errors::Error as SymError;
 use symphonia::core::formats::probe::Hint;
 use symphonia::core::formats::{FormatOptions, FormatReader, SeekMode, SeekTo, TrackType};
-use symphonia::core::io::MediaSourceStream;
+use symphonia::core::io::{MediaSource, MediaSourceStream};
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::units::{Time, TimeBase, Timestamp};
 
@@ -58,15 +58,38 @@ pub struct TrackDecoder {
 }
 
 impl TrackDecoder {
-    /// Opens a stream. Only [`StreamSource::File`] is supported for now;
-    /// HTTP streaming arrives with the providers (stage 2).
+    /// Opens a local stream. [`StreamSource::Url`] is not opened here: the
+    /// engine opens remote streams asynchronously, on a network worker
+    /// thread, so that it never blocks on the network.
     pub fn open(source: &StreamSource) -> Result<Self> {
         match source {
             StreamSource::File { path } => Self::open_file(path),
             StreamSource::Url { .. } => Err(Error::Unsupported(
-                "URL streams are not supported by the engine yet".into(),
+                "URL streams are opened asynchronously by the engine".into(),
             )),
         }
+    }
+
+    /// Probes any symphonia media source (used for HTTP streams). `label`
+    /// names the source in errors.
+    pub(crate) fn open_media(source: Box<dyn MediaSource>, hint: &Hint, label: &str) -> Result<Self> {
+        let mss = MediaSourceStream::new(source, Default::default());
+        let format = symphonia::default::get_probe()
+            .probe(hint, mss, FormatOptions::default(), MetadataOptions::default())
+            .map_err(|e| Error::Decode(format!("{label}: {e}")))?;
+        Self::from_reader(format)
+    }
+
+    /// Reconciles the container duration with the one from the track
+    /// metadata. Fragmented MP4 (DASH, as served by YouTube) only declares
+    /// its first fragment, so a much longer metadata duration wins; that
+    /// also lets seeks reach past the first fragment.
+    pub fn reconcile_duration(&mut self, metadata: Option<Duration>) {
+        self.duration = match (self.duration, metadata) {
+            (Some(d), Some(m)) if m > d + Duration::from_secs(2) => Some(m),
+            (None, m) => m,
+            (d, _) => d,
+        };
     }
 
     pub fn open_file(path: &Path) -> Result<Self> {

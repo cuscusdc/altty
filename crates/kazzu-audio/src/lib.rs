@@ -7,6 +7,8 @@
 //!   resampling (rubato) only happens if the device refuses that rate; the
 //!   DSP stage ([`Dsp`]) defaults to [`Bypass`]; unity volume skips gain.
 //! - Gapless playback, sample-accurate seek, queue with repeat/shuffle.
+//! - HTTP(S) streaming ([`stream`]): ranged downloads on a network thread,
+//!   resume after drops, expired-URL refresh ([`StreamEvent`]), LRU disk cache.
 //!
 //! ```no_run
 //! use kazzu_audio::Engine;
@@ -29,12 +31,14 @@ mod null_sink;
 pub mod output;
 mod queue;
 mod resample;
+pub mod stream;
 
 pub use cpal_sink::{CpalSink, OutputDevice};
 pub use decoder::{SourceSpec, TrackDecoder};
 pub use dsp::{Bypass, Dsp, DspChain};
 pub use engine::{Engine, EngineBuilder, EngineConfig, EngineHandle};
 pub use null_sink::{Capture, NullSink};
+pub use stream::{CacheConfig, StreamCache, StreamConfig, StreamEvent};
 pub use output::{AudioSink, OutputConfig, OutputRequest, OutputSample, OutputSampleFormat, Renderer};
 
 /// Whether this build can decode Opus.

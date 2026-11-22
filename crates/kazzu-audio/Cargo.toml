@@ -13,6 +13,8 @@ rubato = { version = "5", default-features = false }
 ringbuf = "0.6"
 crossbeam-channel = "0.5"
 log = "0.4"
+# HTTP(S) streaming: blocking client, rustls + ring + webpki-roots (no OpenSSL, no tokio).
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 
 [features]
 default = ["opus"]

@@ -116,6 +116,17 @@ impl Queue {
         self.items.iter().find(|i| i.id == id)
     }
 
+    /// Replaces the stream of an item (e.g. a refreshed, re-signed URL).
+    pub fn set_stream(&mut self, id: QueueItemId, stream: kazzu_core::StreamSource) -> bool {
+        match self.items.iter_mut().find(|i| i.id == id) {
+            Some(item) => {
+                item.stream = stream;
+                true
+            }
+            None => false,
+        }
+    }
+
     pub fn current(&self) -> Option<&QueueItem> {
         self.current.map(|p| &self.items[self.order[p]])
     }
