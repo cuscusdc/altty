@@ -87,6 +87,10 @@ impl UreqTransport {
             .http_status_as_error(false)
             .timeout_connect(Some(connect))
             .timeout_global(Some(total))
+            // sem redirecionamentos e só https: o innertube e o sw.js respondem direto; seguir um 30x levaria os
+            // cabeçalhos (e o visitorData) para onde a resposta mandasse
+            .max_redirects(0)
+            .https_only(true)
             .user_agent(DEFAULT_UA)
             .build();
         Self {
