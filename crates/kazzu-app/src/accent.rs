@@ -23,13 +23,19 @@ pub struct AccentColor {
 pub struct Accent {
     pub dark: AccentColor,
     pub light: AccentColor,
+    /// Matiz (graus, 0..360) que alimenta o palco; 58° (âmbar) quando a capa não tem cor.
+    pub hue: u16,
 }
+
+/// Matiz do âmbar da marca.
+pub const BRAND_HUE: u16 = 58;
 
 impl Accent {
     /// Âmbar da marca (`tokens.json` > brand).
     pub const BRAND: Accent = Accent {
         dark: AccentColor { accent: [0xff, 0xa1, 0x54], ink: [0x19, 0x0c, 0x04] },
         light: AccentColor { accent: [0xab, 0x4b, 0x01], ink: [0xfe, 0xfb, 0xf8] },
+        hue: BRAND_HUE,
     };
 
     pub fn for_theme(&self, dark: bool) -> AccentColor {
@@ -157,7 +163,46 @@ pub fn base_color(img: &RgbaImage) -> Option<(f64, f64, f64)> {
 pub fn derive(img: &RgbaImage) -> Accent {
     match base_color(img) {
         None => Accent::BRAND,
-        Some((l, c, h)) => Accent { dark: clamp_to_theme(l, c, h, true), light: clamp_to_theme(l, c, h, false) },
+        Some((l, c, h)) => Accent { dark: clamp_to_theme(l, c, h, true), light: clamp_to_theme(l, c, h, false), hue: (h.round() as u16) % 360 },
+    }
+}
+
+/// Cores do palco (`Theme.stage-*`, `Theme.glass-tint-*`) para um matiz: fórmula de `DESIGN.md` §3.2.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StagePalette {
+    pub dark: [Rgb; 4],
+    pub light: [Rgb; 4],
+    pub base_dark: Rgb,
+    pub base_light: Rgb,
+    pub tint_dark: Rgb,
+    pub tint_light: Rgb,
+}
+
+/// `[L, C, dh]` dos quatro manchões (tokens.json > stage).
+const STAGE_DARK: [[f64; 3]; 4] = [[0.50, 0.19, 0.0], [0.45, 0.18, -36.0], [0.41, 0.14, 147.0], [0.44, 0.15, 37.0]];
+const STAGE_LIGHT: [[f64; 3]; 4] = [[0.86, 0.09, 0.0], [0.86, 0.085, -36.0], [0.89, 0.06, 147.0], [0.90, 0.08, 37.0]];
+
+/// OKLCH -> sRGB 8 bits, reduzindo o croma até caber no gamut.
+pub fn oklch_to_srgb(l: f64, c: f64, h: f64) -> Rgb {
+    let mut c2 = c;
+    let mut rgb = oklch_to_linear(l, c2, h);
+    while !in_gamut(rgb) && c2 > 0.0 {
+        c2 -= 0.002;
+        rgb = oklch_to_linear(l, c2.max(0.0), h);
+    }
+    to_u8(rgb)
+}
+
+pub fn stage_palette(hue: u16) -> StagePalette {
+    let h = f64::from(hue);
+    let mk = |t: &[[f64; 3]; 4]| t.map(|[l, c, dh]| oklch_to_srgb(l, c, (h + dh).rem_euclid(360.0)));
+    StagePalette {
+        dark: mk(&STAGE_DARK),
+        light: mk(&STAGE_LIGHT),
+        base_dark: oklch_to_srgb(0.20, 0.05, h),
+        base_light: oklch_to_srgb(0.94, 0.03, h),
+        tint_dark: oklch_to_srgb(0.24, 0.055, h),
+        tint_light: oklch_to_srgb(0.99, 0.012, h),
     }
 }
 
@@ -200,6 +245,27 @@ mod tests {
             assert!(contrast(a.light.accent, [0xf6, 0xf3, 0xed]) >= 4.5, "{rgb:?} claro {}", hex(a.light.accent));
             assert!(contrast(a.dark.ink, a.dark.accent) >= 4.5);
             assert!(contrast(a.light.ink, a.light.accent) >= 4.5);
+        }
+    }
+
+    #[test]
+    fn stage_for_the_brand_hue_matches_the_design_tokens_closely() {
+        // tokens.slint: stage-a-dark #944f04, stage-b-dark #a20222, stage-c-dark #00555c (matiz 58°)
+        let p = stage_palette(BRAND_HUE);
+        let close = |a: Rgb, b: Rgb| a.iter().zip(b).all(|(x, y)| (i32::from(*x) - i32::from(y)).abs() <= 12);
+        assert!(close(p.dark[0], [0x94, 0x4f, 0x04]), "a {}", hex(p.dark[0]));
+        assert!(close(p.dark[1], [0xa2, 0x02, 0x22]), "b {}", hex(p.dark[1]));
+        assert!(close(p.dark[2], [0x00, 0x55, 0x5c]), "c {}", hex(p.dark[2]));
+        assert!(close(p.tint_dark, [0x33, 0x17, 0x02]), "tint {}", hex(p.tint_dark));
+    }
+
+    #[test]
+    fn dark_stage_stays_dark_enough_for_the_text_on_glass() {
+        for hue in [40, 205, 150, 58, 300] {
+            for c in stage_palette(hue).dark {
+                let (l, _, _) = srgb_to_oklch(c[0], c[1], c[2]);
+                assert!(l <= 0.51, "hue {hue}: L {l}");
+            }
         }
     }
 

@@ -1,0 +1,31 @@
+// Navegação: as telas, o AppWindow e o Esc/Voltar do Android passam todos por aqui. O estado de tela vive no Slint;
+// o Rust só escuta os callbacks (`navigate`, `close-player`, `close-detail`...).
+import { Tab, AppState } from "app-contract.slint";
+import { Metrics } from "metrics.slint";
+
+export global Nav {
+    /// Vai a uma aba. Na aba ativa: volta ao topo (e fecha um detalhe aberto).
+    public function go(t: Tab) {
+        if (AppState.detail-open) { AppState.detail-open = false; AppState.close-detail(); }
+        if (AppState.tab == t) { Metrics.reset-scroll(t); }
+        else { AppState.tab = t; AppState.navigate(t); }
+    }
+    public function open-player() { AppState.player-open = true; AppState.open-player(); }
+    public function close-player() { AppState.player-open = false; AppState.close-player(); }
+    public function close-detail() { AppState.detail-open = false; AppState.close-detail(); }
+    public function close-menus() {
+        AppState.menu-open = false; AppState.playlist-sheet-open = false; AppState.new-playlist-open = false;
+    }
+    /// Voltar (Esc, botão Voltar do Android). Devolve false quando já está no Início sem nada aberto.
+    public function back() -> bool {
+        if (AppState.new-playlist-open) { AppState.new-playlist-open = false; return true; }
+        if (AppState.playlist-sheet-open) { AppState.playlist-sheet-open = false; return true; }
+        if (AppState.menu-open) { AppState.menu-open = false; return true; }
+        if (AppState.queue-open) { AppState.queue-open = false; return true; }
+        if (AppState.player-open) { close-player(); return true; }
+        if (AppState.detail-open) { close-detail(); return true; }
+        if (AppState.tab == Tab.search && AppState.search-text != "") { AppState.search-text = ""; AppState.search(""); return true; }
+        if (AppState.tab != Tab.home) { AppState.tab = Tab.home; AppState.navigate(Tab.home); return true; }
+        return false;
+    }
+}

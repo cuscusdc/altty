@@ -15,6 +15,7 @@ Uso: kazzu [opções]
   --data-dir <dir>       onde ficam o banco e o cache de capas
   --config <arquivo>     arquivo de configuração (TOML)
   --add-folder <dir>     indexa também esta pasta de músicas (pode repetir)
+  --no-youtube           só arquivos locais: não usa o YouTube Music (nenhuma chamada de rede)
   --null-audio           saída de áudio simulada (sem placa de som)
   --renderer <nome>      femtovg (padrão, com vidro desfocado) ou software (sem blur)
   --snapshot <dir>       gera capturas de tela de todas as telas em <dir> e sai
@@ -43,6 +44,7 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Cli, String> {
             "--config" => cli.opts.config_path = Some(PathBuf::from(value("--config")?)),
             "--add-folder" => cli.opts.extra_folders.push(PathBuf::from(value("--add-folder")?)),
             "--null-audio" => cli.opts.null_audio = true,
+            "--no-youtube" => cli.opts.no_remote = true,
             "--renderer" => cli.renderer = Some(value("--renderer")?),
             "--snapshot" => cli.snapshot = Some(PathBuf::from(value("--snapshot")?)),
             "--size" => {

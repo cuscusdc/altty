@@ -1,0 +1,53 @@
+// Medidas e constantes de layout que não existem em tokens.slint (gerado). Nada aqui chama o Rust.
+// Cores: só o véu (Scrim, SLINT_SPEC §6.4). Tudo o mais deriva de `Theme`.
+import { Theme } from "tokens.slint";
+import { AppState, Tab } from "app-contract.slint";
+
+export global Metrics {
+    /// véu atrás das folhas: preto 38% (única cor literal permitida, SLINT_SPEC §6.4)
+    out property <color> scrim: #00000061;
+    out property <length> gutter: Theme.wide ? 32px : (Theme.compact ? 16px : 24px);
+    out property <length> content-max: 1240px;
+    /// barra inferior: 12 de folga + área segura; mini player 8 acima
+    out property <length> dock-gap: 12px;
+    out property <length> bottom-inset: dock-gap + AppState.safe-bottom;
+    out property <length> dock-y-off: bottom-inset + Theme.dock-h;                       // distância da base ao topo da barra
+    out property <length> mini-y-off: dock-y-off + 8px + Theme.mini-h;                    // ... ao topo do mini player
+    out property <length> fade-h: 190px + AppState.safe-bottom;
+    /// reserva de rolagem para o foco nunca ficar sob a barra/mini (SLINT_SPEC §3.1)
+    out property <length> chrome-reserve: (Theme.compact ? (AppState.has-now ? 184px : 112px) : (Theme.wide ? 120px : 112px)) + AppState.safe-bottom;
+    /// x e largura da área de conteúdo (≥ 600: ao lado do trilho/lateral)
+    out property <length> content-x: Theme.compact ? 0px : AppState.safe-left + 12px + (Theme.wide ? Theme.rail-w-wide : Theme.rail-w) + 12px;
+    out property <length> content-w: Theme.window-w - content-x - (Theme.compact ? 0px : AppState.safe-right);
+    /// margem lateral do conteúdo (centraliza com largura máxima 1240; compact soma as áreas seguras)
+    out property <length> side: max(gutter, (content-w - content-max) / 2);
+    out property <length> side-l: side + (Theme.compact ? AppState.safe-left : 0px);
+    out property <length> side-r: side + (Theme.compact ? AppState.safe-right : 0px);
+    /// destaque do carrossel "Continue por aqui" (SLINT_SPEC §3.6)
+    out property <length> hero-w: Theme.wide ? 460px : Theme.expanded ? 400px : Theme.compact ? min(Theme.hero-card-w-mobile, Theme.window-w * 0.78) : 340px;
+    out property <length> hero-h: Theme.expanded ? (Theme.wide ? 500px : 440px) : hero-w * 380 / 300;
+    /// colunas de grades de álbuns/humores
+    out property <int> grid-cols: Theme.compact ? 2 : Theme.expanded ? 4 : 3;
+    /// base do cromo (compact: topo do mini ou da barra; >= 600: topo do mini flutuante) — Toast fica 8 acima
+    out property <length> chrome-top-off: Theme.compact ? (AppState.has-now ? mini-y-off : dock-y-off) : (AppState.has-now ? 16px + (Theme.wide ? 72px : Theme.mini-h) + AppState.safe-bottom : bottom-inset);
+
+    // Rolagem por aba (cada aba guarda a sua; tocar na aba ativa volta ao topo). Telas gravam em `changed content-y`.
+    in-out property <length> scroll-home: 0px;
+    in-out property <length> scroll-explore: 0px;
+    in-out property <length> scroll-library: 0px;
+    in-out property <length> scroll-search: 0px;
+    in-out property <length> scroll-settings: 0px;
+    /// incrementa quando o usuário toca na aba ativa: a tela volta ao topo
+    in-out property <int> scroll-top-seq: 0;
+    public pure function saved-scroll(tab: Tab) -> length {
+        return tab == Tab.home ? scroll-home : tab == Tab.explore ? scroll-explore : tab == Tab.library ? scroll-library : tab == Tab.search ? scroll-search : scroll-settings;
+    }
+    public function save-scroll(tab: Tab, y: length) {
+        if (tab == Tab.home) { scroll-home = y; }
+        else if (tab == Tab.explore) { scroll-explore = y; }
+        else if (tab == Tab.library) { scroll-library = y; }
+        else if (tab == Tab.search) { scroll-search = y; }
+        else { scroll-settings = y; }
+    }
+    public function reset-scroll(tab: Tab) { save-scroll(tab, 0px); scroll-top-seq += 1; }
+}

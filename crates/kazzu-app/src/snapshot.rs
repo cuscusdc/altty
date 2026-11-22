@@ -42,20 +42,25 @@ fn go(tab: ui::Tab) -> impl Fn(&App) {
     }
 }
 
-/// Toca um álbum pelo título (para testar capas de cores diferentes no player).
-fn play_album_titled(app: &App, title: &str) {
-    let albums = app.window.global::<ui::AppState>().get_albums();
-    let found = (0..albums.row_count()).filter_map(|i| albums.row_data(i)).find(|a| a.title == title);
-    if let Some(a) = found {
-        app.controller.borrow_mut().play_track(&format!("album:{}", a.id));
-    }
+fn first_pick_id(app: &App) -> Option<String> {
+    app.window.global::<ui::AppState>().get_quick_picks().row_data(0).map(|t| t.id.to_string())
 }
 
 fn first_recent_id(app: &App) -> Option<String> {
     app.window.global::<ui::AppState>().get_recents().row_data(0).map(|t| t.id.to_string())
 }
 
-/// Plano de capturas para um tamanho e um tema.
+fn close_all(app: &App) {
+    let s = app.window.global::<ui::AppState>();
+    s.set_player_open(false);
+    s.set_queue_open(false);
+    s.set_detail_open(false);
+    s.set_menu_open(false);
+    s.set_playlist_sheet_open(false);
+    s.set_new_playlist_open(false);
+}
+
+/// Plano de capturas para um tamanho e um tema. `full`: inclui reprodução, folhas e detalhe.
 fn plan(label: &'static str, w: f32, h: f32, theme: ThemePref, full: bool) -> Vec<Step> {
     let n = move |s: &str| format!("{label}-{s}");
     let mut v = vec![
@@ -63,11 +68,12 @@ fn plan(label: &'static str, w: f32, h: f32, theme: ThemePref, full: bool) -> Ve
             app.controller.borrow_mut().set_theme(theme);
             app.window.window().set_size(slint::LogicalSize::new(w, h));
         }),
-        step(Some(&n("home")), 700, go(ui::Tab::Home)),
-        step(Some(&n("explore")), 600, go(ui::Tab::Explore)),
-        step(Some(&n("library")), 600, go(ui::Tab::Library)),
+        // o Início do YouTube Music (ou só o local, com --no-youtube) precisa de tempo para chegar
+        step(Some(&n("home")), 2500, go(ui::Tab::Home)),
+        step(Some(&n("explore")), 2500, go(ui::Tab::Explore)),
+        step(Some(&n("library")), 700, go(ui::Tab::Library)),
         step(Some(&n("search-idle")), 500, go(ui::Tab::Search)),
-        step(Some(&n("search-results")), 900, |app| {
+        step(Some(&n("search-results")), 2500, |app| {
             app.window.global::<ui::AppState>().set_search_text("aurora".into());
             app.controller.borrow_mut().search("aurora");
         }),
@@ -75,11 +81,11 @@ fn plan(label: &'static str, w: f32, h: f32, theme: ThemePref, full: bool) -> Ve
             app.window.global::<ui::AppState>().set_search_text("".into());
             go(ui::Tab::Settings)(app);
         }),
-        // janela alta: mostra a Configurações inteira sem precisar rolar
+        // janela alta: mostra Ajustes inteira sem precisar rolar
         step(None, 500, move |app| app.window.window().set_size(slint::LogicalSize::new(w, 1900.0))),
         step(Some(&n("settings-tall")), 500, move |app| app.window.window().set_size(slint::LogicalSize::new(w, 1900.0))),
         step(None, 500, move |app| app.window.window().set_size(slint::LogicalSize::new(w, h))),
-        // foco por teclado: Tab três vezes na Início
+        // foco por teclado
         step(None, 300, |app| go(ui::Tab::Home)(app)),
         step(Some(&n("home-focus")), 400, |app| {
             for _ in 0..4 {
@@ -89,51 +95,52 @@ fn plan(label: &'static str, w: f32, h: f32, theme: ThemePref, full: bool) -> Ve
     ];
     if full {
         v.extend([
-            step(None, 1800, |app| {
+            step(None, 3000, |app| {
                 go(ui::Tab::Home)(app);
-                if let Some(id) = first_recent_id(app) {
+                if let Some(id) = first_pick_id(app).or_else(|| first_recent_id(app)) {
                     app.controller.borrow_mut().play_track(&id);
                 }
             }),
             step(Some(&n("home-playing")), 600, go(ui::Tab::Home)),
             step(Some(&n("library-playing")), 600, go(ui::Tab::Library)),
             step(Some(&n("player")), 900, |app| app.window.global::<ui::AppState>().set_player_open(true)),
-            // Espaço pausa/retoma (atalho global); ← seek
             step(Some(&n("player-paused")), 500, |app| key(app, " ")),
             step(None, 300, |app| key(app, " ")),
-            step(None, 1500, |app| {
-                app.window.global::<ui::AppState>().set_player_open(false);
-                play_album_titled(app, "Calor de Março");
-            }),
-            step(Some(&n("player-orange")), 700, |app| app.window.global::<ui::AppState>().set_player_open(true)),
-            step(None, 1500, |app| {
-                app.window.global::<ui::AppState>().set_player_open(false);
-                play_album_titled(app, "Papel de Seda");
-            }),
-            step(Some(&n("player-pale")), 700, |app| app.window.global::<ui::AppState>().set_player_open(true)),
-            step(None, 1500, |app| {
-                app.window.global::<ui::AppState>().set_player_open(false);
-                play_album_titled(app, "Sal e Cinza");
-            }),
-            step(Some(&n("player-gray")), 700, |app| app.window.global::<ui::AppState>().set_player_open(true)),
-            step(Some(&n("queue")), 700, |app| {
+            step(Some(&n("queue")), 900, |app| {
                 let s = app.window.global::<ui::AppState>();
                 s.set_player_open(false);
                 s.set_queue_open(true);
             }),
-            step(Some(&n("detail-album")), 900, |app| {
+            step(Some(&n("menu")), 700, |app| {
                 let s = app.window.global::<ui::AppState>();
                 s.set_queue_open(false);
-                if let Some(a) = s.get_albums().row_data(2) {
+                s.set_menu_track(s.get_now());
+                s.set_menu_open(true);
+            }),
+            step(Some(&n("playlist-sheet")), 600, |app| {
+                let s = app.window.global::<ui::AppState>();
+                s.set_menu_open(false);
+                s.set_playlist_sheet_open(true);
+            }),
+            step(Some(&n("new-playlist")), 600, |app| {
+                let s = app.window.global::<ui::AppState>();
+                s.set_playlist_sheet_open(false);
+                s.set_new_playlist_open(true);
+            }),
+            step(Some(&n("detail")), 2500, |app| {
+                close_all(app);
+                let s = app.window.global::<ui::AppState>();
+                if let Some(a) = s.get_albums().row_data(0) {
                     app.controller.borrow_mut().open_album(&a.id);
+                } else if let Some(h) = s.get_highlights().row_data(0) {
+                    app.controller.borrow_mut().open_item(&h.kind, &h.id);
                 }
             }),
             step(Some(&n("detail-liked")), 900, |app| {
-                app.window.global::<ui::AppState>().set_detail_open(false);
+                close_all(app);
                 app.controller.borrow_mut().open_collection("liked");
             }),
-            step(Some(&n("settings-bottom")), 700, |app| go(ui::Tab::Settings)(app)),
-            step(None, 300, |app| app.window.global::<ui::AppState>().set_player_open(false)),
+            step(None, 300, close_all),
         ]);
     }
     v
@@ -177,12 +184,13 @@ pub fn run(app: App, dir: PathBuf, software: bool) -> Result<(), AppError> {
     let prefix = format!("{}{}", if tag_env.is_empty() { String::new() } else { format!("{tag_env}-") }, if software { "sw" } else { "gl" });
     let mut steps: Vec<Step> = Vec::new();
     let tag = |s: &'static str| -> &'static str { Box::leak(format!("{prefix}-{s}").into_boxed_str()) };
-    steps.extend(plan(tag("desktop-dark"), 1280.0, 800.0, ThemePref::Dark, true));
-    steps.extend(plan(tag("regular-dark"), 900.0, 700.0, ThemePref::Dark, false));
-    steps.extend(plan(tag("narrow-dark"), 360.0, 740.0, ThemePref::Dark, true));
+    // mobile primeiro (390 e 360), depois tablet e desktop
     steps.extend(plan(tag("mobile-dark"), 390.0, 844.0, ThemePref::Dark, true));
+    steps.extend(plan(tag("narrow-dark"), 360.0, 740.0, ThemePref::Dark, true));
+    steps.extend(plan(tag("mobile-light"), 390.0, 844.0, ThemePref::Light, true));
+    steps.extend(plan(tag("tablet-dark"), 768.0, 1024.0, ThemePref::Dark, false));
+    steps.extend(plan(tag("desktop-dark"), 1280.0, 800.0, ThemePref::Dark, true));
     steps.extend(plan(tag("desktop-light"), 1280.0, 800.0, ThemePref::Light, false));
-    steps.extend(plan(tag("mobile-light"), 390.0, 844.0, ThemePref::Light, false));
     steps.push(step(Some(&format!("{prefix}-mobile-light-reduce-transparency")), 700, |app| {
         app.controller.borrow_mut().set_reduce_transparency(true);
         go(ui::Tab::Library)(app);
@@ -199,7 +207,7 @@ pub fn run(app: App, dir: PathBuf, software: bool) -> Result<(), AppError> {
         let st = a2.window.global::<ui::AppState>();
         let loaded = !st.get_loading() && !st.get_scanning();
         // biblioteca vazia (primeira execução): sem faixas, espera só um instante
-        let ready = loaded && (st.get_recents().row_count() > 0 || started.elapsed() > Duration::from_secs(4));
+        let ready = loaded && (st.get_recents().row_count() > 0 || st.get_quick_picks().row_count() > 0 || started.elapsed() > Duration::from_secs(6));
         if ready || started.elapsed() > Duration::from_secs(30) {
             w2.stop();
             // pequena folga para as capas do primeiro desenho

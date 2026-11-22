@@ -28,6 +28,45 @@ pub enum AccentPref {
     Brand,
 }
 
+/// Qualidade pedida aos provedores de stream (Ajustes › Áudio).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StreamQualityPref {
+    /// A melhor que o provedor oferece, sem transformar.
+    #[default]
+    Original,
+    /// Melhor lossy (economiza dados).
+    High,
+    /// Pouca banda.
+    Low,
+}
+
+impl StreamQualityPref {
+    pub fn from_index(i: i32) -> Self {
+        match i {
+            1 => Self::High,
+            2 => Self::Low,
+            _ => Self::Original,
+        }
+    }
+
+    pub fn index(self) -> i32 {
+        match self {
+            Self::Original => 0,
+            Self::High => 1,
+            Self::Low => 2,
+        }
+    }
+
+    pub fn to_core(self) -> kazzu_core::StreamQuality {
+        match self {
+            Self::Original => kazzu_core::StreamQuality::Original,
+            Self::High => kazzu_core::StreamQuality::High,
+            Self::Low => kazzu_core::StreamQuality::Low,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -40,6 +79,12 @@ pub struct Config {
     pub volume: f32,
     /// Buscas recentes (mais nova primeiro), só neste aparelho.
     pub recent_searches: Vec<String>,
+    /// Qualidade dos streams remotos.
+    pub stream_quality: StreamQualityPref,
+    /// Quando a fila de uma fonte remota acaba, continuar com músicas parecidas (rádio).
+    pub autoplay_radio: bool,
+    /// O aviso "O YouTube Music já está ativo" já foi dispensado (nunca volta).
+    pub first_run_dismissed: bool,
 }
 
 impl Default for Config {
@@ -51,6 +96,9 @@ impl Default for Config {
             reduce_transparency: None,
             volume: 1.0,
             recent_searches: Vec::new(),
+            stream_quality: StreamQualityPref::Original,
+            autoplay_radio: true,
+            first_run_dismissed: false,
         }
     }
 }

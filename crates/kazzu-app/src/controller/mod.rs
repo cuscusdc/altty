@@ -1,24 +1,36 @@
-//! Controller: liga motor de áudio, biblioteca e tela. Não conhece o Slint (fala com a tela pelo trait `View`),
-//! então é testável sem janela. Tudo aqui roda na thread de UI e **nunca bloqueia**: o trabalho pesado vai
-//! para `JobRunner`; os resultados voltam como `Msg`.
+//! Controller: liga motor de áudio, biblioteca, provedores remotos e tela. Não conhece o Slint (fala com a tela pelo
+//! trait `View`), então é testável sem janela. Tudo aqui roda na thread de UI e **nunca bloqueia**: o trabalho pesado
+//! (disco, rede, decodificação) vai para `JobRunner`; os resultados voltam como `Msg`.
+//!
+//! - `mod.rs`: estado, mensagens, motor de áudio, comandos locais, preferências.
+//! - `remote.rs`: YouTube Music (Início, Explorar, busca, detalhes, fila JIT com rádio, URL vencida, curtidas).
+
+mod remote;
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use kazzu_audio::EngineHandle;
-use kazzu_core::{CoverRef, OutputInfo, PlaybackEvent, PlaybackStatus, QueueItem, RepeatMode};
+use kazzu_audio::{EngineHandle, StreamEvent};
+use kazzu_core::{CoverRef, OutputInfo, PlaybackEvent, PlaybackStatus, QueueItem, QueueItemId, RepeatMode, Track as CoreTrack, TrackSource};
+use kazzu_ytm::Category;
 
 use crate::accent::Accent;
-use crate::config::{AccentPref, Config, ThemePref};
+use crate::art::Pixels;
+use crate::config::{AccentPref, Config, StreamQualityPref, ThemePref};
 use crate::format;
 use crate::lru::Lru;
+use crate::remote::RemoteRef;
 use crate::view::View;
 use crate::vm::*;
 use crate::worker::{DetailRef, Job, JobResult, JobRunner, QueueMode, Scope};
+use crate::ytm_vm;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub use remote::Entry;
+use remote::{Context, ToastAction};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum NavTab {
     Home,
     Explore,
@@ -37,8 +49,12 @@ pub struct SystemPrefs {
 pub enum Msg {
     Job(JobResult),
     Engine(PlaybackEvent),
+    /// Eventos do streaming HTTP (URL vencida, rede caiu).
+    Stream(StreamEvent),
     FolderPicked(Option<PathBuf>),
     System(SystemPrefs),
+    /// Quadros acima do orçamento por tempo demais: oferece "Reduzir transparência".
+    SlowFrames,
 }
 
 pub type MsgSink = Arc<dyn Fn(Msg) + Send + Sync>;
@@ -51,6 +67,14 @@ const VOLUME_STEP: f32 = 0.05;
 pub const QUEUE_VIEW_MAX: usize = 100;
 /// View-models de faixas da fila guardados (LRU).
 const VM_CACHE_MAX: usize = 600;
+/// Faixas remotas lembradas para poder tocá-las pelo id da linha.
+const REMOTE_TRACKS_MAX: usize = 4000;
+/// Capas remotas decodificadas guardadas em memória.
+const COVER_CACHE_MAX: usize = 500;
+/// Depois disto, uma capa pedida e ainda ausente (falhou, ou saiu do cache) pode ser pedida de novo.
+pub(crate) const COVER_RETRY: Duration = Duration::from_secs(30);
+
+const NOTE_AUTOPLAY: &str = "Quando a fila acabar, o Kazzu continua com músicas parecidas do YouTube Music. Dá para desligar em Ajustes.";
 
 /// Número de ponto flutuante utilizável como fração/volume: finito, preso a 0..=1; NaN e infinitos viram `fallback`.
 pub fn sane_unit(v: f32, fallback: f32) -> f32 {
@@ -60,12 +84,14 @@ pub fn sane_unit(v: f32, fallback: f32) -> f32 {
 /// Texto curto para o usuário; o detalhe técnico vai para o log.
 fn friendly_error(message: &str) -> String {
     let m = message.to_ascii_lowercase();
-    if m.contains("audio output") || m.contains("alsa") || m.contains("device") || m.contains("stream") {
+    if m.contains("audio output") || m.contains("alsa") || m.contains("device") {
         "A saída de áudio não respondeu. Confira o dispositivo nas configurações do sistema.".to_owned()
     } else if m.contains("unsupported") || m.contains("codec") || m.contains("format") {
         "O formato deste arquivo não é suportado.".to_owned()
     } else if m.contains("no such file") || m.contains("not found") || m.contains("os error 2") {
         "O arquivo não está mais na pasta.".to_owned()
+    } else if m.contains("network") || m.contains("http") || m.contains("stream") || m.contains("timed out") {
+        "A conexão falhou. Tente de novo em instantes.".to_owned()
     } else {
         message.to_owned()
     }
@@ -79,11 +105,15 @@ pub struct Controller<V: View> {
     sink: MsgSink,
     cfg: Config,
     cfg_path: Option<PathBuf>,
+    data_dir: Option<PathBuf>,
 
     tab: NavTab,
     detail_open: bool,
     detail_ids: Vec<String>,
     detail_title: String,
+    detail_vm: DetailVm,
+    detail_what: Option<RemoteRef>,
+    detail_album: Option<kazzu_core::Album>,
     recents_ids: Vec<String>,
 
     pb: PlaybackVm,
@@ -98,10 +128,9 @@ pub struct Controller<V: View> {
     art_seq: u64,
     now_art: NowArtVm,
     recorded_current: bool,
-    source_label: String,
 
     liked: HashSet<String>,
-    /// Curtidas alteradas aqui e ainda não confirmadas pela biblioteca (uma atualização atrasada não pode desfazê-las).
+    /// Curtidas alteradas aqui e ainda não confirmadas (uma atualização atrasada não pode desfazê-las).
     pending_likes: HashMap<String, bool>,
     home: HomeVm,
     library: LibraryVm,
@@ -111,11 +140,40 @@ pub struct Controller<V: View> {
 
     search_query: String,
     search_seq: u64,
-    search_songs: Vec<TrackVm>,
-    search_albums: Vec<AlbumVm>,
-    search_ids: Vec<String>,
-    search_local: bool,
+    search_local_songs: Vec<TrackVm>,
+    search_local_albums: Vec<AlbumVm>,
+    search_local_ids: Vec<String>,
+    search_local_pending: bool,
+    search_remote: Option<SearchVm>,
+    search_remote_failed: Option<crate::catalog::ErrorKind>,
+    search_suggestions: Vec<String>,
     search_kind: i32,
+
+    // ---- remoto (YouTube Music) ----
+    remote_enabled: bool,
+    online: bool,
+    home_seq: u64,
+    explore: ExploreVm,
+    explore_seq: u64,
+    explore_requested: bool,
+    categories: Vec<Category>,
+    remote_tracks: Lru<String, CoreTrack>,
+    covers: Lru<String, Pixels>,
+    /// Capas já pedidas e quando: pedido velho sem a imagem em memória (falhou ou foi descartada) pode ser repetido.
+    covers_requested: HashMap<String, Instant>,
+    /// Telas que ganharam capas enquanto não estavam à vista: refeitas ao navegar até elas.
+    stale_screens: HashSet<NavTab>,
+    cover_retry: Duration,
+    ctx: Option<Context>,
+    ctx_seq: u64,
+    quality_labels: HashMap<QueueItemId, String>,
+    toast_action: ToastAction,
+    /// A rede falhou no meio da faixa e o motor espera `play()` para tentar de novo.
+    stalled: bool,
+    /// Renovações de URL vencida por faixa (limite: 2 em 60 s).
+    expired_log: HashMap<QueueItemId, Vec<Instant>>,
+    perf_dismissed: bool,
+    queue_vm: QueueVm,
 }
 
 impl<V: View> Controller<V> {
@@ -128,12 +186,16 @@ impl<V: View> Controller<V> {
             sink,
             cfg,
             cfg_path,
+            data_dir: None,
             tab: NavTab::Home,
             detail_open: false,
             detail_ids: vec![],
             detail_title: String::new(),
+            detail_vm: DetailVm::default(),
+            detail_what: None,
+            detail_album: None,
             recents_ids: vec![],
-            pb: PlaybackVm { volume, output_name: "Padrão do sistema".into(), bit_perfect: true, ..Default::default() },
+            pb: PlaybackVm { volume, output_name: "Padrão do sistema".into(), bit_perfect: true, error_action: "Tentar de novo".into(), ..Default::default() },
             queue_items: vec![],
             current: None,
             position: Duration::ZERO,
@@ -145,7 +207,6 @@ impl<V: View> Controller<V> {
             art_seq: 0,
             now_art: NowArtVm::default(),
             recorded_current: false,
-            source_label: String::new(),
             liked: HashSet::new(),
             pending_likes: HashMap::new(),
             home: HomeVm::default(),
@@ -155,12 +216,51 @@ impl<V: View> Controller<V> {
             auto_scanned: false,
             search_query: String::new(),
             search_seq: 0,
-            search_songs: vec![],
-            search_albums: vec![],
-            search_ids: vec![],
-            search_local: true,
+            search_local_songs: vec![],
+            search_local_albums: vec![],
+            search_local_ids: vec![],
+            search_local_pending: false,
+            search_remote: None,
+            search_remote_failed: None,
+            search_suggestions: vec![],
             search_kind: 0,
+            remote_enabled: false,
+            online: true,
+            home_seq: 0,
+            explore: ExploreVm::default(),
+            explore_seq: 0,
+            explore_requested: false,
+            categories: vec![],
+            remote_tracks: Lru::new(REMOTE_TRACKS_MAX),
+            covers: Lru::new(COVER_CACHE_MAX),
+            covers_requested: HashMap::new(),
+            stale_screens: HashSet::new(),
+            cover_retry: COVER_RETRY,
+            ctx: None,
+            ctx_seq: 0,
+            quality_labels: HashMap::new(),
+            toast_action: ToastAction::None,
+            stalled: false,
+            expired_log: HashMap::new(),
+            perf_dismissed: false,
+            queue_vm: QueueVm::default(),
         }
+    }
+
+    /// Liga o provedor remoto padrão (YouTube Music): o Início passa a carregar o feed ao abrir.
+    pub fn enable_remote(&mut self) {
+        self.remote_enabled = true;
+    }
+
+    /// Intervalo mínimo para pedir de novo uma capa que não chegou (padrão 30 s; testes encurtam).
+    #[doc(hidden)]
+    pub fn set_cover_retry(&mut self, d: Duration) {
+        self.cover_retry = d;
+    }
+
+    /// Onde gravar o arquivo de "Relatar um problema".
+    pub fn set_data_dir(&mut self, dir: PathBuf) {
+        self.data_dir = Some(dir);
     }
 
     pub fn config(&self) -> &Config {
@@ -175,7 +275,7 @@ impl<V: View> Controller<V> {
         &self.engine
     }
 
-    /// Primeiro quadro: aplica preferências e pede os dados à biblioteca.
+    /// Primeiro quadro: aplica preferências e pede os dados (biblioteca local e, se ativo, o feed do Início).
     pub fn init(&mut self, system: SystemPrefs) {
         if self.cfg.reduce_motion.is_none() {
             self.cfg.reduce_motion = system.reduce_motion;
@@ -185,8 +285,16 @@ impl<V: View> Controller<V> {
         self.view.set_playback(&self.pb);
         self.view.set_volume(self.pb.volume);
         self.view.set_loading(true);
+        self.view.set_online(true);
         self.publish_search();
         self.jobs.submit(Job::Refresh);
+        if self.remote_enabled {
+            self.home.state = LoadStateVm::Loading;
+            self.request_home(HomeSectionVm::ForYou);
+        } else {
+            self.home.state = LoadStateVm::Ready;
+        }
+        self.publish_home();
     }
 
     // ----------------------------------------------------------------------------------------
@@ -196,6 +304,7 @@ impl<V: View> Controller<V> {
     pub fn handle(&mut self, msg: Msg) {
         match msg {
             Msg::Engine(ev) => self.on_engine(ev),
+            Msg::Stream(ev) => self.on_stream(ev),
             Msg::Job(r) => self.on_job(r),
             Msg::FolderPicked(Some(path)) => self.jobs.submit(Job::AddFolder(path)),
             Msg::FolderPicked(None) => {}
@@ -203,6 +312,11 @@ impl<V: View> Controller<V> {
                 if self.cfg.reduce_motion.is_none() {
                     self.cfg.reduce_motion = sys.reduce_motion;
                     self.push_prefs();
+                }
+            }
+            Msg::SlowFrames => {
+                if self.cfg.reduce_transparency != Some(true) && !self.perf_dismissed {
+                    self.view.set_perf_offer(true);
                 }
             }
         }
@@ -217,17 +331,20 @@ impl<V: View> Controller<V> {
                     self.auto_scanned = true;
                     self.jobs.submit(Job::Scan);
                 }
+                for t in snap.remote_liked {
+                    self.remember_remote(&t);
+                }
                 self.liked = snap.liked;
                 for (id, liked) in &self.pending_likes {
                     if *liked { self.liked.insert(id.clone()); } else { self.liked.remove(id); }
                 }
                 self.flag_tracks(&mut snap.home.recents);
                 self.recents_ids = snap.home.recents.iter().map(|t| t.id.clone()).collect();
-                self.home = snap.home;
+                self.home.recents = snap.home.recents;
                 self.library = snap.library;
                 self.settings = snap.settings;
                 self.view.set_loading(false);
-                self.view.set_home(&self.home);
+                self.publish_home();
                 self.view.set_library(&self.library);
                 self.publish_settings();
                 if self.pb.now.is_none() {
@@ -246,11 +363,11 @@ impl<V: View> Controller<V> {
                         if !report.failed.is_empty() {
                             let n = report.failed.len();
                             let text = if n == 1 { "1 arquivo não pôde ser lido.".to_owned() } else { format!("{} arquivos não puderam ser lidos.", format::thousands(n as u64)) };
-                            self.view.toast(&text, true);
+                            self.toast(&text, true);
                         }
                         self.jobs.submit(Job::Refresh);
                     }
-                    Err(e) => self.view.toast(&format!("A leitura da biblioteca falhou. {e}"), true),
+                    Err(e) => self.toast(&format!("A leitura da biblioteca falhou. {e}"), true),
                 }
             }
             JobResult::FoldersChanged => {
@@ -259,16 +376,19 @@ impl<V: View> Controller<V> {
             }
             JobResult::Search { seq, songs, albums, ids } => {
                 if seq == self.search_seq {
-                    self.search_songs = songs;
-                    self.search_albums = albums;
-                    self.search_ids = ids;
+                    self.search_local_songs = songs;
+                    self.search_local_albums = albums;
+                    self.search_local_ids = ids;
+                    self.search_local_pending = false;
                     self.publish_search();
                 }
             }
             JobResult::Queue { items, start, shuffle, label } => {
-                self.source_label = format!("Tocando de {label}");
+                // fila gerenciada pelo motor (tudo local): o contexto remoto, se houver, acabou
+                self.ctx = None;
+                self.stalled = false;
+                self.pb.origin = label;
                 self.pb.error.clear();
-                self.pb.source_label = self.source_label.clone();
                 // O embaralhar escolhido pelo usuário vale para a nova fila (o motor reembaralha no Load). Só o
                 // pedido explícito ("Tudo em ordem aleatória", "Aleatório") liga o modo.
                 self.engine.load(items, start);
@@ -277,25 +397,22 @@ impl<V: View> Controller<V> {
                 }
                 self.view.set_playback(&self.pb);
             }
-            JobResult::QueueItems { items, mode } => {
-                let n = items.len();
-                match mode {
-                    QueueMode::PlayNext => self.engine.play_next(items),
-                    QueueMode::Enqueue => self.engine.enqueue(items),
-                }
-                let what = if n == 1 { "Música" } else { "Músicas" };
-                self.view.toast(&format!("{what} {}.", if mode == QueueMode::PlayNext { "tocará em seguida" } else { "adicionada à fila" }), false);
-            }
-            JobResult::Detail { seq, detail, ids } => {
+            JobResult::QueueItems { items, mode } => self.queued(items, mode == QueueMode::PlayNext),
+            JobResult::Detail { seq, detail, ids, remote_tracks } => {
                 // resposta atrasada (o usuário já trocou de aba ou abriu outra coisa): descarta
                 if seq != self.detail_seq {
                     return;
+                }
+                for t in &remote_tracks {
+                    self.remember_remote(t);
                 }
                 let mut vm = *detail;
                 self.flag_tracks(&mut vm.tracks);
                 self.detail_ids = ids;
                 self.detail_title = vm.title.clone();
-                self.view.set_detail(&vm);
+                self.detail_what = None;
+                self.detail_album = None;
+                self.show_detail(vm);
                 self.view.open_detail(true);
                 self.detail_open = true;
             }
@@ -324,15 +441,29 @@ impl<V: View> Controller<V> {
                 self.flag_tracks(&mut list);
                 self.recents_ids = list.iter().map(|t| t.id.clone()).collect();
                 self.home.recents = list;
-                self.view.set_home(&self.home);
+                self.publish_home();
             }
-            JobResult::Failed(msg) => self.view.toast(&msg, true),
+            JobResult::Failed(msg) => self.toast(&msg, true),
+            JobResult::Notice(msg) => self.toast(&msg, false),
             JobResult::LikedSaved { id, liked } => {
                 if self.pending_likes.get(&id) == Some(&liked) {
                     self.pending_likes.remove(&id);
                 }
             }
+            JobResult::Remote(r) => self.on_remote(r),
         }
+    }
+
+    /// Aviso sem ação.
+    fn toast(&mut self, text: &str, error: bool) {
+        self.toast_action = ToastAction::None;
+        self.view.toast(text, error, "");
+    }
+
+    /// Aviso com botão ("Desfazer", "Tentar de novo"); a ação roda em [`Controller::toast_action`].
+    fn toast_with(&mut self, text: &str, error: bool, label: &str, action: ToastAction) {
+        self.toast_action = action;
+        self.view.toast(text, error, label);
     }
 
     // ----------------------------------------------------------------------------------------
@@ -344,6 +475,12 @@ impl<V: View> Controller<V> {
             PlaybackEvent::StatusChanged { status } => {
                 self.pb.playing = status == PlaybackStatus::Playing;
                 self.pb.loading = status == PlaybackStatus::Buffering;
+                if self.pb.playing {
+                    self.stalled = false;
+                    if !self.pb.error.is_empty() {
+                        self.pb.error.clear();
+                    }
+                }
                 self.view.set_playback(&self.pb);
             }
             PlaybackEvent::TrackChanged { item, duration } => {
@@ -354,19 +491,13 @@ impl<V: View> Controller<V> {
                 self.pb.error.clear();
                 match item {
                     Some(item) => {
-                        let vm = self.vm_from_item(&item);
-                        self.pb.has_now = true;
-                        self.pb.now = Some(vm);
-                        self.art_seq += 1;
-                        let cover = match &item.track.cover {
-                            Some(CoverRef::File { path }) => Some(path.clone()),
-                            _ => None,
-                        };
-                        self.jobs.submit(Job::NowArt { seq: self.art_seq, cover });
+                        self.on_track_changed(&item);
                     }
                     None => {
                         self.pb.now = None;
                         self.pb.has_now = false;
+                        self.pb.quality_label.clear();
+                        self.pb.source.clear();
                         self.now_art = NowArtVm::default();
                         self.view.set_now_art(&self.now_art);
                         self.push_accent();
@@ -375,6 +506,7 @@ impl<V: View> Controller<V> {
                 self.view.set_playback(&self.pb);
                 self.view.mark_playing(self.pb.now.as_ref().map(|t| t.id.as_str()));
                 self.push_progress();
+                self.unstall(true);
             }
             PlaybackEvent::Position { position, duration } => {
                 self.position = position;
@@ -382,11 +514,16 @@ impl<V: View> Controller<V> {
                     self.duration = duration;
                 }
                 self.push_progress();
+                // fila parada por falha de rede: tenta de novo quando o recuo vence
+                self.unstall(false);
             }
             PlaybackEvent::TrackEnded { id } => {
                 if let Some(item) = self.queue_items.iter().find(|i| i.id == id) {
                     let ms = item.track.duration.map_or(0, |d| d.as_millis() as u64);
-                    self.jobs.submit(Job::RecordPlay { id: item.track.id.to_string(), listened_ms: ms });
+                    // o histórico (e a retrospectiva) é só de faixas do aparelho
+                    if matches!(item.track.source, TrackSource::Local { .. }) {
+                        self.jobs.submit(Job::RecordPlay { id: item.track.id.to_string(), listened_ms: ms });
+                    }
                     self.recorded_current = true;
                 }
             }
@@ -394,14 +531,13 @@ impl<V: View> Controller<V> {
                 self.queue_items = items;
                 self.current = current;
                 self.queue_seq += 1;
-                let missing: Vec<String> = self.upcoming().iter().take(QUEUE_VIEW_MAX).map(|i| i.track.id.to_string()).filter(|id| !self.vm_cache.contains(id)).collect();
-                if missing.is_empty() {
-                    self.publish_queue();
-                } else {
+                let missing: Vec<String> = self.upcoming().iter().take(QUEUE_VIEW_MAX).filter(|i| matches!(i.track.source, TrackSource::Local { .. })).map(|i| i.track.id.to_string()).filter(|id| !self.vm_cache.contains(id)).collect();
+                if !missing.is_empty() {
                     self.jobs.submit(Job::TrackVms { seq: self.queue_seq, ids: missing });
-                    // mostra já o que se sabe (sem capas) para a fila não ficar defasada
-                    self.publish_queue();
                 }
+                // mostra já o que se sabe (sem capas) para a fila não ficar defasada
+                self.publish_queue();
+                self.ensure_lookahead();
             }
             PlaybackEvent::VolumeChanged { volume } => {
                 let volume = sane_unit(volume, self.pb.volume);
@@ -412,6 +548,8 @@ impl<V: View> Controller<V> {
             }
             PlaybackEvent::RepeatChanged { mode } => {
                 self.pb.repeat = match mode {
+                    // numa fila sob demanda o "repetir tudo" é do contexto e o motor fica em Off
+                    RepeatMode::Off if self.ctx.as_ref().is_some_and(|c| c.repeat_all) => RepeatVm::All,
                     RepeatMode::Off => RepeatVm::Off,
                     RepeatMode::All => RepeatVm::All,
                     RepeatMode::One => RepeatVm::One,
@@ -429,11 +567,10 @@ impl<V: View> Controller<V> {
             PlaybackEvent::QueueFinished => {
                 self.pb.playing = false;
                 self.view.set_playback(&self.pb);
+                self.on_queue_finished();
             }
             PlaybackEvent::Error { id, message } => {
-                let title = id
-                    .and_then(|id| self.queue_items.iter().find(|i| i.id == id))
-                    .map(|i| i.track.title.clone());
+                let title = id.and_then(|id| self.queue_items.iter().find(|i| i.id == id)).map(|i| i.track.title.clone());
                 let is_current = id.is_some() && id == self.current.and_then(|c| self.queue_items.get(c)).map(|i| i.id);
                 let reason = friendly_error(&message);
                 let text = match &title {
@@ -445,27 +582,62 @@ impl<V: View> Controller<V> {
                     self.pb.error = text.clone();
                     self.view.set_playback(&self.pb);
                 }
-                self.view.toast(&text, true);
+                self.toast(&text, true);
             }
         }
     }
 
+    /// "Original" só vale para arquivo que chega sem transformação; o stream do YouTube já vem comprimido (Opus/AAC),
+    /// então o que garantimos ali é só "sem equalizador".
+    fn untouched_note(remote: bool) -> &'static str {
+        if remote { "Qualidade do YouTube Music, sem equalizador" } else { "Original, sem equalizador" }
+    }
+
+    fn on_track_changed(&mut self, item: &QueueItem) {
+        let vm = self.vm_from_item(item);
+        self.pb.has_now = true;
+        self.pb.source = ytm_vm::source_of_track(&item.track).to_owned();
+        self.pb.quality_label = self.quality_labels.get(&item.id).cloned().or_else(|| item.track.format.as_ref().map(format::quality_label)).unwrap_or_default();
+        if let TrackSource::Remote { .. } = &item.track.source {
+            self.remember_remote(&item.track);
+            if let Some(c) = self.ctx.as_mut() {
+                c.played.insert(vm.id.clone());
+            }
+        }
+        // a nota de qualidade acompanha a origem da faixa (o motor só reenvia a saída quando o formato muda)
+        let remote = matches!(item.track.source, TrackSource::Remote { .. });
+        if self.pb.output_note == Self::untouched_note(!remote) {
+            self.pb.output_note = Self::untouched_note(remote).to_owned();
+        }
+        self.pb.now = Some(vm);
+        self.art_seq += 1;
+        match &item.track.cover {
+            Some(CoverRef::File { path }) => self.jobs.submit(Job::NowArt { seq: self.art_seq, cover: Some(path.clone()) }),
+            Some(CoverRef::Url { url }) => self.jobs.submit(Job::Remote(crate::remote::RemoteJob::NowArt { seq: self.art_seq, url: url.clone() })),
+            _ => self.jobs.submit(Job::NowArt { seq: self.art_seq, cover: None }),
+        }
+    }
+
     fn apply_output(&mut self, info: &OutputInfo) {
+        let default_name = if cfg!(target_os = "android") { "Este celular" } else { "Padrão do sistema" };
         self.pb.output_name = match info.device.as_str() {
-            "" | "default" => "Padrão do sistema".to_owned(),
+            d if d.is_empty() || d.to_ascii_lowercase().starts_with("default") => default_name.to_owned(),
             "null" => "Saída simulada".to_owned(),
             other => other.to_owned(),
         };
         self.pb.bit_perfect = info.bit_perfect;
+        let remote_now = self.pb.now.as_ref().is_some_and(|t| ytm_vm::is_remote_id(&t.id));
         self.pb.output_note = if info.bit_perfect {
-            "Original, sem equalizador".to_owned()
+            Self::untouched_note(remote_now).to_owned()
         } else if let Some(from) = info.resampled_from {
             format!("Reamostrado de {} para {} kHz", format::khz(from), format::khz(info.sample_rate))
         } else {
             "Volume ajustado: o sinal não está bit-perfect".to_owned()
         };
         // o selo do player vem do que o motor realmente está tocando
-        if let (Some(src), Some(now)) = (&info.source, self.pb.now.as_mut()) {
+        // faixa remota: o provedor já informou o formato exato (codec, kbps); o decodificador só conhece a taxa
+        let provider_label = self.current.and_then(|c| self.queue_items.get(c)).is_some_and(|i| self.quality_labels.contains_key(&i.id));
+        if let (Some(src), Some(now), false) = (&info.source, self.pb.now.as_mut(), provider_label) {
             let b = format::badge(&src.codec.to_string(), src.codec.is_lossless(), src.bit_depth, src.sample_rate, src.bitrate_kbps);
             if !b.codec.is_empty() {
                 // o motor chama WAV/AIFF de "PCM"; o nome do arquivo (WAV) diz mais ao usuário
@@ -476,14 +648,22 @@ impl<V: View> Controller<V> {
                 now.detail_long = b.detail_long;
                 now.hires = b.hires;
             }
+            self.pb.quality_label = format::quality_label(src);
         }
     }
 
     fn vm_from_item(&self, item: &QueueItem) -> TrackVm {
         let t = &item.track;
+        if let TrackSource::Remote { .. } = &t.source {
+            let mut vm = ytm_vm::track_vm(t, false, "");
+            vm.liked = self.liked.contains(&vm.id);
+            vm.playing = true;
+            vm.cover = None;
+            return vm;
+        }
         let id = t.id.to_string();
         let path = match &t.source {
-            kazzu_core::TrackSource::Local { path } => Some(path.as_path()),
+            TrackSource::Local { path } => Some(path.as_path()),
             _ => None,
         };
         let b = match &t.format {
@@ -499,14 +679,13 @@ impl<V: View> Controller<V> {
             title: t.title.clone(),
             artist: t.artist_line(),
             album: t.album.as_ref().map(|a| a.title.clone()).unwrap_or_default(),
-            cover: None,
             duration_label: t.duration.map(format::duration_label).unwrap_or_default(),
             codec: b.codec,
             detail: b.detail,
             detail_long: b.detail_long,
             hires: b.hires,
-            source: String::new(),
             playing: true,
+            ..Default::default()
         }
     }
 
@@ -517,14 +696,16 @@ impl<V: View> Controller<V> {
         }
     }
 
-    fn publish_queue(&self) {
-        let up = self.upcoming();
-        let total: Duration = up.iter().filter_map(|i| i.track.duration).sum();
-        let tracks: Vec<TrackVm> = up
+    fn publish_queue(&mut self) {
+        let up: Vec<QueueItem> = self.upcoming().to_vec();
+        let mut tracks: Vec<TrackVm> = up
             .iter()
             .take(QUEUE_VIEW_MAX)
             .map(|i| {
-                let id = i.track.id.to_string();
+                let id = match &i.track.source {
+                    TrackSource::Remote { .. } => ytm_vm::remote_id(i.track.id.as_str()),
+                    TrackSource::Local { .. } => i.track.id.to_string(),
+                };
                 let mut vm = self.vm_cache.peek(&id).cloned().unwrap_or_else(|| {
                     let mut vm = self.vm_from_item(i);
                     vm.cover = None;
@@ -535,12 +716,41 @@ impl<V: View> Controller<V> {
                 vm
             })
             .collect();
-        let hidden = up.len().saturating_sub(QUEUE_VIEW_MAX);
-        self.view.set_queue(&QueueVm {
+        let mut total: Duration = up.iter().filter_map(|i| i.track.duration).sum();
+        let mut count = up.len();
+        // fila gerenciada: o que ainda não foi entregue ao motor também aparece
+        if let Some(ctx) = &self.ctx {
+            for entry in ctx.tail.iter() {
+                count += 1;
+                if let Entry::Remote(t) = entry {
+                    total += t.duration.unwrap_or_default();
+                }
+                if tracks.len() < QUEUE_VIEW_MAX {
+                    tracks.push(self.entry_vm(entry));
+                }
+            }
+        }
+        let hidden = count.saturating_sub(QUEUE_VIEW_MAX);
+        let mut vm = QueueVm {
             tracks,
-            summary: if up.is_empty() { String::new() } else { format::queue_summary(up.len(), total) },
+            summary: if count == 0 { String::new() } else { format::queue_summary(count, total) },
             more_label: if hidden == 0 { String::new() } else { format!("e mais {}", format::songs_label(hidden as u64)) },
-        });
+            note: if self.ctx.is_some() && self.cfg.autoplay_radio && self.remote_enabled { NOTE_AUTOPLAY.to_owned() } else { String::new() },
+        };
+        self.cover_pass(&mut vm);
+        self.queue_vm = vm.clone();
+        self.view.set_queue(&vm);
+    }
+
+    fn entry_vm(&self, e: &Entry) -> TrackVm {
+        match e {
+            Entry::Remote(t) => {
+                let mut vm = ytm_vm::track_vm(t, false, "");
+                vm.liked = self.liked.contains(&vm.id);
+                vm
+            }
+            Entry::Local(id) => self.vm_cache.peek(id).cloned().unwrap_or(TrackVm { id: id.clone(), title: "Carregando".into(), ..Default::default() }),
+        }
     }
 
     fn push_progress(&self) {
@@ -556,9 +766,12 @@ impl<V: View> Controller<V> {
             return;
         }
         let Some(now) = &self.pb.now else { return };
-        let long_enough = self.position >= LISTEN_MIN || self.duration.is_some_and(|d| self.position * 2 >= d && !d.is_zero());
-        if long_enough {
-            self.jobs.submit(Job::RecordPlay { id: now.id.clone(), listened_ms: self.position.as_millis() as u64 });
+        // histórico só de arquivos locais
+        if !ytm_vm::is_remote_id(&now.id) {
+            let long_enough = self.position >= LISTEN_MIN || self.duration.is_some_and(|d| self.position * 2 >= d && !d.is_zero());
+            if long_enough {
+                self.jobs.submit(Job::RecordPlay { id: now.id.clone(), listened_ms: self.position.as_millis() as u64 });
+            }
         }
         self.recorded_current = true;
     }
@@ -571,16 +784,22 @@ impl<V: View> Controller<V> {
         self.tab = tab;
         self.detail_open = false;
         self.detail_seq += 1; // um detalhe pedido antes desta troca de aba não pode abrir depois dela
+        if tab == NavTab::Explore && self.remote_enabled && !self.explore_requested {
+            self.request_explore();
+        }
+        if self.stale_screens.remove(&tab) {
+            match tab {
+                NavTab::Home => self.publish_home(),
+                NavTab::Explore => self.publish_explore(),
+                NavTab::Search => self.publish_search(),
+                NavTab::Library | NavTab::Settings => {}
+            }
+        }
     }
 
     pub fn detail_closed(&mut self) {
         self.detail_open = false;
         self.detail_seq += 1;
-    }
-
-    fn request_detail(&mut self, what: DetailRef) {
-        self.detail_seq += 1;
-        self.jobs.submit(Job::OpenDetail { seq: self.detail_seq, what });
     }
 
     pub fn toggle_play(&mut self) {
@@ -589,7 +808,7 @@ impl<V: View> Controller<V> {
         } else if let Some(first) = self.recents_ids.first().cloned() {
             self.play_context(&first);
         } else {
-            self.view.toast("Adicione uma pasta de músicas para começar a ouvir.", false);
+            self.toast("Adicione uma pasta de músicas para começar a ouvir.", false);
         }
     }
 
@@ -635,21 +854,14 @@ impl<V: View> Controller<V> {
         self.view.set_volume(self.pb.volume);
     }
 
-    pub fn toggle_shuffle(&mut self) {
-        self.engine.set_shuffle(!self.pb.shuffle);
-    }
-
-    pub fn cycle_repeat(&mut self) {
-        let next = match self.pb.repeat {
-            RepeatVm::Off => RepeatMode::All,
-            RepeatVm::All => RepeatMode::One,
-            RepeatVm::One => RepeatMode::Off,
-        };
-        self.engine.set_repeat(next);
-    }
-
     pub fn retry_track(&mut self) {
-        if let Some(c) = self.current {
+        if self.stalled {
+            // a rede caiu no meio da faixa: o motor retoma de onde parou
+            self.stalled = false;
+            self.pb.error.clear();
+            self.view.set_playback(&self.pb);
+            self.engine.play();
+        } else if let Some(c) = self.current {
             self.pb.error.clear();
             self.view.set_playback(&self.pb);
             self.engine.load(self.queue_items.clone(), c);
@@ -661,44 +873,12 @@ impl<V: View> Controller<V> {
         self.play_context(id);
     }
 
-    fn play_context(&mut self, id: &str) {
-        let (scope, label, shuffle, start) = if let Some(album) = id.strip_prefix("album:") {
-            (Scope::Album(album.to_owned()), String::new(), false, None)
-        } else if id == "liked" {
-            (Scope::Liked, "Curtidos".to_owned(), false, None)
-        } else if id == "shuffle-all" {
-            (Scope::All, "Biblioteca".to_owned(), true, None)
-        } else if self.detail_open && self.detail_ids.iter().any(|t| t == id) {
-            (Scope::Ids(self.detail_ids.clone()), self.detail_title.clone(), false, Some(id.to_owned()))
-        } else if self.tab == NavTab::Search && self.search_ids.iter().any(|t| t == id) {
-            self.remember_search();
-            (Scope::Ids(self.search_ids.clone()), "Busca".to_owned(), false, Some(id.to_owned()))
-        } else if self.recents_ids.iter().any(|t| t == id) {
-            (Scope::Ids(self.recents_ids.clone()), "Recentes".to_owned(), false, Some(id.to_owned()))
-        } else {
-            (Scope::Ids(vec![id.to_owned()]), "Biblioteca".to_owned(), false, None)
-        };
-        self.jobs.submit(Job::Play { scope, start_id: start, shuffle, label });
-    }
-
     fn remember_search(&mut self) {
         if self.search_query.trim().len() >= 2 {
             self.cfg.push_recent_search(&self.search_query);
             self.save_config();
             self.publish_search();
         }
-    }
-
-    pub fn open_album(&mut self, id: &str) {
-        self.request_detail(DetailRef::Album(id.to_owned()));
-    }
-
-    pub fn open_playlist(&mut self, id: &str) {
-        self.request_detail(DetailRef::Playlist(id.to_owned()));
-    }
-
-    pub fn open_genre(&mut self, id: &str) {
-        self.request_detail(DetailRef::Genre(id.to_owned()));
     }
 
     pub fn open_collection(&mut self, id: &str) {
@@ -708,17 +888,18 @@ impl<V: View> Controller<V> {
             "albums" => self.request_detail(DetailRef::Albums),
             _ => {
                 let msg = if self.library.playlists.is_empty() { "Você ainda não criou playlists. Use Criar playlist." } else { "Suas playlists estão logo abaixo." };
-                self.view.toast(msg, false);
+                self.toast(msg, false);
             }
         }
     }
 
-    /// Toca o detalhe aberto (ou o embaralha).
-    pub fn play_all(&mut self, shuffle: bool) {
-        if self.detail_ids.is_empty() {
-            return;
-        }
-        self.jobs.submit(Job::Play { scope: Scope::Ids(self.detail_ids.clone()), start_id: None, shuffle, label: self.detail_title.clone() });
+    fn request_detail(&mut self, what: DetailRef) {
+        self.detail_seq += 1;
+        self.jobs.submit(Job::OpenDetail { seq: self.detail_seq, what });
+    }
+
+    pub fn open_genre(&mut self, id: &str) {
+        self.request_detail(DetailRef::Genre(id.to_owned()));
     }
 
     pub fn toggle_like(&mut self, id: &str) {
@@ -733,50 +914,82 @@ impl<V: View> Controller<V> {
             self.view.set_playback(&self.pb);
         }
         self.view.mark_liked(id, liked);
+        self.refresh_liked_count();
+        if ytm_vm::is_remote_id(id) {
+            match self.remote_tracks.peek(&id.to_owned()).cloned() {
+                Some(track) => self.jobs.submit(Job::Remote(crate::remote::RemoteJob::Like { track, liked })),
+                None => {
+                    // sem os dados da faixa não dá para guardar; desfaz a marca
+                    self.liked.remove(id);
+                    self.pending_likes.remove(id);
+                    self.view.mark_liked(id, false);
+                    self.toast("Não consegui guardar esta curtida. Abra a música de novo e tente outra vez.", true);
+                    return;
+                }
+            }
+        } else {
+            self.jobs.submit(Job::SetLiked { id: id.to_owned(), liked });
+        }
+        let text = if liked { "Adicionada às Curtidas" } else { "Removida das Curtidas" };
+        self.toast_with(text, false, "Desfazer", ToastAction::UndoLike { id: id.to_owned(), was_liked: !liked });
+    }
+
+    fn refresh_liked_count(&mut self) {
         if let Some(c) = self.library.collections.iter_mut().find(|c| c.id == "liked") {
             c.count_label = format::songs_label(self.liked.len() as u64);
             self.view.set_library(&self.library);
         }
-        self.jobs.submit(Job::SetLiked { id: id.to_owned(), liked });
+    }
+
+    pub fn create_playlist(&mut self, name: &str, with_track: &str) {
+        let add = if with_track.is_empty() {
+            None
+        } else {
+            let remote = ytm_vm::is_remote_id(with_track).then(|| self.remote_tracks.peek(&with_track.to_owned()).cloned()).flatten();
+            Some((with_track.to_owned(), remote.map(Box::new)))
+        };
+        self.jobs.submit(Job::CreatePlaylist { name: name.to_owned(), add });
+    }
+
+    pub fn add_to_playlist(&mut self, track_id: &str, playlist_id: &str) {
+        let remote = ytm_vm::is_remote_id(track_id).then(|| self.remote_tracks.peek(&track_id.to_owned()).cloned()).flatten();
+        if ytm_vm::is_remote_id(track_id) && remote.is_none() {
+            self.toast("Não consegui adicionar esta música. Abra-a de novo e tente outra vez.", true);
+            return;
+        }
+        self.jobs.submit(Job::AddToPlaylist { playlist_id: playlist_id.to_owned(), track_id: track_id.to_owned(), remote: remote.map(Box::new) });
     }
 
     pub fn queue_track(&mut self, id: &str, mode: QueueMode) {
-        self.jobs.submit(Job::QueueItems { id: id.to_owned(), mode });
-    }
-
-    pub fn queue_remove(&mut self, index: usize) {
-        if let Some(item) = self.upcoming().get(index) {
-            self.engine.remove(item.id);
+        if ytm_vm::is_remote_id(id) {
+            if let Some(track) = self.remote_tracks.peek(&id.to_owned()).cloned() {
+                self.jobs.submit(Job::Remote(crate::remote::RemoteJob::ResolveQueued { track, quality: self.cfg.stream_quality.to_core(), play_next: mode == QueueMode::PlayNext }));
+            }
+        } else {
+            self.jobs.submit(Job::QueueItems { id: id.to_owned(), mode });
         }
     }
 
-    pub fn queue_jump(&mut self, index: usize) {
-        if let Some(item) = self.upcoming().get(index) {
-            self.engine.jump_to(item.id);
-        }
+    /// Entrega itens prontos ao motor ("Tocar em seguida" / "Adicionar à fila") e oferece Desfazer.
+    fn queued(&mut self, items: Vec<QueueItem>, play_next: bool) {
+        let n = items.len();
+        let ids: Vec<QueueItemId> = items.iter().map(|i| i.id).collect();
+        if play_next { self.engine.play_next(items) } else { self.engine.enqueue(items) }
+        let text = match (play_next, n) {
+            (true, 1) => "Toca em seguida",
+            (true, _) => "Tocam em seguida",
+            (false, 1) => "Adicionada à fila",
+            (false, _) => "Adicionadas à fila",
+        };
+        self.toast_with(text, false, "Desfazer", ToastAction::UndoQueue(ids));
     }
 
     pub fn queue_clear(&mut self) {
-        self.engine.clear();
-    }
-
-    pub fn search(&mut self, text: &str) {
-        self.search_query = text.trim().to_owned();
-        self.search_seq += 1;
-        if self.search_query.is_empty() {
-            self.search_songs.clear();
-            self.search_albums.clear();
-            self.search_ids.clear();
-            self.publish_search();
-        } else {
-            self.jobs.submit(Job::Search { seq: self.search_seq, query: self.search_query.clone() });
+        if let Some(ctx) = self.ctx.as_mut() {
+            ctx.tail.clear();
+            ctx.radio_exhausted = true;
         }
-    }
-
-    pub fn search_filters(&mut self, kind: i32, local: bool) {
-        self.search_kind = kind;
-        self.search_local = local;
-        self.publish_search();
+        self.engine.clear();
     }
 
     pub fn clear_recent_searches(&mut self) {
@@ -785,29 +998,17 @@ impl<V: View> Controller<V> {
         self.publish_search();
     }
 
-    fn publish_search(&self) {
-        let state = if self.search_query.is_empty() {
-            SearchStateVm::Idle
-        } else if !self.search_local || (self.search_songs.is_empty() && self.search_albums.is_empty()) {
-            SearchStateVm::Empty
-        } else {
-            SearchStateVm::Results
-        };
-        let (songs, albums) = if self.search_local { (self.search_songs.clone(), self.search_albums.clone()) } else { (vec![], vec![]) };
-        let mut songs = songs;
-        self.flag_tracks(&mut songs);
-        self.view.set_search(&SearchVm { state, songs, albums, recent: self.cfg.recent_searches.clone() });
-    }
-
-    pub fn create_playlist(&mut self, name: &str) {
-        self.jobs.submit(Job::CreatePlaylist(name.to_owned()));
+    pub fn remove_recent_search(&mut self, text: &str) {
+        self.cfg.recent_searches.retain(|s| s != text);
+        self.save_config();
+        self.publish_search();
     }
 
     /// Android: sem seletor de pastas nesta versão; adiciona (ou reescaneia) `Music` e pede a permissão se faltar.
     #[cfg(target_os = "android")]
     pub fn add_folder(&mut self) {
         if !crate::android::add_music_folder_from_ui() {
-            self.view.toast("Permita o acesso às músicas para o Kazzu ler a pasta Música do aparelho.", true);
+            self.toast("Permita o acesso às músicas para o Kazzu ler a pasta Música do aparelho.", true);
         }
     }
 
@@ -819,7 +1020,7 @@ impl<V: View> Controller<V> {
             sink(Msg::FolderPicked(picked.map(|h| h.path().to_path_buf())));
         });
         if spawned.is_err() {
-            self.view.toast("Não foi possível abrir o seletor de pastas.", true);
+            self.toast("Não foi possível abrir o seletor de pastas.", true);
         }
     }
 
@@ -839,12 +1040,70 @@ impl<V: View> Controller<V> {
     }
 
     pub fn coming_soon(&mut self, what: &str) {
-        self.view.toast(&format!("{what} chega em uma próxima versão."), false);
+        self.toast(&format!("{what} chega em uma próxima versão."), false);
+    }
+
+    pub fn clear_history(&mut self) {
+        self.jobs.submit(Job::ClearHistory);
+    }
+
+    /// "Relatar um problema": grava um texto local com versão e sistema. Nada é enviado.
+    pub fn report_problem(&mut self) {
+        let Some(dir) = self.data_dir.clone() else {
+            self.toast("Não achei onde guardar o relato.", true);
+            return;
+        };
+        let text = format!(
+            "Relato do Kazzu\nVersão: {}\nSistema: {} {}\n\nEscreva aqui o que aconteceu e envie este arquivo por e-mail ou como issue no GitHub. O Kazzu não envia nada sozinho.\n",
+            env!("CARGO_PKG_VERSION"),
+            std::env::consts::OS,
+            std::env::consts::ARCH
+        );
+        self.jobs.submit(Job::WriteReport { path: dir.join("kazzu-relato.txt"), text });
     }
 
     // ----------------------------------------------------------------------------------------
-    // Preferências
+    // Toast com ação, desempenho e preferências
     // ----------------------------------------------------------------------------------------
+
+    /// Botão do aviso ("Desfazer", "Tentar de novo").
+    pub fn toast_action(&mut self) {
+        match std::mem::replace(&mut self.toast_action, ToastAction::None) {
+            ToastAction::None => {}
+            ToastAction::UndoLike { id, was_liked } => {
+                // volta ao estado anterior: toggle_like inverte o atual
+                if self.liked.contains(&id) != was_liked {
+                    self.toggle_like(&id);
+                    self.toast_action = ToastAction::None;
+                }
+            }
+            ToastAction::UndoQueue(ids) => {
+                for id in ids {
+                    self.engine.remove(id);
+                }
+            }
+            ToastAction::RetryPlay => self.retry_track(),
+            ToastAction::RetryStart => self.retry_start(),
+            ToastAction::RetryLookahead => self.unstall(true),
+            ToastAction::RetryReresolve(id) => {
+                self.expired_log.remove(&id);
+                self.pb.error.clear();
+                self.view.set_playback(&self.pb);
+                self.reresolve(id);
+            }
+        }
+    }
+
+    pub fn perf_offer_accept(&mut self) {
+        self.perf_dismissed = true;
+        self.view.set_perf_offer(false);
+        self.set_reduce_transparency(true);
+    }
+
+    pub fn perf_offer_dismiss(&mut self) {
+        self.perf_dismissed = true;
+        self.view.set_perf_offer(false);
+    }
 
     pub fn set_theme(&mut self, theme: ThemePref) {
         self.cfg.theme = theme;
@@ -871,12 +1130,36 @@ impl<V: View> Controller<V> {
         self.save_config();
     }
 
+    pub fn set_stream_quality(&mut self, q: StreamQualityPref) {
+        self.cfg.stream_quality = q;
+        self.push_prefs();
+        self.save_config();
+    }
+
+    pub fn set_autoplay_radio(&mut self, on: bool) {
+        self.cfg.autoplay_radio = on;
+        self.push_prefs();
+        self.save_config();
+        self.publish_queue();
+        if on {
+            self.ensure_lookahead();
+        }
+    }
+
+    pub fn dismiss_first_run_banner(&mut self) {
+        self.cfg.first_run_dismissed = true;
+        self.save_config();
+        self.publish_home();
+    }
+
     fn push_prefs(&self) {
         let prefs = PrefsVm {
             theme: self.cfg.theme,
             accent: self.cfg.accent,
             reduce_motion: self.cfg.reduce_motion.unwrap_or(false),
             reduce_transparency: self.cfg.reduce_transparency.unwrap_or(false),
+            stream_quality: self.cfg.stream_quality,
+            autoplay_radio: self.cfg.autoplay_radio,
         };
         self.view.set_prefs(&prefs);
     }
@@ -888,21 +1171,25 @@ impl<V: View> Controller<V> {
 
     fn publish_settings(&self) {
         let providers = vec![
-            ProviderVm { id: "local".into(), name: "Biblioteca local".into(), status_label: self.settings.summary.clone(), connected: self.settings.has_library, available: true },
-            ProviderVm { id: "ytmusic".into(), name: "YT Music".into(), status_label: "Chega em uma próxima versão".into(), connected: false, available: false },
-            ProviderVm { id: "spotify".into(), name: "Spotify".into(), status_label: "Chega em uma próxima versão".into(), connected: false, available: false },
-            ProviderVm { id: "tidal-qobuz".into(), name: "Tidal e Qobuz".into(), status_label: "Chegam em uma versão futura".into(), connected: false, available: false },
+            ProviderVm {
+                id: "ytmusic".into(),
+                name: ytm_vm::SOURCE_NAME.into(),
+                status_label: if self.remote_enabled { "Ativo e padrão. Sem login.".into() } else { "Desligado".into() },
+                connected: self.remote_enabled,
+                available: self.remote_enabled,
+            },
+            ProviderVm { id: "local".into(), name: "Arquivos neste aparelho".into(), status_label: self.settings.summary.clone(), connected: self.settings.has_library, available: true },
+            ProviderVm { id: "spotify".into(), name: "Spotify".into(), status_label: "Em breve".into(), connected: false, available: false },
+            ProviderVm { id: "tidal-qobuz".into(), name: "Tidal e Qobuz".into(), status_label: "Em breve".into(), connected: false, available: false },
         ];
         self.view.set_settings(&self.settings, &providers);
     }
 
+    /// Pede a gravação da configuração ao worker (nenhum I/O na thread de UI).
     fn save_config(&mut self) {
         self.cfg_dirty = false;
-        if let Some(path) = &self.cfg_path
-            && let Err(e) = self.cfg.save(path)
-        {
-            log::warn!("{e}");
-            self.view.toast("Não foi possível salvar as configurações.", true);
+        if let Some(path) = &self.cfg_path {
+            self.jobs.submit(Job::SaveConfig { path: path.clone(), config: Box::new(self.cfg.clone()) });
         }
     }
 
@@ -922,14 +1209,19 @@ impl<V: View> Controller<V> {
     }
 
     /// Mostra um aviso do app (ex.: configuração corrompida na abertura).
-    pub fn notice(&self, text: &str, error: bool) {
-        self.view.toast(text, error);
+    pub fn notice(&mut self, text: &str, error: bool) {
+        self.toast(text, error);
     }
 
     /// Fim do app: grava a configuração e para o motor. Seguro chamar mais de uma vez.
     pub fn shutdown(&mut self) {
-        self.cfg_dirty = true;
-        self.flush_config();
+        // no encerramento a gravação é síncrona: o worker pode já não existir (única escrita fora do worker)
+        if let Some(path) = &self.cfg_path
+            && let Err(e) = self.cfg.save(path)
+        {
+            log::warn!("{e}");
+        }
+        self.cfg_dirty = false;
         self.engine.stop();
     }
 
@@ -937,5 +1229,4 @@ impl<V: View> Controller<V> {
     pub fn upcoming_ids(&self) -> Vec<String> {
         self.upcoming().iter().map(|i| i.track.id.to_string()).collect()
     }
-
 }

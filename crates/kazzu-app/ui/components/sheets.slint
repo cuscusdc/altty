@@ -1,0 +1,209 @@
+// Folhas (vidro nível 3): moldura, itens de menu, MenuSheet, PlaylistSheet, NewPlaylistSheet e QueueSheet (SLINT_SPEC §3.6, §4.7, §4.8).
+import { ListView } from "std-widgets.slint";
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { Metrics } from "../theme/metrics.slint";
+import { AppState, Track, Playlist, Tab } from "../theme/app-contract.slint";
+import { Nav } from "../theme/nav-state.slint";
+import { IconButton, GlassPanel } from "../theme/atoms.slint";
+import { FocusRing, TextButton, PillButton, EmptyState, PillKind } from "basics.slint";
+import { Cover, TrackRow, Mosaic } from "media.slint";
+
+// Moldura da folha: nível 3. compact: encostada embaixo, largura da janela, raio superior 32 (o vidro sangra até a borda
+// e o conteúdo fica acima da barra de gestos); ≥ 600: centralizada, 560, flutuante a 16 do fundo.
+export component SheetFrame inherits GlassPanel {
+    in property <length> win-w;
+    in property <length> win-h;
+    in property <length> body-h;             // altura do conteúdo (sem a folga da área segura)
+    in property <string> title;
+    in property <length> lift: 0px;           // sobe a folha (teclado sobre o campo de nome)
+    property <length> lift-shown: root.lift;
+    animate lift-shown { duration: Theme.dur-medium; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
+    property <float> appear: 0.0;
+    init => { root.appear = 1.0; }
+    animate appear { duration: Theme.dur-medium; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
+    property <length> max-body: win-h - AppState.safe-top - 24px - AppState.safe-bottom - (Theme.compact ? 0px : 16px);
+    property <length> body: min(body-h, max-body);
+    level: 3; radius: Theme.sheet-radius;
+    width: Theme.compact ? win-w : min(560px, win-w - 32px);
+    x: (win-w - self.width) / 2;
+    height: Theme.compact ? body + AppState.safe-bottom + Theme.sheet-radius : body;
+    y: (Theme.compact ? win-h - body - AppState.safe-bottom : win-h - 16px - AppState.safe-bottom - body) + (1.0 - appear) * 48px - root.lift-shown;
+    opacity: appear;
+    accessible-role: groupbox; accessible-label: title;
+    Rectangle { x: (parent.width - self.width) / 2; y: 8px; width: Theme.grabber-w; height: Theme.grabber-h; border-radius: 2px; background: Theme.ink.with-alpha(0.45); accessible-role: none; }
+    inner := Rectangle { x: 0px; y: 0px; width: parent.width; height: root.body; @children }
+}
+
+// Item de menu: ícone 24 ink-2, texto 16 semibold, dica (hint) ink-3. Altura 52.
+export component MenuItem inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    in property <string> hint;
+    in property <bool> enabled: true;
+    in property <color> ink: Theme.ink;
+    callback clicked();
+    height: 52px; border-radius: 16px;
+    background: !enabled ? transparent : ta.pressed ? Theme.ink.with-alpha(0.16) : (ta.has-hover || fs.has-focus) ? Theme.ink.with-alpha(0.08) : transparent;
+    opacity: enabled ? 1.0 : 0.5;
+    accessible-role: button; accessible-label: label + (hint != "" ? ", " + hint : ""); accessible-enabled: enabled;
+    accessible-action-default => { if (enabled) { root.clicked(); } }
+    ta := TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false; enabled: root.enabled; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
+    HorizontalLayout {
+        padding-left: 14px; padding-right: 14px; spacing: 16px;
+        Image { source: root.icon; width: Theme.icon; height: Theme.icon; y: (root.height - Theme.icon) / 2; colorize: Theme.ink-2; }
+        Text { text: root.label; font-size: Theme.fs-body; font-weight: 600; color: root.ink; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; accessible-role: none; }
+        if root.hint != "" : Text { text: root.hint; font-size: Theme.fs-subhead; color: Theme.ink-3; vertical-alignment: center; accessible-role: none; }
+    }
+    FocusRing { active: fs.has-focus; radius: 16px; }
+}
+
+// Menu da faixa (cabeçalho com capa 56 + até 7 itens). Fecha ao escolher.
+export component MenuSheet inherits SheetFrame {
+    title: "Menu da faixa";
+    body-h: col.preferred-height + 16px;
+    col := VerticalLayout {
+        padding-top: 28px; padding-left: 12px; padding-right: 12px; padding-bottom: 8px; spacing: 0px;
+        HorizontalLayout {
+            height: 72px; padding-left: 4px; padding-right: 4px; spacing: 14px;
+            Cover { width: 56px; height: 56px; y: 8px; source: AppState.menu-track.cover; radius: 16px; }
+            VerticalLayout { alignment: center; horizontal-stretch: 1;
+                Text { text: AppState.menu-track.title; font-size: Theme.fs-headline; font-weight: Theme.fw-headline; color: Theme.ink; overflow: elide; wrap: no-wrap; accessible-role: AccessibleRole.text; }
+                Text { text: AppState.menu-track.artist; font-size: Theme.fs-subhead; color: Theme.ink-2; overflow: elide; wrap: no-wrap; accessible-role: AccessibleRole.text; }
+            }
+        }
+        Rectangle { height: 1px; background: Theme.ink.with-alpha(0.10); }
+        MenuItem { icon: Icons.next; label: "Tocar em seguida"; clicked => { AppState.play-next(AppState.menu-track.id); AppState.menu-open = false; } }
+        MenuItem { icon: Icons.queue; label: "Adicionar à fila"; clicked => { AppState.enqueue(AppState.menu-track.id); AppState.menu-open = false; } }
+        MenuItem {
+            icon: AppState.menu-track.liked ? Icons.heart-fill : Icons.heart; label: AppState.menu-track.liked ? "Descurtir" : "Curtir";
+            clicked => { AppState.toggle-like(AppState.menu-track.id); AppState.menu-open = false; }
+        }
+        MenuItem {
+            icon: Icons.playlist-add; label: "Adicionar à playlist";
+            clicked => { AppState.playlist-sheet-track = AppState.menu-track.id; AppState.menu-open = false; AppState.playlist-sheet-open = true; }
+        }
+        MenuItem { icon: Icons.download; label: "Baixar"; hint: "Wi-Fi"; clicked => { AppState.download-track(AppState.menu-track.id); AppState.menu-open = false; } }
+        MenuItem { icon: Icons.disc; label: "Ir para o álbum"; clicked => { AppState.goto-album(AppState.menu-track.id); AppState.menu-open = false; if (AppState.player-open) { Nav.close-player(); } } }
+        MenuItem { icon: Icons.user; label: "Ir para o artista"; clicked => { AppState.goto-artist(AppState.menu-track.id); AppState.menu-open = false; if (AppState.player-open) { Nav.close-player(); } } }
+    }
+}
+
+// "Adicionar à playlist": "Nova playlist" + as existentes.
+export component PlaylistSheet inherits SheetFrame {
+    title: "Adicionar à playlist";
+    property <length> list-h: min(AppState.playlists.length * 64px, root.win-h * 0.45);
+    body-h: 28px + 56px + 52px + 8px + list-h + 24px;
+    VerticalLayout {
+        padding-top: 28px; padding-left: 12px; padding-right: 12px; spacing: 0px;
+        Text { text: "Adicionar à playlist"; height: 56px; font-size: Theme.fs-title-2; font-weight: Theme.fw-title-2; letter-spacing: Theme.ls-title-2; color: Theme.ink; vertical-alignment: center; horizontal-alignment: left; accessible-role: AccessibleRole.text; }
+        MenuItem {
+            icon: Icons.plus; label: "Nova playlist"; ink: Theme.accent;
+            clicked => { AppState.new-playlist-track = AppState.playlist-sheet-track; AppState.playlist-sheet-open = false; AppState.new-playlist-open = true; }
+        }
+        Rectangle { height: 8px; }
+        ListView {
+            height: root.list-h;
+            for p in AppState.playlists : Rectangle {
+                height: 64px; border-radius: 16px;
+                background: pta.pressed ? Theme.ink.with-alpha(0.16) : pta.has-hover ? Theme.ink.with-alpha(0.08) : transparent;
+                accessible-role: button; accessible-label: p.name + ", " + p.count-label;
+                accessible-action-default => { AppState.add-to-playlist(AppState.playlist-sheet-track, p.id); AppState.playlist-sheet-open = false; }
+                pta := TouchArea { mouse-cursor: pointer; clicked => { AppState.add-to-playlist(AppState.playlist-sheet-track, p.id); AppState.playlist-sheet-open = false; } }
+                HorizontalLayout {
+                    padding: 8px; padding-left: 12px; spacing: 14px;
+                    Mosaic { width: 48px; height: 48px; covers: p.covers; border-radius: 12px; }
+                    VerticalLayout { alignment: center; horizontal-stretch: 1;
+                        Text { text: p.name; font-size: Theme.fs-body; font-weight: 600; color: Theme.ink; overflow: elide; wrap: no-wrap; accessible-role: none; }
+                        Text { text: p.count-label; font-size: Theme.fs-subhead; color: Theme.ink-2; overflow: elide; wrap: no-wrap; accessible-role: none; }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// "Nova playlist": campo de nome com sugestão e "Criar playlist" (primary).
+export component NewPlaylistSheet inherits SheetFrame {
+    title: "Nova playlist";
+    // celular: com o campo em foco o teclado ocupa a base; sobe ~40% da janela (≥ 600 não muda nada)
+    lift: (Theme.compact && field.has-focus) ? root.win-h * 0.4 : 0px;
+    body-h: 28px + 56px + 72px + 12px + Theme.hit + 24px;
+    property <string> suggestion: "Minha playlist";
+    function create() {
+        AppState.create-playlist-named(field.text != "" ? field.text : root.suggestion, AppState.new-playlist-track);
+        AppState.new-playlist-open = false;
+    }
+    VerticalLayout {
+        padding-top: 28px; padding-left: 16px; padding-right: 16px; spacing: 0px;
+        Text { text: "Nova playlist"; height: 56px; font-size: Theme.fs-title-2; font-weight: Theme.fw-title-2; letter-spacing: Theme.ls-title-2; color: Theme.ink; vertical-alignment: center; accessible-role: AccessibleRole.text; }
+        Rectangle {
+            height: 72px;
+            Rectangle {
+                y: 8px; height: Theme.field-h; border-radius: 20px;
+                background: Theme.ink.with-alpha(0.12); border-width: field.has-focus ? 2px : 1px; border-color: field.has-focus ? Theme.focus-ring : Theme.ink.with-alpha(0.16);
+                accessible-role: groupbox; accessible-label: "Nome da playlist";
+                field := TextInput {
+                    x: 18px; width: parent.width - 36px; height: parent.height;
+                    text: root.suggestion;
+                    font-size: Theme.fs-body; color: Theme.ink; vertical-alignment: center; single-line: true;
+                    accessible-role: text-input; accessible-label: "Nome da playlist"; accessible-placeholder-text: root.suggestion;
+                    accepted => { root.create(); }
+                    init => { self.focus(); self.select-all(); }
+                }
+                if field.text == "" : Text { x: 18px; height: parent.height; text: root.suggestion; font-size: Theme.fs-body; color: Theme.ink-3; vertical-alignment: center; accessible-role: none; }
+            }
+        }
+        Rectangle { height: 12px; }
+        HorizontalLayout { alignment: stretch; spacing: 12px;
+            PillButton { kind: PillKind.quiet; label: "Cancelar"; clicked => { AppState.new-playlist-open = false; } }
+            PillButton { label: "Criar playlist"; horizontal-stretch: 1; clicked => { root.create(); } }
+        }
+    }
+}
+
+// Fila: nível 3, quase tela cheia. "Tocando agora", "A seguir" (+ origem), seta de mover para cima e remover por linha.
+export component QueueSheet inherits SheetFrame {
+    title: "Fila";
+    body-h: root.win-h - AppState.safe-top - 24px;
+    property <bool> empty: AppState.queue.length == 0;
+    VerticalLayout {
+        padding-top: 24px; padding-left: 8px; padding-right: 8px; spacing: 0px;
+        HorizontalLayout {
+            height: 56px; padding-left: 12px; spacing: 4px;
+            Text { text: "Fila"; font-size: Theme.fs-title-1; font-weight: Theme.fw-title-1; letter-spacing: Theme.ls-title-1; color: Theme.ink; vertical-alignment: center; horizontal-stretch: 1; accessible-role: AccessibleRole.text; }
+            if !root.empty : TextButton { label: "Limpar fila"; y: (parent.height - self.height) / 2; clicked => { AppState.queue-clear(); } }
+            IconButton { icon: Icons.close; label: "Fechar a fila"; tint: Theme.ink; y: (parent.height - self.height) / 2; clicked => { AppState.queue-open = false; } }
+        }
+        if root.empty : Rectangle {
+            vertical-stretch: 1;
+            VerticalLayout { alignment: center; padding: 8px;
+                EmptyState { icon: Icons.queue; title: "A fila está vazia"; message: "Escolha uma música para começar a ouvir."; action-label: "Ir para o Início";
+                    action => { AppState.queue-open = false; Nav.close-player(); Nav.go(Tab.home); } }
+            }
+        }
+        // fixo: "Tocando agora" e o cabeçalho de "A seguir" (o ListView só aceita um `for`, então o que não é linha fica fora dele)
+        if !root.empty : VerticalLayout {
+            Text { height: 32px; text: "Tocando agora"; font-size: Theme.fs-subhead; font-weight: 700; color: Theme.ink-2; vertical-alignment: center; accessible-role: AccessibleRole.text; }
+            TrackRow { track: AppState.now; emphasize: true; show-more: false; clicked => { AppState.queue-open = false; Nav.close-player(); } }
+            Rectangle { height: 12px; }
+            Text { height: 32px; text: AppState.now-origin != "" ? "A seguir, de " + AppState.now-origin : "A seguir"; font-size: Theme.fs-subhead; font-weight: 700; color: Theme.ink-2; vertical-alignment: center; overflow: elide; accessible-role: AccessibleRole.text; }
+        }
+        if !root.empty : ListView {
+            vertical-stretch: 1;
+            for t[i] in AppState.queue : HorizontalLayout {
+                height: Theme.row-h; spacing: 0px;
+                TrackRow { track: t; show-more: false; horizontal-stretch: 1; clicked => { AppState.queue-jump(t.id); } }
+                if i > 0 : IconButton { icon: Icons.arrow-up; label: "Mover " + t.title + " para cima"; tint: Theme.ink-2; y: (parent.height - self.height) / 2; clicked => { AppState.queue-move-up(t.id); } }
+                if i == 0 : Rectangle { width: Theme.hit; }
+                IconButton { icon: Icons.close; label: "Remover " + t.title + " da fila"; tint: Theme.ink-2; y: (parent.height - self.height) / 2; clicked => { AppState.queue-remove(t.id); } }
+            }
+        }
+        if !root.empty && (AppState.queue-more-label != "" || AppState.queue-note != "") : VerticalLayout { padding-top: 8px; spacing: 4px;
+            if AppState.queue-more-label != "" : Text { text: AppState.queue-more-label; font-size: Theme.fs-subhead; color: Theme.ink-2; horizontal-alignment: center; accessible-role: AccessibleRole.text; }
+            if AppState.queue-note != "" : Text { text: AppState.queue-note; font-size: Theme.fs-subhead; color: Theme.ink-2; wrap: word-wrap; horizontal-alignment: center; accessible-role: AccessibleRole.text; }
+        }
+        Rectangle { height: 12px + AppState.safe-bottom; }
+    }
+}

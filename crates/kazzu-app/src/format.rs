@@ -109,6 +109,20 @@ pub fn badge(codec: &str, lossless: bool, bit_depth: Option<u8>, sample_rate: Op
     Badge { codec: codec.to_uppercase(), detail, detail_long, hires }
 }
 
+/// Selo de qualidade em texto: "OPUS 160 kbps", "AAC 128 kbps", "FLAC 24/96".
+pub fn quality_label(f: &kazzu_core::AudioFormat) -> String {
+    let b = badge(&f.codec.to_string(), f.codec.is_lossless(), f.bit_depth, f.sample_rate, f.bitrate_kbps);
+    if b.codec.is_empty() {
+        String::new()
+    } else if b.detail_long.is_empty() {
+        b.codec
+    } else if f.codec.is_lossless() {
+        format!("{} {}", b.codec, b.detail)
+    } else {
+        format!("{} {}", b.codec, b.detail_long)
+    }
+}
+
 /// O motor chama WAV/AIFF/CAF de "PCM"; ao usuário interessa o nome do contêiner.
 pub fn pcm_label(path: Option<&std::path::Path>) -> &'static str {
     match path.and_then(|p| p.extension()).and_then(|e| e.to_str()).map(str::to_ascii_lowercase).as_deref() {
@@ -166,6 +180,18 @@ mod tests {
         assert_eq!(pcm_label(Some(Path::new("x.aiff"))), "AIFF");
         assert_eq!(pcm_label(Some(Path::new("x.bin"))), "PCM");
         assert_eq!(pcm_label(None), "PCM");
+    }
+
+    #[test]
+    fn quality_labels() {
+        use kazzu_core::{AudioFormat, Codec};
+        let mut f = AudioFormat::new(Codec::Opus);
+        f.bitrate_kbps = Some(160);
+        assert_eq!(quality_label(&f), "OPUS 160 kbps");
+        let mut f = AudioFormat::new(Codec::Flac);
+        (f.bit_depth, f.sample_rate) = (Some(24), Some(96_000));
+        assert_eq!(quality_label(&f), "FLAC 24/96");
+        assert_eq!(quality_label(&AudioFormat::new(Codec::Aac)), "AAC");
     }
 
     #[test]

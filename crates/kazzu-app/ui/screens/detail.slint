@@ -1,58 +1,67 @@
-// Detalhe de coleção, álbum, playlist ou gênero: lista de faixas (virtualizada) ou grade de álbuns.
-import { ListView } from "std-widgets.slint";
+// Detalhe (SLINT_SPEC §4.5): álbum, artista, playlist, coleção ou humor. Faixas em ListView (virtualizada).
 import { Theme } from "../theme/tokens.slint";
 import { Icons } from "../theme/icons.slint";
-import { Tab, AppState, DetailKind } from "../theme/app-contract.slint";
+import { Metrics } from "../theme/metrics.slint";
+import { AppState, DetailKind, LoadState } from "../theme/app-contract.slint";
+import { Nav } from "../theme/nav-state.slint";
 import { IconButton } from "../theme/atoms.slint";
-import { EmptyState, PillButton, PillKind } from "../components/basics.slint";
-import { TrackRow, AlbumTile } from "../components/media.slint";
-import { ScreenScroll } from "../components/layout.slint";
+import { Gutter, AlbumGrid, HRail } from "../components/layout.slint";
+import { SectionHeader, EmptyState, SkeletonRow, SourceTag, PillButton, PillKind, RoundButton, OfflineBar } from "../components/basics.slint";
+import { TrackRow, Cover, MediaTile } from "../components/media.slint";
+
+// Cabeçalho: voltar, capa 64% (máx. 280, raio 28), título, subtítulo, SourceTag, Tocar · Aleatório · Curtir.
+component DetailHeader inherits VerticalLayout {
+    in property <length> avail: Metrics.content-w;
+    property <length> cover-side: min(280px, avail * 0.64);
+    alignment: start; spacing: 0px;
+    Rectangle { height: AppState.safe-top + 8px; }
+    Gutter { height: Theme.topbar-h; RoundButton { y: (parent.height - self.height) / 2; icon: Icons.chevron-left; label: "Voltar"; clicked => { Nav.close-detail(); } } Rectangle { horizontal-stretch: 1; } }
+    Rectangle { height: 12px; }
+    HorizontalLayout { alignment: center; Cover {
+        width: root.cover-side; height: root.cover-side; source: AppState.detail-cover; radius: 28px; background: Theme.surface-2; border-radius: 28px;
+        drop-shadow-blur: Theme.e3-blur; drop-shadow-offset-y: Theme.e3-y; drop-shadow-color: Theme.e3-color;
+    } }
+    Rectangle { height: 20px; }
+    Gutter { VerticalLayout { spacing: 4px; horizontal-stretch: 1;
+        Text { text: AppState.detail-title; font-size: Theme.fs-title-1; font-weight: Theme.fw-title-1; letter-spacing: Theme.ls-title-1; color: Theme.ink; horizontal-alignment: center; wrap: word-wrap; accessible-role: text; }
+        Text { text: AppState.detail-subtitle; font-size: Theme.fs-subhead; color: Theme.ink-2; horizontal-alignment: center; wrap: word-wrap; accessible-role: text; }
+        if AppState.detail-source != "" : HorizontalLayout { alignment: center; padding-top: 8px; SourceTag { text: AppState.detail-source; } }
+    } }
+    if AppState.detail-state == LoadState.ready && AppState.detail-kind != DetailKind.albums : Gutter { padding-top: 20px;
+        HorizontalLayout { alignment: center; spacing: 10px; horizontal-stretch: 1;
+            PillButton { icon: Icons.play; label: "Tocar"; clicked => { AppState.play-all(); } }
+            PillButton { kind: PillKind.quiet; icon: Icons.shuffle; label: "Aleatório"; clicked => { AppState.shuffle-all(); } }
+            if AppState.detail-can-save : Rectangle { width: Theme.hit; height: Theme.hit; border-radius: Theme.hit / 2; background: Theme.ink.with-alpha(0.14); border-width: 1px; border-color: Theme.ink.with-alpha(0.16);
+                IconButton { icon: AppState.detail-saved ? Icons.heart-fill : Icons.heart; active: AppState.detail-saved; tint: Theme.ink; label: AppState.detail-saved ? "Remover da biblioteca" : "Salvar na biblioteca"; clicked => { AppState.toggle-detail-saved(); } }
+            }
+        }
+    }
+    Rectangle { height: 16px; }
+}
 
 export component DetailScreen inherits Rectangle {
-    property <length> gutter: Theme.compact ? Theme.gutter-mobile : Theme.gutter-desktop;
-    property <length> col-w: min(Theme.content-max, root.width - 2 * gutter);
-    property <float> appear: 0.0;
-    init => { root.appear = 1.0; }
-    opacity: appear;
-    animate appear { duration: Theme.dur-short; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
-    property <bool> empty: AppState.detail-kind == DetailKind.tracks ? AppState.detail-tracks.length == 0 : AppState.detail-albums.length == 0;
-    property <length> tile: Theme.compact ? 148px : 176px;
-    property <int> cols: max(1, floor((col-w + 16px) / (tile + 16px)));
-    property <length> cell-h: tile + 46px + 16px;
-    VerticalLayout {
-        x: (root.width - self.width) / 2; width: root.col-w; height: parent.height;
-        padding-bottom: Theme.compact ? 196px : 140px;
-        VerticalLayout {
-            padding-top: Theme.compact ? 12px : 16px; spacing: 4px;
-            HorizontalLayout {
-                height: 64px; spacing: 8px;
-                VerticalLayout { alignment: center; IconButton { icon: Icons.back; label: "Voltar"; clicked => { AppState.close-detail(); } } }
-                VerticalLayout {
-                    horizontal-stretch: 1; alignment: center;
-                    Text { text: AppState.detail-title; font-size: Theme.compact ? Theme.fs-title-1 : Theme.fs-large-title; font-weight: Theme.fw-large-title; letter-spacing: Theme.ls-large-title; color: Theme.ink; overflow: elide; wrap: no-wrap; accessible-role: text; }
+    property <bool> has-tracks: AppState.detail-state == LoadState.ready && AppState.detail-kind != DetailKind.albums;
+    // Slint 1.19: o ListView só aceita um `for` (sem cabeçalho que role junto). O detalhe usa Flickable + `for` e instancia todas as linhas.
+    Flickable {
+        width: parent.width; height: parent.height; content-width: self.width; content-height: max(parent.height, col.preferred-height);
+        col := VerticalLayout { x: 0px; width: parent.width; alignment: start;
+            DetailHeader { }
+            if !AppState.online : Gutter { padding-bottom: 12px; OfflineBar { } }
+            if AppState.detail-state == LoadState.loading : Gutter { VerticalLayout { SkeletonRow { } SkeletonRow { } SkeletonRow { } SkeletonRow { } } }
+            if AppState.detail-state == LoadState.error : Gutter { EmptyState { icon: Icons.cloud-off; title: "Não deu para carregar"; message: AppState.detail-error-text != "" ? AppState.detail-error-text : "Tente de novo em instantes."; action-label: "Tentar de novo"; action => { AppState.retry-detail(); } } }
+            if AppState.detail-state == LoadState.offline : Gutter { EmptyState { icon: Icons.cloud-off; title: "Sem conexão"; message: "Este conteúdo precisa de internet."; action-label: "Tentar de novo"; action => { AppState.retry-detail(); } } }
+            if AppState.detail-state == LoadState.empty : Gutter { EmptyState { icon: Icons.disc; title: "Nenhuma música aqui ainda"; message: AppState.detail-empty-text != "" ? AppState.detail-empty-text : "Quando houver músicas, elas aparecem aqui."; } }
+            if AppState.detail-state == LoadState.ready && AppState.detail-kind == DetailKind.albums : Gutter { AlbumGrid { albums: AppState.detail-albums; } }
+            if root.has-tracks : VerticalLayout {
+                for t in AppState.detail-tracks : Gutter { TrackRow { horizontal-stretch: 1; track: t; show-format: true; clicked => { AppState.play-track(t.id); } } }
+                if AppState.detail-kind == DetailKind.artist && AppState.detail-albums.length > 0 : VerticalLayout {
+                    Rectangle { height: 28px; }
+                    Gutter { SectionHeader { horizontal-stretch: 1; title: "Álbuns"; } }
+                    Rectangle { height: 8px; }
+                    HRail { rail-h: 148px + 64px; label: "Álbuns"; for a in AppState.detail-albums : MediaTile { side: 148px; cover: a.cover; title: a.title; subtitle: a.artist; clicked => { AppState.open-album(a.id); } } }
                 }
             }
-            if AppState.detail-subtitle != "" : Text { text: AppState.detail-subtitle; font-size: Theme.fs-callout; color: Theme.ink-3; overflow: elide; wrap: no-wrap; }
-            if !root.empty && AppState.detail-kind == DetailKind.tracks : HorizontalLayout {
-                padding-top: 12px; padding-bottom: 12px; spacing: 8px; alignment: start; height: 68px;
-                PillButton { icon: Icons.play; label: "Tocar"; clicked => { AppState.play-all(); } }
-                PillButton { kind: PillKind.quiet; icon: Icons.shuffle; label: "Aleatório"; clicked => { AppState.shuffle-all(); } }
-            }
-        }
-        if root.empty : EmptyState {
-            vertical-stretch: 1; icon: Icons.library; title: "Nada por aqui ainda"; message: AppState.detail-empty-text;
-        }
-        if !root.empty && AppState.detail-kind == DetailKind.tracks : ListView {
-            vertical-stretch: 1; x: Theme.compact ? -8px : 0px; width: parent.width + (Theme.compact ? 16px : 0px); vertical-scrollbar-policy: always-off;
-            for t[i] in AppState.detail-tracks : TrackRow { track: t; show-album: true; index: i; clicked => { AppState.play-track(t.id); } }
-        }
-        if !root.empty && AppState.detail-kind == DetailKind.albums : Flickable {
-            vertical-stretch: 1;
-            content-height: ceil(AppState.detail-albums.length / cols) * cell-h + 16px;
-            for a[i] in AppState.detail-albums : AlbumTile {
-                x: mod(i, cols) * (tile + 16px); y: 8px + floor(i / cols) * cell-h;
-                item: a; clicked => { AppState.open-album(a.id); }
-            }
+            Rectangle { height: Metrics.chrome-reserve; }
         }
     }
 }

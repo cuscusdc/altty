@@ -41,6 +41,14 @@ fn atoms_are_the_same_file_in_the_design_and_in_the_app() {
 }
 
 #[test]
+fn contract_is_the_same_file_in_the_design_and_in_the_app() {
+    let (Some(design), Some(ours)) = (read(&root().join("../../design/slint/app-contract.slint")), read(&root().join("ui/theme/app-contract.slint"))) else {
+        return;
+    };
+    assert_eq!(design, ours, "app-contract.slint diverge: o contrato v2 vive nos dois lugares (design/slint e ui/theme)");
+}
+
+#[test]
 fn atoms_and_contract_keep_every_name_the_design_exports() {
     for file in ["atoms.slint", "app-contract.slint"] {
         let (Some(design), Some(ours)) = (read(&root().join("../../design/slint").join(file)), read(&root().join("ui/theme").join(file))) else {

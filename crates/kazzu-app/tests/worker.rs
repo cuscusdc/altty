@@ -114,6 +114,7 @@ fn a_folder_added_during_a_scan_is_indexed_by_a_follow_up_scan() {
             };
             sink.lock().unwrap().push(tag);
         }),
+        None,
     )
     .unwrap();
     runner.submit(Job::AddFolder(a));
@@ -166,4 +167,45 @@ fn queue_start_index_follows_the_playable_list() {
         },
     );
     assert_eq!(*out.lock().unwrap(), [(3, 2)]);
+}
+
+#[test]
+fn remote_queue_debounces_search_and_suggestions_but_not_other_jobs() {
+    use kazzu_app::remote::RemoteJob;
+    use kazzu_app::worker::RemoteQueue;
+    let (tx, rx) = crossbeam_channel::unbounded();
+    let mut q = RemoteQueue::new(rx, Duration::from_millis(60));
+    let search = |s: &str| RemoteJob::Search { seq: 1, query: s.into(), kind: 0 };
+    tx.send(search("a")).unwrap();
+    tx.send(search("ab")).unwrap();
+    tx.send(RemoteJob::Suggest { seq: 1, prefix: "ab".into() }).unwrap();
+    tx.send(RemoteJob::Covers { urls: vec![] }).unwrap();
+    tx.send(search("abc")).unwrap();
+    // o que não é busca passa na hora, antes do debounce
+    assert!(matches!(q.next_job(), Some(RemoteJob::Covers { .. })));
+    let mut got = vec![q.next_job().unwrap(), q.next_job().unwrap()];
+    got.sort_by_key(|j| matches!(j, RemoteJob::Suggest { .. }));
+    assert!(matches!(&got[0], RemoteJob::Search { query, .. } if query == "abc"), "só a última busca da rajada: {got:?}");
+    assert!(matches!(&got[1], RemoteJob::Suggest { prefix, .. } if prefix == "ab"));
+    drop(tx);
+    assert!(q.next_job().is_none());
+}
+
+#[test]
+fn obsolete_remote_jobs_are_recognized_by_generation() {
+    use kazzu_app::remote::RemoteJob;
+    use kazzu_app::vm::HomeSectionVm;
+    use kazzu_app::worker::LatestSeq;
+    let latest = LatestSeq::default();
+    let old = RemoteJob::LoadHome { seq: 1, section: HomeSectionVm::ForYou };
+    let new = RemoteJob::LoadHome { seq: 2, section: HomeSectionVm::Mixes };
+    latest.note(&old);
+    assert!(!latest.is_stale(&old));
+    latest.note(&new);
+    assert!(latest.is_stale(&old) && !latest.is_stale(&new));
+    // tipos diferentes não se atrapalham, e jobs sem geração nunca são descartados
+    let covers = RemoteJob::Covers { urls: vec![] };
+    latest.note(&covers);
+    assert!(!latest.is_stale(&covers));
+    assert!(!latest.is_stale(&RemoteJob::LoadExplore { seq: 1 }));
 }

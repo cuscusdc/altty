@@ -1,44 +1,127 @@
+// Início (SLINT_SPEC §4.1): TopBar, banner de primeiro uso, chips, "Continue por aqui", "Escolhas rápidas", mixes, álbuns.
 import { Theme } from "../theme/tokens.slint";
 import { Icons } from "../theme/icons.slint";
-import { Tab, AppState } from "../theme/app-contract.slint";
-import { ScreenScroll, PageTop, Rail, ScanBanner } from "../components/layout.slint";
-import { SectionHeader, EmptyState, SkeletonRow } from "../components/basics.slint";
-import { TrackRow, AlbumTile, HeroCard } from "../components/media.slint";
+import { Metrics } from "../theme/metrics.slint";
+import { AppState, Tab, LoadState, HomeSection } from "../theme/app-contract.slint";
+import { Nav } from "../theme/nav-state.slint";
+import { Chip } from "../theme/atoms.slint";
+import { ScreenScroll, Gutter, PageTitle, HRail, AlbumGrid } from "../components/layout.slint";
+import { SectionHeader, Banner, EmptyState, SkeletonRow, SkeletonTile, OfflineBar, StaleBar, PillKind } from "../components/basics.slint";
+import { TrackRow, HeroCard, MediaTile } from "../components/media.slint";
+import { TopBar } from "../components/nav.slint";
 
 export component HomeScreen inherits Rectangle {
+    property <[string]> section-names: ["Para você", "Descobrir", "Mixes", "Foco", "Treino"];
+    property <[HomeSection]> sections: [HomeSection.for-you, HomeSection.discover, HomeSection.mixes, HomeSection.focus, HomeSection.workout];
+    property <bool> showing-content: AppState.home-state == LoadState.ready || (AppState.home-state == LoadState.error && AppState.home-stale);
+
     ScreenScroll {
-        width: parent.width; height: parent.height;
-        PageTop { title: "Início"; show-title-compact: false; }
-        ScanBanner { }
-        if AppState.loading : VerticalLayout {
-            padding-top: 16px;
-            SkeletonRow { } SkeletonRow { } SkeletonRow { }
-        }
-        if !AppState.loading && !AppState.has-library && !AppState.scanning : EmptyState {
-            icon: Icons.library; title: "Sua biblioteca está vazia";
-            message: "Adicione uma pasta de músicas ou conecte um provedor. O Kazzu encontra capas e tags sozinho.";
-            action-label: "Adicionar pasta"; action => { AppState.add-folder(); }
-        }
-        if !AppState.loading && AppState.has-library : VerticalLayout {
-            if AppState.highlights.length > 0 : Rail {
-                padding-top: 16px;
-                title: "Destaques"; rail-h: Theme.compact ? Theme.hero-card-h-mobile : Theme.hero-card-h-desktop;
-                for h in AppState.highlights : HeroCard { item: h; clicked => { AppState.play-track(h.id); } }
+        tab: Tab.home; width: parent.width; height: parent.height;
+        Gutter { TopBar { horizontal-stretch: 1; } }
+        PageTitle { text: "Início"; }
+        // ---- aviso de primeiro uso (nunca volta depois de dispensado)
+        if AppState.first-run-banner && AppState.home-state != LoadState.loading : Gutter {
+            padding-bottom: 12px;
+            Banner {
+                title: "O YouTube Music já está ativo";
+                text: "Sem conta e sem configuração. O Kazzu só usa a rede quando você pede algo.";
+                dismissed => { AppState.dismiss-first-run-banner(); }
             }
-            if AppState.recents.length > 0 : VerticalLayout {
-                padding-top: 32px; spacing: 12px;
-                SectionHeader { title: "Recentes"; action-label: "Ver tudo"; action => { AppState.navigate(Tab.library); } }
-                VerticalLayout {
-                    x: Theme.compact ? -8px : 0px; width: parent.width + (Theme.compact ? 16px : 0px);
-                    for t[i] in AppState.recents : TrackRow {
-                        track: t; show-album: true; index: i;
-                        clicked => { AppState.play-track(t.id); }
-                    }
+        }
+        if !AppState.online || AppState.home-state == LoadState.offline : Gutter { padding-bottom: 12px; OfflineBar { } }
+        if AppState.home-state == LoadState.error && AppState.home-stale : Gutter { padding-bottom: 12px; StaleBar { action => { AppState.retry-home(); } } }
+
+        // ---- chips de seção
+        if root.showing-content || AppState.home-state == LoadState.loading : HRail {
+            label: "Seções do Início"; spacing: 8px;
+            for name[i] in root.section-names : Chip {
+                text: name; selected: AppState.home-section == root.sections[i]; y: (parent.height - self.height) / 2;
+                clicked => { AppState.home-section = root.sections[i]; AppState.home-section-changed(root.sections[i]); }
+            }
+        }
+
+        // ---- carregando: esqueletos ESTÁTICOS (sem spinner antes de 300 ms)
+        if AppState.home-state == LoadState.loading : VerticalLayout {
+            spacing: 0px;
+            Rectangle { height: 28px; }
+            HRail { rail-h: Metrics.hero-h;
+                Rectangle { width: Metrics.hero-w; height: Metrics.hero-h; border-radius: 28px; background: Theme.ink.with-alpha(0.14); }
+                Rectangle { width: Metrics.hero-w; height: Metrics.hero-h; border-radius: 28px; background: Theme.ink.with-alpha(0.14); }
+            }
+            Rectangle { height: 28px; }
+            Gutter { VerticalLayout { SkeletonRow { } SkeletonRow { } SkeletonRow { } SkeletonRow { } } }
+        }
+
+        // ---- erro sem cache
+        if AppState.home-state == LoadState.error && !AppState.home-stale : Gutter {
+            padding-top: 16px;
+            EmptyState {
+                icon: Icons.cloud-off; title: AppState.home-error-title != "" ? AppState.home-error-title : "O YouTube Music não respondeu";
+                message: AppState.home-error-text != "" ? AppState.home-error-text : "Sua conexão parece ok. O serviço pode estar fora do ar. Tente de novo em instantes.";
+                code: AppState.home-error-code; action-label: "Tentar de novo"; action => { AppState.retry-home(); }
+            }
+        }
+        // ---- vazio
+        if AppState.home-state == LoadState.empty : Gutter {
+            padding-top: 16px;
+            EmptyState { icon: Icons.disc; title: "Nada por aqui ainda"; message: "Quando o YouTube Music tiver sugestões para você, elas aparecem aqui."; action-label: "Atualizar"; action => { AppState.retry-home(); } }
+        }
+
+        // ---- offline: cartão "Suas músicas do aparelho" (o protótipo diz "Seus baixados estão aqui", mas Baixados ainda é "Em breve":
+        // o cartão aponta para a biblioteca local, ver docs/UI_NOTES.md) + locais recentes no lugar do feed
+        if AppState.home-state == LoadState.offline : VerticalLayout {
+            Rectangle { height: 4px; }
+            Gutter {
+                EmptyState {
+                    icon: Icons.library; title: "Suas músicas do aparelho";
+                    message: AppState.has-library && AppState.library-summary != "" ? AppState.library-summary : "Nenhuma música no aparelho ainda. Adicione uma pasta";
+                    action-kind: PillKind.quiet;
+                    action-label: AppState.has-library ? "Ver biblioteca" : "Adicionar pasta";
+                    action => { if (AppState.has-library) { Nav.go(Tab.library); } else { AppState.add-folder(); } }
                 }
             }
-            if AppState.albums.length > 0 : Rail {
-                title: "Álbuns que você ouve"; rail-h: (Theme.compact ? 148px : 176px) + 46px; item-spacing: 16px;
-                for a in AppState.albums : AlbumTile { item: a; clicked => { AppState.open-album(a.id); } }
+            if AppState.recents.length > 0 : VerticalLayout {
+                Rectangle { height: 28px; }
+                Gutter { SectionHeader { horizontal-stretch: 1; title: "Neste aparelho"; } }
+                for t in AppState.recents : Gutter { TrackRow { horizontal-stretch: 1; track: t; show-format: true; clicked => { AppState.play-track(t.id); } } }
+            }
+        }
+
+        // ---- conteúdo
+        if root.showing-content : VerticalLayout {
+            Rectangle { height: 28px; }
+            if AppState.highlights.length > 0 : VerticalLayout {
+                Gutter { SectionHeader { horizontal-stretch: 1; title: "Continue por aqui"; source-tag: AppState.source-label; } }
+                Rectangle { height: 8px; }
+                HRail { rail-h: Metrics.hero-h + 8px; label: "Continue por aqui"; spacing: 12px;
+                    for h in AppState.highlights : HeroCard {
+                        item: h; card-w: Metrics.hero-w; height: Metrics.hero-h;
+                        clicked => { AppState.open-item(h.kind, h.id); }
+                        play => { AppState.play-item(h.kind, h.id); }
+                    }
+                }
+                Rectangle { height: 28px; }
+            }
+            if AppState.quick-picks.length > 0 : VerticalLayout {
+                Gutter { SectionHeader { horizontal-stretch: 1; title: "Escolhas rápidas"; } }
+                for t in AppState.quick-picks : Gutter { TrackRow { horizontal-stretch: 1; track: t; show-format: true; clicked => { AppState.play-track(t.id); } } }
+                Rectangle { height: 28px; }
+            }
+            if AppState.mixes.length > 0 : VerticalLayout {
+                Gutter { SectionHeader { horizontal-stretch: 1; title: "Mixes para você"; source-tag: AppState.source-label; } }
+                Rectangle { height: 8px; }
+                HRail { rail-h: (Theme.expanded ? 168px : 148px) + 64px; label: "Mixes para você";
+                    for m in AppState.mixes : MediaTile {
+                        side: Theme.expanded ? 168px : 148px; cover: m.cover; tint: m.tint; title: m.title; subtitle: m.subtitle;
+                        clicked => { AppState.open-item(m.kind, m.id); }
+                    }
+                }
+                Rectangle { height: 28px; }
+            }
+            if AppState.albums.length > 0 : VerticalLayout {
+                Gutter { SectionHeader { horizontal-stretch: 1; title: "Álbuns em destaque"; source-tag: AppState.source-label; } }
+                Rectangle { height: 8px; }
+                Gutter { AlbumGrid { albums: AppState.albums; } }
             }
         }
     }

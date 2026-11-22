@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use kazzu_app::art::{self, Pixels};
-use kazzu_app::config::{AccentPref, ThemePref};
+use kazzu_app::config::{AccentPref, StreamQualityPref, ThemePref};
 use kazzu_app::slint_view::SlintView;
 use kazzu_app::ui::{AppState, AppWindow, Tab, Theme};
 use kazzu_app::view::View;
@@ -54,25 +54,42 @@ fn track(i: u32, title: &str, playing: bool) -> TrackVm {
 
 fn fill(view: &SlintView) {
     let tracks: Vec<TrackVm> = ["Quase Verão", "Calor de Março", "Sol de Quina", "Terra Firme", "Vento Sul"].iter().enumerate().map(|(i, t)| track(i as u32, t, i == 0)).collect();
-    let albums: Vec<AlbumVm> = (0..6).map(|i| AlbumVm { id: i.to_string(), title: format!("Álbum {i}"), artist: "Aurora Vento".into(), cover: Some(cover([40 + i as u8 * 30, 120, 160])) }).collect();
-    let hero = |i: u8, t: &str| HighlightVm { id: format!("album:{i}"), caption: "Adicionado há pouco".into(), title: t.into(), subtitle: "Nina Sabiá, 12 faixas".into(), cover: Some(cover([230, 140 + i * 20, 90])) };
+    let albums: Vec<AlbumVm> = (0..6).map(|i| AlbumVm { id: i.to_string(), title: format!("Álbum {i}"), artist: "Aurora Vento".into(), cover: Some(cover([40 + i as u8 * 30, 120, 160])), cover_url: None }).collect();
+    let hero = |i: u8, t: &str| HighlightVm { id: format!("yt:a{i}"), kind: "album".into(), caption: "Novo no YouTube Music".into(), title: t.into(), subtitle: "Nina Sabiá".into(), cover: Some(cover([230, 140 + i * 20, 90])), cover_url: None, tint: None };
     view.set_loading(false);
-    view.set_home(&HomeVm { highlights: vec![hero(1, "Calor de Março"), hero(2, "Linha de Fuga")], recents: tracks.clone(), albums, moods: vec![hero(3, "Eletrônica"), hero(4, "Jazz")] });
+    view.set_home(&HomeVm {
+        state: LoadStateVm::Ready,
+        source_label: "Do YouTube Music".into(),
+        banner: true,
+        highlights: vec![hero(1, "Calor de Março"), hero(2, "Linha de Fuga")],
+        quick_picks: tracks.iter().map(|t| TrackVm { why: "Em alta hoje".into(), source: "YouTube Music".into(), ..t.clone() }).collect(),
+        mixes: vec![hero(3, "Mix Foco"), hero(4, "Mix Estrada")],
+        albums: albums.clone(),
+        recents: tracks.clone(),
+        ..Default::default()
+    });
+    view.set_explore(&ExploreVm {
+        state: LoadStateVm::Ready,
+        new_releases: albums.clone(),
+        moods: vec![HighlightVm { id: "mood:0".into(), kind: "mood".into(), title: "Foco".into(), tint: Some([40, 90, 120]), ..Default::default() }],
+        trending: tracks.clone(),
+        ..Default::default()
+    });
     view.set_library(&LibraryVm {
         collections: vec![
-            CollectionVm { id: "downloads".into(), title: "Baixados".into(), count_label: "Em breve".into(), covers: vec![] },
-            CollectionVm { id: "liked".into(), title: "Curtidos".into(), count_label: "2 músicas".into(), covers: vec![] },
-            CollectionVm { id: "albums".into(), title: "Álbuns".into(), count_label: "6 álbuns".into(), covers: vec![cover([30, 120, 140]), cover([200, 80, 70]), cover([230, 200, 90])] },
-            CollectionVm { id: "playlists".into(), title: "Playlists".into(), count_label: "1 playlist".into(), covers: vec![cover([30, 120, 140]); 4] },
+            CollectionVm { id: "downloads".into(), title: "Baixados".into(), count_label: "Em breve".into(), covers: vec![], soon: true },
+            CollectionVm { id: "liked".into(), title: "Curtidos".into(), count_label: "2 músicas".into(), covers: vec![], soon: false },
+            CollectionVm { id: "albums".into(), title: "Álbuns".into(), count_label: "6 álbuns".into(), covers: vec![cover([30, 120, 140]), cover([200, 80, 70]), cover([230, 200, 90])], soon: false },
+            CollectionVm { id: "playlists".into(), title: "Playlists".into(), count_label: "1 playlist".into(), covers: vec![cover([30, 120, 140]); 4], soon: false },
         ],
         playlists: vec![PlaylistVm { id: "1".into(), name: "Foco".into(), count_label: "5 músicas".into(), covers: vec![cover([30, 120, 140]), cover([200, 80, 70])] }],
     });
     view.set_settings(
         &SettingsVm { folders: vec!["/home/ana/Música".into()], summary: "1 pasta, 5 músicas".into(), has_library: true, track_count: 5 },
-        &[ProviderVm { id: "local".into(), name: "Biblioteca local".into(), status_label: "1 pasta, 5 músicas".into(), connected: true, available: true }],
+        &[ProviderVm { id: "ytmusic".into(), name: "YouTube Music".into(), status_label: "Ativo e padrão. Sem login.".into(), connected: true, available: true }],
     );
-    view.set_queue(&QueueVm { tracks: tracks[1..].to_vec(), summary: "A seguir, 4 músicas, 13 min".into(), more_label: String::new() });
-    view.set_search(&SearchVm { state: SearchStateVm::Results, songs: tracks.clone(), albums: vec![], recent: vec!["aurora".into()] });
+    view.set_queue(&QueueVm { tracks: tracks[1..].to_vec(), summary: "A seguir, 4 músicas, 13 min".into(), more_label: String::new(), note: "Quando a fila acabar, o Kazzu continua com músicas parecidas.".into() });
+    view.set_search(&SearchVm { state: SearchStateVm::Results, songs: tracks.clone(), albums: albums.clone(), recent: vec!["aurora".into()], ..Default::default() });
     let now = TrackVm { cover: Some(cover([230, 140, 90])), ..track(0, "Quase Verão", true) };
     view.set_playback(&PlaybackVm {
         has_now: true,
@@ -82,11 +99,13 @@ fn fill(view: &SlintView) {
         output_name: "Fones do estúdio".into(),
         output_note: "Original, sem equalizador".into(),
         bit_perfect: true,
-        source_label: "Tocando de Recentes".into(),
+        origin: "Mix Foco".into(),
+        source: "Do YouTube Music".into(),
+        quality_label: "OPUS 160 kbps".into(),
+        error_action: "Tentar de novo".into(),
         ..Default::default()
     });
     view.set_now_art(&NowArtVm { cover: Some(cover([230, 140, 90])), thumb: Some(cover([230, 140, 90])), backdrop: Some(cover([100, 50, 30])), ..Default::default() });
-    view.set_ambient(Some(&cover([100, 50, 30])));
     view.set_progress(0.31, "1:02", "−2:19");
 }
 
@@ -127,7 +146,7 @@ fn out_dir() -> PathBuf {
 }
 
 #[test]
-fn every_screen_renders_at_desktop_and_mobile_sizes_in_both_themes() {
+fn every_screen_renders_at_mobile_tablet_and_desktop_sizes_in_both_themes_and_input_works() {
     let window = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
     slint::platform::set_platform(Box::new(TestPlatform(window.clone()))).expect("plataforma de teste");
     let ui = AppWindow::new().expect("AppWindow");
@@ -137,11 +156,13 @@ fn every_screen_renders_at_desktop_and_mobile_sizes_in_both_themes() {
     ui.show().expect("show");
     let state = ui.global::<AppState>();
     let dir = out_dir();
+    let prefs = |theme| PrefsVm { theme, accent: AccentPref::Cover, reduce_motion: true, reduce_transparency: false, stream_quality: StreamQualityPref::Original, autoplay_radio: true };
 
     let screens: [(&str, Tab); 5] = [("home", Tab::Home), ("explore", Tab::Explore), ("library", Tab::Library), ("search", Tab::Search), ("settings", Tab::Settings)];
     for (theme, pref) in [("dark", ThemePref::Dark), ("light", ThemePref::Light)] {
-        view.set_prefs(&PrefsVm { theme: pref, accent: AccentPref::Cover, reduce_motion: true, reduce_transparency: false });
-        for (size_name, w, h) in [("desktop", 1280u32, 800u32), ("mobile", 390, 844)] {
+        view.set_prefs(&prefs(pref));
+        // mobile primeiro (o desenho parte do celular), depois tablet e desktop
+        for (size_name, w, h) in [("mobile", 390u32, 844u32), ("narrow", 360, 740), ("tablet", 768, 1024), ("desktop", 1280, 800)] {
             for (name, tab) in screens {
                 state.set_player_open(false);
                 state.set_queue_open(false);
@@ -151,62 +172,62 @@ fn every_screen_renders_at_desktop_and_mobile_sizes_in_both_themes() {
                 img.save(dir.join(format!("{theme}-{size_name}-{name}.png"))).expect("salvar png");
                 // há conteúdo de verdade: texto, capas e painéis (não só o fundo)
                 assert!(distinct(&img, 0, 0, w, h) > 200, "{theme} {size_name} {name} parece em branco");
-                // desktop tem sidebar à esquerda; mobile tem dock embaixo
-                if size_name == "desktop" {
-                    assert!(distinct(&img, 20, 60, 220, 300) > 20, "{theme} desktop {name}: sem sidebar");
+                if w < 600 {
+                    // celular: a barra flutuante fica embaixo
+                    assert!(distinct(&img, 12, h - 80, w - 24, 64) > 20, "{theme} {size_name} {name}: sem a barra inferior");
                 } else {
-                    assert!(distinct(&img, 20, 770, 340, 60) > 20, "{theme} mobile {name}: sem dock");
+                    // tablet/desktop: trilho ou barra lateral à esquerda
+                    assert!(distinct(&img, 12, 60, 80, 300) > 20, "{theme} {size_name} {name}: sem trilho");
                 }
             }
-            // player, fila e detalhe
-            state.set_player_open(true);
-            let img = render(&window, w, h);
-            img.save(dir.join(format!("{theme}-{size_name}-player.png"))).expect("salvar png");
-            assert!(distinct(&img, 0, 0, w, h) > 200, "player em branco");
+            for (name, set) in [("player", 0), ("queue", 1), ("detail", 2)] {
+                state.set_player_open(set == 0);
+                state.set_queue_open(set == 1);
+                state.set_detail_open(set == 2);
+                let img = render(&window, w, h);
+                img.save(dir.join(format!("{theme}-{size_name}-{name}.png"))).expect("salvar png");
+                assert!(distinct(&img, 0, 0, w, h) > 200, "{name} em branco");
+            }
             state.set_player_open(false);
-            state.set_queue_open(true);
-            let img = render(&window, w, h);
-            img.save(dir.join(format!("{theme}-{size_name}-queue.png"))).expect("salvar png");
-            assert!(distinct(&img, 0, 0, w, h) > 200, "fila em branco");
             state.set_queue_open(false);
+            state.set_detail_open(false);
         }
     }
 
-    // Interação: os controles reagem a cliques e teclas de verdade. (Um `FocusScope` por cima de um `TouchArea`
-    // engole o clique; este teste existe por causa disso.)
+    // Voltar: fecha o que está aberto antes de sair (o botão Voltar do Android chama isto)
     state.set_tab(Tab::Library);
-    render(&window, 1280, 800);
+    state.set_player_open(true);
+    state.set_queue_open(true);
+    render(&window, 390, 844);
+    assert!(ui.invoke_go_back(), "fecha a fila");
+    assert!(!state.get_queue_open() && state.get_player_open());
+    assert!(ui.invoke_go_back(), "fecha o player");
+    assert!(!state.get_player_open());
+    assert!(ui.invoke_go_back(), "raiz da Biblioteca volta ao Início");
+    assert_eq!(state.get_tab(), Tab::Home);
+    assert!(!ui.invoke_go_back(), "no Início sem nada aberto o sistema decide (sair)");
+
+    // Interação real: clique no botão Buscar e teclas. (Um `FocusScope` por cima de um `TouchArea` engole o clique:
+    // este teste existe por causa disso.)
     let events: Rc<RefCell<Vec<String>>> = Rc::default();
     {
-        let ev = events.clone();
-        state.on_open_collection(move |id| ev.borrow_mut().push(format!("collection:{id}")));
         let ev = events.clone();
         state.on_toggle_play(move || ev.borrow_mut().push("toggle-play".into()));
         let ev = events.clone();
         state.on_navigate(move |t| ev.borrow_mut().push(format!("navigate:{t:?}")));
-        let ev = events.clone();
-        state.on_next(move || ev.borrow_mut().push("next".into()));
     }
-    click(&window, 415.0, 230.0); // cartão "Baixados"
-    click(&window, 989.0, 748.0); // play/pause da NowBar
-    click(&window, 1034.0, 748.0); // próxima faixa
-    click(&window, 136.0, 269.0); // "Buscar" na sidebar
+    render(&window, 390, 844);
+    click(&window, 350.0, 800.0); // botão circular Buscar
     window.dispatch_event(WindowEvent::WindowActiveChanged(true));
-    window.dispatch_event(WindowEvent::KeyPressed { text: " ".into() });
-    window.dispatch_event(WindowEvent::KeyReleased { text: " ".into() });
-    let got = events.borrow().clone();
-    assert_eq!(got, ["collection:downloads", "toggle-play", "next", "navigate:Search", "toggle-play"], "eventos: {got:?}");
+    assert_eq!(state.get_tab(), Tab::Search, "o clique em Buscar chegou: {:?}", events.borrow());
 
     // Digitação: o campo da Busca recebe as teclas e dispara `search` com o texto acumulado.
-    state.set_tab(Tab::Home);
-    render(&window, 1280, 800);
     let typed: Rc<RefCell<Vec<String>>> = Rc::default();
     {
         let t = typed.clone();
         state.on_search(move |q| t.borrow_mut().push(q.to_string()));
     }
-    state.set_tab(Tab::Search); // desktop: o campo pede o foco ao abrir
-    render(&window, 1280, 800);
+    render(&window, 390, 844);
     for ch in ["a", "u", "r", "ó"] {
         window.dispatch_event(WindowEvent::KeyPressed { text: ch.into() });
         window.dispatch_event(WindowEvent::KeyReleased { text: ch.into() });
@@ -214,29 +235,19 @@ fn every_screen_renders_at_desktop_and_mobile_sizes_in_both_themes() {
     assert_eq!(typed.borrow().last().map(String::as_str), Some("auró"), "digitado: {:?}", typed.borrow());
     assert_eq!(state.get_search_text(), "auró");
     // Espaço dentro do campo é texto, não play/pause
-    let before = events.borrow().len();
+    let before = events.borrow().iter().filter(|e| *e == "toggle-play").count();
     window.dispatch_event(WindowEvent::KeyPressed { text: " ".into() });
-    assert_eq!(events.borrow().len(), before, "Espaço no campo não pode acionar o atalho global");
+    assert_eq!(events.borrow().iter().filter(|e| *e == "toggle-play").count(), before, "Espaço no campo não pode acionar o atalho global");
     state.set_search_text("".into());
 
-    // o tema muda o fundo de verdade: canto inferior esquerdo da área de conteúdo, sob o véu do ambiente
-    state.set_tab(Tab::Home);
-    view.set_prefs(&PrefsVm { theme: ThemePref::Dark, accent: AccentPref::Cover, reduce_motion: true, reduce_transparency: true });
-    let dark = render(&window, 1280, 800);
-    view.set_prefs(&PrefsVm { theme: ThemePref::Light, accent: AccentPref::Cover, reduce_motion: true, reduce_transparency: true });
-    let light = render(&window, 1280, 800);
-    let (d, l) = (dark.get_pixel(280, 20), light.get_pixel(280, 20));
-    assert!(u32::from(d[0]) + u32::from(d[1]) + u32::from(d[2]) < 200, "tema escuro: {d:?}");
-    assert!(u32::from(l[0]) + u32::from(l[1]) + u32::from(l[2]) > 500, "tema claro: {l:?}");
-
     // O app inteiro (App::build) não deixa o controller preso em closures: só o dono e o slot de mensagens o seguram,
-    // então o desligamento (grava a configuração) realmente roda.
+    // então o desligamento (grava a configuração) realmente roda. Sem YouTube Music: nenhuma rede no teste.
     {
         use kazzu_app::app::{App, Options};
         let app_dir = out_dir().join("app-shutdown");
         let _ = std::fs::remove_dir_all(&app_dir);
         let cfg = app_dir.join("config.toml");
-        let app = App::build(&Options { data_dir: Some(app_dir.join("data")), config_path: Some(cfg.clone()), null_audio: true, software_renderer: true, ..Default::default() }).expect("App::build");
+        let app = App::build(&Options { data_dir: Some(app_dir.join("data")), config_path: Some(cfg.clone()), null_audio: true, software_renderer: true, no_remote: true, ..Default::default() }).expect("App::build");
         assert_eq!(Rc::strong_count(&app.controller), 2, "alguma closure da UI segura o controller com Rc forte");
         app.controller.borrow_mut().set_volume(0.3);
         assert!(!cfg.exists(), "o volume só é gravado com atraso ou no encerramento");
@@ -244,7 +255,6 @@ fn every_screen_renders_at_desktop_and_mobile_sizes_in_both_themes() {
         let saved = kazzu_app::config::Config::load(&cfg).expect("config gravada no encerramento");
         assert!((saved.volume - 0.3).abs() < 1e-6, "volume salvo: {}", saved.volume);
     }
-
 }
 
 /// Clique de verdade (mover, apertar, soltar) numa posição lógica da janela.

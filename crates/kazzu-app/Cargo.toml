@@ -21,13 +21,17 @@ skia = ["slint/renderer-skia"]
 kazzu-core = { path = "../kazzu-core" }
 kazzu-audio = { path = "../kazzu-audio" }
 kazzu-library = { path = "../kazzu-library" }
+kazzu-ytm = { path = "../kazzu-ytm" }
 
 crossbeam-channel = "0.5"
 directories = "6"
 serde = { version = "1", features = ["derive"] }
 toml = "0.9"
-image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 thiserror = "2"
+# Capas de provedores remotos (mesma pilha TLS do kazzu-audio/kazzu-ytm: rustls, sem OpenSSL).
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
+sys-locale = "0.3"
 log = "0.4"
 env_logger = { version = "0.11", default-features = false, features = ["auto-color", "humantime"] }
 

@@ -13,7 +13,13 @@ pub fn to_pixels(img: &RgbaImage) -> Pixels {
 
 /// Lê e decodifica uma imagem (JPEG/PNG). Erros viram `None`: capa ausente não é falha.
 pub fn load(path: &Path) -> Option<RgbaImage> {
-    image::open(path).ok().map(|i| i.to_rgba8())
+    match image::open(path) {
+        Ok(i) => Some(i.to_rgba8()),
+        Err(e) => {
+            log::warn!("imagem ilegível {}: {e}", path.display());
+            None
+        }
+    }
 }
 
 /// Lado do fundo pré-desfocado.

@@ -1,166 +1,200 @@
-// Navegação: dock (compact), sidebar (regular/wide), mini player e NowBar (SLINT_SPEC §3.3 a §3.6).
+// Navegação e cromo flutuante (SLINT_SPEC §3.2–§3.4): barra inferior, botão Buscar, mini player, trilho, lateral, NowBar.
 import { Theme } from "../theme/tokens.slint";
 import { Icons } from "../theme/icons.slint";
 import { Tab, AppState } from "../theme/app-contract.slint";
-import { GlassPanel, CoverImage, IconButton, KSlider } from "../theme/atoms.slint";
-import { FocusRing, Logo } from "basics.slint";
+import { Nav } from "../theme/nav-state.slint";
+import { IconButton, GlassPanel, KSlider } from "../theme/atoms.slint";
+import { FocusRing, Logo, RoundButton } from "basics.slint";
+import { Cover } from "media.slint";
 
-component NavTab inherits Rectangle {
+// Aba da barra inferior: ícone 24 + rótulo 12. Ativo = pílula + ícone accent + rótulo 700 (três sinais, nunca só cor).
+export component NavTab inherits Rectangle {
     in property <image> icon;
     in property <string> label;
     in property <bool> active: false;
     callback clicked();
     height: 52px; border-radius: 26px;
-    background: active ? Theme.accent-soft : transparent;
-    accessible-role: tab; accessible-label: label; accessible-checked: active;
-    accessible-action-default => { root.clicked(); }
+    background: active ? Theme.ink.with-alpha(0.20) : ta.pressed ? Theme.ink.with-alpha(0.14) : ta.has-hover ? Theme.ink.with-alpha(0.08) : transparent;
     animate background { duration: Theme.dur-short; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
-    VerticalLayout {
-        alignment: center; spacing: 0px;
-        Image { source: root.icon; width: 24px; height: 24px; colorize: root.active ? Theme.accent : Theme.ink-3; }
-        Text { text: root.label; font-size: Theme.fs-caption; font-weight: Theme.fw-caption; letter-spacing: Theme.ls-caption; horizontal-alignment: center; color: root.active || ta.has-hover ? Theme.ink : Theme.ink-3; }
-    }
+    accessible-role: tab; accessible-label: label; accessible-checkable: true; accessible-checked: active;
+    accessible-action-default => { root.clicked(); }
     ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
     fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
+    VerticalLayout {
+        alignment: center; spacing: 2px;
+        HorizontalLayout { alignment: center;
+            Image { source: root.icon; width: Theme.icon; height: Theme.icon; colorize: root.active ? Theme.accent : (ta.has-hover ? Theme.ink : Theme.ink-2); }
+        }
+        Text { text: root.label; horizontal-alignment: center; font-size: Theme.fs-caption; font-weight: root.active ? 700 : 600; color: root.active ? Theme.ink : (ta.has-hover ? Theme.ink : Theme.ink-2); accessible-role: none; }
+    }
     FocusRing { active: fs.has-focus; radius: 26px; }
 }
 
-// Botão de busca: a ÚNICA entrada da busca (não há campo de busca no topo).
-component SearchButton inherits Rectangle {
-    in property <bool> active: false;
-    callback clicked();
-    width: Theme.dock-search; height: Theme.dock-search; border-radius: Theme.dock-search / 2;
-    background: active ? Theme.accent-soft : ta.pressed ? Theme.accent.mix(Theme.bg, 0.76) : ta.has-hover ? Theme.accent.mix(Theme.ink, 0.88) : Theme.accent;
-    border-width: active ? 1px : 0px; border-color: Theme.accent;
-    accessible-role: button; accessible-label: "Buscar";
-    accessible-action-default => { root.clicked(); }
-    animate background { duration: Theme.dur-micro; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
-    Image { source: Icons.search; width: 28px; height: 28px; x: (parent.width - 28px) / 2; y: (parent.height - 28px) / 2; colorize: root.active ? Theme.accent : Theme.accent-ink; }
-    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
-    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
-    FocusRing { active: fs.has-focus; radius: Theme.dock-search / 2; }
-}
-
-// Barra principal flutuante (mobile / janela estreita). Geometria explícita: 3 abas iguais + divisor + botão de busca.
+// Barra inferior flutuante (compact): vidro nível 2, 64 de altura, 3 abas.
 export component NavDock inherits GlassPanel {
-    strong: true; radius: Theme.dock-radius;
-    height: Theme.dock-h;
-    property <length> search-x: root.width - 6px - Theme.dock-search;
-    property <length> tabs-w: root.search-x - 9px - 6px;
-    property <length> tab-w: (tabs-w - 4px) / 3;
-    NavTab { x: 6px; y: 6px; width: root.tab-w; icon: Icons.home; label: "Início"; active: AppState.tab == Tab.home && !AppState.detail-open; clicked => { AppState.navigate(Tab.home); } }
-    NavTab { x: 6px + root.tab-w + 2px; y: 6px; width: root.tab-w; icon: Icons.explore; label: "Explorar"; active: AppState.tab == Tab.explore; clicked => { AppState.navigate(Tab.explore); } }
-    NavTab { x: 6px + 2 * (root.tab-w + 2px); y: 6px; width: root.tab-w; icon: Icons.library; label: "Biblioteca"; active: AppState.tab == Tab.library; clicked => { AppState.navigate(Tab.library); } }
-    Rectangle { x: root.search-x - 5px; y: (root.height - 28px) / 2; width: 1px; height: 28px; background: Theme.line-strong; }
-    SearchButton { x: root.search-x; y: 6px; active: AppState.tab == Tab.search; clicked => { AppState.navigate(Tab.search); } }
+    level: 2; radius: Theme.dock-radius; height: Theme.dock-h;
+    accessible-role: tab-list; accessible-label: "Navegação principal";
+    HorizontalLayout {
+        padding: 6px; spacing: 4px;
+        NavTab { icon: Icons.home; label: "Início"; active: AppState.tab == Tab.home; clicked => { Nav.go(Tab.home); } }
+        NavTab { icon: Icons.explore; label: "Explorar"; active: AppState.tab == Tab.explore; clicked => { Nav.go(Tab.explore); } }
+        NavTab { icon: Icons.library; label: "Biblioteca"; active: AppState.tab == Tab.library; clicked => { Nav.go(Tab.library); } }
+    }
 }
 
-component NavItem inherits Rectangle {
+// Botão circular Buscar (56), SEPARADO da barra. Ativo: preenchido com a cor de destaque.
+export component SearchButton inherits GlassPanel {
+    level: 2; radius: Theme.dock-search / 2; width: Theme.dock-search; height: Theme.dock-search;
+    property <bool> active: AppState.tab == Tab.search;
+    accessible-role: tab; accessible-label: "Buscar"; accessible-checkable: true; accessible-checked: active;
+    accessible-action-default => { Nav.go(Tab.search); }
+    Rectangle { visible: root.active; background: Theme.accent; border-radius: root.radius; }
+    Image { source: Icons.search; width: Theme.icon; height: Theme.icon; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; colorize: root.active ? Theme.accent-ink : Theme.ink; }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { Nav.go(Tab.search); } }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { Nav.go(Tab.search); return accept; } return reject; } }
+    FocusRing { active: fs.has-focus; radius: root.radius; }
+}
+
+// Mini player: pílula de vidro nível 2, 64. Toque na capa/título abre o player. Fio de progresso de 3 px no pé.
+export component MiniPlayer inherits GlassPanel {
+    level: 2; radius: Theme.mini-radius; height: Theme.mini-h;
+    accessible-role: groupbox; accessible-label: "Tocando agora";
+    property <length> actions-w: 96px;
+    open := Rectangle {
+        x: 0px; y: 0px; width: root.width - root.actions-w - 4px; height: root.height; border-radius: root.radius;
+        accessible-role: button;
+        accessible-label: "Abrir o player: " + AppState.now.title + ", " + AppState.now.artist;
+        accessible-action-default => { Nav.open-player(); }
+        background: ota.pressed ? Theme.ink.with-alpha(0.10) : transparent;
+        ota := TouchArea { mouse-cursor: pointer; clicked => { Nav.open-player(); } }
+        ofs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { Nav.open-player(); return accept; } return reject; } }
+        Cover { x: 8px; y: 8px; width: 48px; height: 48px; source: AppState.now.cover; radius: 16px; }
+        VerticalLayout {
+            x: 68px; y: 0px; width: parent.width - 68px - 8px; height: parent.height - 6px; alignment: center; spacing: 0px;
+            Text { text: AppState.now.title; font-size: Theme.fs-callout; font-weight: 600; color: Theme.ink; overflow: elide; wrap: no-wrap; accessible-role: none; }
+            Text { text: AppState.now.artist; font-size: Theme.fs-subhead; color: Theme.ink-2; overflow: elide; wrap: no-wrap; accessible-role: none; }
+        }
+        FocusRing { active: ofs.has-focus; radius: root.radius; }
+    }
+    IconButton {
+        x: root.width - 96px - 4px; y: (root.height - self.height) / 2; icon: AppState.playing ? Icons.pause : Icons.play; glyph: Theme.icon-lg;
+        label: AppState.playing ? "Pausar" : "Tocar"; tint: Theme.ink; clicked => { AppState.toggle-play(); }
+    }
+    IconButton {
+        x: root.width - 48px - 4px; y: (root.height - self.height) / 2; icon: Icons.next; glyph: Theme.icon-lg;
+        label: "Próxima faixa"; tint: Theme.ink; clicked => { AppState.next(); }
+    }
+    // fio de progresso: 3 px, a 20 de cada lado, a 5 do fundo
+    Rectangle { x: 20px; y: root.height - 8px; width: root.width - 40px; height: 3px; border-radius: 2px; background: Theme.ink.with-alpha(0.22);
+        accessible-role: none;
+        Rectangle { x: 0px; width: parent.width * clamp(AppState.progress, 0.0, 1.0); height: parent.height; border-radius: 2px; background: Theme.accent; }
+    }
+}
+
+// Item do trilho (≥ 600: ícone sobre rótulo, 64 de altura) ou da lateral (≥ 1200: ícone à esquerda, 52).
+// `emphasis`: Buscar, o último item do grupo, ganha o mesmo destaque preenchido do botão circular.
+export component RailItem inherits Rectangle {
     in property <image> icon;
     in property <string> label;
     in property <bool> active: false;
-    in property <bool> search: false;     // item destacado de busca
-    in property <bool> expanded: true;    // wide: ícone + texto; senão só ícone
+    in property <bool> wide: false;
+    in property <bool> emphasis: false;
     callback clicked();
-    height: 48px; border-radius: 16px;
-    background: search ? (active ? Theme.accent : Theme.accent-soft) : active ? Theme.accent-soft : ta.has-hover ? Theme.surface-2 : transparent;
-    border-width: search && !active ? 1px : 0px; border-color: Theme.accent.with-alpha(0.45);
-    accessible-role: tab; accessible-label: label; accessible-checked: active;
-    accessible-action-default => { root.clicked(); }
+    height: wide ? 52px : 64px; border-radius: wide ? 26px : 24px;
+    background: (emphasis && active) ? Theme.accent : active ? Theme.ink.with-alpha(0.20) : ta.pressed ? Theme.ink.with-alpha(0.14) : ta.has-hover ? Theme.ink.with-alpha(0.08) : transparent;
     animate background { duration: Theme.dur-short; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
-    property <color> ink: search ? (active ? Theme.accent-ink : Theme.accent) : active ? Theme.accent : Theme.ink-2;
-    HorizontalLayout {
-        padding-left: expanded ? 16px : 0px; padding-right: expanded ? 16px : 0px; spacing: 12px;
-        alignment: expanded ? start : center;
-        Image { source: root.icon; width: 24px; height: 24px; y: (parent.height - 24px) / 2; colorize: root.ink; }
-        if root.expanded : Text {
-            text: root.label; font-size: Theme.fs-callout; font-weight: 600; vertical-alignment: center;
-            color: root.search ? (root.active ? Theme.accent-ink : Theme.ink) : root.active ? Theme.ink : Theme.ink-2;
-        }
-    }
+    accessible-role: tab; accessible-label: label; accessible-checkable: true; accessible-checked: active;
+    accessible-action-default => { root.clicked(); }
+    property <color> glyph: (emphasis && active) ? Theme.accent-ink : active ? (emphasis ? Theme.accent-ink : Theme.accent) : Theme.ink-2;
     ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
     fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
-    FocusRing { active: fs.has-focus; radius: 16px; }
+    if !root.wide : VerticalLayout {
+        alignment: center; spacing: 3px;
+        HorizontalLayout { alignment: center; Image { source: root.icon; width: Theme.icon; height: Theme.icon; colorize: root.glyph; } }
+        Text { text: root.label; horizontal-alignment: center; font-size: Theme.fs-caption; font-weight: root.active ? 700 : 600; color: (root.emphasis && root.active) ? Theme.accent-ink : root.active ? Theme.ink : Theme.ink-2; accessible-role: none; }
+    }
+    if root.wide : HorizontalLayout {
+        padding-left: 18px; spacing: 14px; alignment: start;
+        Image { source: root.icon; width: Theme.icon; height: Theme.icon; y: (root.height - Theme.icon) / 2; colorize: root.glyph; }
+        Text { text: root.label; vertical-alignment: center; font-size: Theme.fs-callout; font-weight: root.active ? 700 : 600; color: (root.emphasis && root.active) ? Theme.accent-ink : root.active ? Theme.ink : Theme.ink-2; accessible-role: none; }
+    }
+    FocusRing { active: fs.has-focus; radius: root.wide ? 26px : 24px; }
 }
 
-export component Sidebar inherits GlassPanel {
-    radius: 24px;
-    width: Theme.wide ? Theme.sidebar-w : Theme.sidebar-w-compact;
+// Trilho (88, ≥ 600) e barra lateral (248, ≥ 1200): mesmo componente em duas formas. Marca no topo, Buscar por último
+// no grupo, Ajustes no pé. Vidro nível 2.
+export component NavRail inherits GlassPanel {
+    level: 2; radius: 32px;
+    width: Theme.wide ? Theme.rail-w-wide : Theme.rail-w;
+    accessible-role: tab-list; accessible-label: "Navegação principal";
     VerticalLayout {
-        padding-top: 12px; padding-bottom: 12px; padding-left: Theme.wide ? 16px : 12px; padding-right: Theme.wide ? 16px : 12px;
-        spacing: 4px;
-        Rectangle {
-            height: 56px;
-            Logo {
-                mark-only: !Theme.wide; logo-height: Theme.wide ? 26px : 36px;
-                x: Theme.wide ? 4px : (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
-                clicked => { AppState.navigate(Tab.home); }
-            }
+        padding: 10px; spacing: 6px; alignment: start;
+        Rectangle { height: Theme.wide ? 72px : 64px;
+            if Theme.wide : Logo { logo-height: 26px; x: 10px; y: (parent.height - self.height) / 2; clicked => { Nav.go(Tab.home); } }
+            if !Theme.wide : Logo { mark-only: true; logo-height: 36px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; clicked => { Nav.go(Tab.home); } }
         }
-        NavItem { icon: Icons.home; label: "Início"; expanded: Theme.wide; active: AppState.tab == Tab.home; clicked => { AppState.navigate(Tab.home); } }
-        NavItem { icon: Icons.explore; label: "Explorar"; expanded: Theme.wide; active: AppState.tab == Tab.explore; clicked => { AppState.navigate(Tab.explore); } }
-        NavItem { icon: Icons.library; label: "Biblioteca"; expanded: Theme.wide; active: AppState.tab == Tab.library; clicked => { AppState.navigate(Tab.library); } }
-        Rectangle { height: 1px; background: Theme.line; }
-        NavItem { search: true; icon: Icons.search; label: "Buscar"; expanded: Theme.wide; active: AppState.tab == Tab.search; clicked => { AppState.navigate(Tab.search); } }
+        RailItem { wide: Theme.wide; icon: Icons.home; label: "Início"; active: AppState.tab == Tab.home; clicked => { Nav.go(Tab.home); } }
+        RailItem { wide: Theme.wide; icon: Icons.explore; label: "Explorar"; active: AppState.tab == Tab.explore; clicked => { Nav.go(Tab.explore); } }
+        RailItem { wide: Theme.wide; icon: Icons.library; label: "Biblioteca"; active: AppState.tab == Tab.library; clicked => { Nav.go(Tab.library); } }
+        RailItem { wide: Theme.wide; emphasis: true; icon: Icons.search; label: "Buscar"; active: AppState.tab == Tab.search; clicked => { Nav.go(Tab.search); } }
         Rectangle { vertical-stretch: 1; }
-        NavItem { icon: Icons.sliders; label: "Configurações"; expanded: Theme.wide; active: AppState.tab == Tab.settings; clicked => { AppState.navigate(Tab.settings); } }
+        RailItem { wide: Theme.wide; icon: Icons.gear; label: "Ajustes"; active: AppState.tab == Tab.settings; clicked => { Nav.go(Tab.settings); } }
     }
 }
 
-export component MiniPlayer inherits GlassPanel {
-    strong: true; radius: Theme.mini-radius;
-    height: Theme.mini-h;
-    accessible-role: button; accessible-label: "Abrir o player, " + AppState.now.title;
-    accessible-action-default => { AppState.open-player(); }
-    open-ta := TouchArea { mouse-cursor: pointer; clicked => { AppState.open-player(); } }
-    CoverImage { x: 8px; y: 8px; width: 48px; height: 48px; source: AppState.now.cover; radius: 12px; }
-    VerticalLayout {
-        x: 68px; y: 0px; width: parent.width - 68px - 96px; height: parent.height; alignment: center;
-        Text { text: AppState.now.title; font-size: Theme.fs-callout; font-weight: 600; color: Theme.ink; overflow: elide; wrap: no-wrap; }
-        Text { text: AppState.now.artist; font-size: Theme.fs-subhead; color: Theme.ink-3; overflow: elide; wrap: no-wrap; }
-    }
-    IconButton {
-        x: parent.width - 96px; y: 10px; icon: AppState.playing ? Icons.pause : Icons.play; glyph: 28px;
-        label: AppState.playing ? "Pausar" : "Tocar"; tint: Theme.ink; clicked => { AppState.toggle-play(); }
-    }
-    IconButton { x: parent.width - 52px; y: 10px; icon: Icons.next; label: "Próxima faixa"; tint: Theme.ink; clicked => { AppState.next(); } }
-    Rectangle { x: 14px; y: parent.height - 2px - 1px; width: parent.width - 28px; height: 2px; background: Theme.line;
-        Rectangle { width: parent.width * clamp(AppState.progress, 0.0, 1.0); height: 100%; background: Theme.accent; }
-    }
-}
-
+// NowBar (≥ 1200): mini player largo com controles, progresso com tempos e volume. Vidro nível 2.
 export component NowBar inherits GlassPanel {
-    radius: 22px;
-    height: 72px;
+    level: 2; radius: 36px; height: 72px;
     accessible-role: groupbox; accessible-label: "Tocando agora";
     HorizontalLayout {
-        padding-left: 8px; padding-right: 12px; padding-top: 8px; padding-bottom: 8px; spacing: 16px;
-        CoverImage { width: 56px; height: 56px; source: AppState.now.cover; radius: 14px; }
-        VerticalLayout {
-            horizontal-stretch: Theme.wide ? 0 : 1; preferred-width: 220px; min-width: Theme.wide ? 220px : 120px; max-width: Theme.wide ? 220px : 10000px; alignment: center;
-            Text { text: AppState.now.title; font-size: Theme.fs-callout; font-weight: 600; color: Theme.ink; overflow: elide; wrap: no-wrap; }
-            Text { text: AppState.now.artist; font-size: Theme.fs-subhead; color: Theme.ink-3; overflow: elide; wrap: no-wrap; }
+        padding-left: 12px; padding-right: 12px; spacing: 16px;
+        Rectangle { width: 240px;
+            Rectangle {
+                width: parent.width; height: parent.height; border-radius: 24px;
+                accessible-role: button; accessible-label: "Abrir o player: " + AppState.now.title + ", " + AppState.now.artist;
+                accessible-action-default => { Nav.open-player(); }
+                ta := TouchArea { mouse-cursor: pointer; clicked => { Nav.open-player(); } }
+                Cover { x: 0px; y: 8px; width: 56px; height: 56px; source: AppState.now.cover; radius: 16px; }
+                VerticalLayout { x: 68px; width: parent.width - 68px; alignment: center;
+                    Text { text: AppState.now.title; font-size: Theme.fs-callout; font-weight: 600; color: Theme.ink; overflow: elide; wrap: no-wrap; accessible-role: none; }
+                    Text { text: AppState.now.artist; font-size: Theme.fs-subhead; color: Theme.ink-2; overflow: elide; wrap: no-wrap; accessible-role: none; }
+                }
+            }
         }
-        if Theme.wide : VerticalLayout {
-            horizontal-stretch: 1.4; alignment: center; spacing: 0px;
+        HorizontalLayout { alignment: center; spacing: 4px; width: 176px;
+            VerticalLayout { alignment: center; IconButton { icon: Icons.prev; label: "Faixa anterior"; tint: Theme.ink; clicked => { AppState.previous(); } } }
+            VerticalLayout { alignment: center; IconButton { icon: AppState.playing ? Icons.pause : Icons.play; glyph: Theme.icon-lg; label: AppState.playing ? "Pausar" : "Tocar"; tint: Theme.ink; clicked => { AppState.toggle-play(); } } }
+            VerticalLayout { alignment: center; IconButton { icon: Icons.next; label: "Próxima faixa"; tint: Theme.ink; clicked => { AppState.next(); } } }
+        }
+        HorizontalLayout { spacing: 10px; horizontal-stretch: 1;
+            Text { text: AppState.position-label; font-family: Theme.font-mono; font-size: Theme.fs-timecode; font-weight: Theme.fw-timecode; color: Theme.ink-2; vertical-alignment: center; width: 44px; horizontal-alignment: right; accessible-role: none; }
             KSlider {
-                height: 28px; immersive: false; value: AppState.progress; label: "Progresso da faixa";
-                value-text: AppState.position-label + " de " + AppState.now.duration-label;
+                horizontal-stretch: 1; y: (parent.height - self.height) / 2; height: 32px; immersive: false; accent-fill: true;
+                value: AppState.progress; label: "Posição na faixa"; value-text: AppState.position-label + ", restam " + AppState.remaining-label;
                 released(v) => { AppState.seek(v); }
             }
-            HorizontalLayout {
-                Text { text: AppState.position-label; font-family: Theme.font-mono; font-size: Theme.fs-timecode - 1px; color: Theme.ink-3; }
-                Rectangle { horizontal-stretch: 1; }
-                Text { text: AppState.remaining-label; font-family: Theme.font-mono; font-size: Theme.fs-timecode - 1px; color: Theme.ink-3; }
+            Text { text: AppState.remaining-label; font-family: Theme.font-mono; font-size: Theme.fs-timecode; font-weight: Theme.fw-timecode; color: Theme.ink-2; vertical-alignment: center; width: 52px; accessible-role: none; }
+        }
+        HorizontalLayout { spacing: 4px; width: 200px;
+            VerticalLayout { alignment: center; Image { source: AppState.volume < 0.01 ? Icons.vol-mute : AppState.volume < 0.5 ? Icons.vol-low : Icons.vol-high; width: Theme.icon-sm; height: Theme.icon-sm; colorize: Theme.ink-2; } }
+            KSlider {
+                width: 112px; y: (parent.height - self.height) / 2; height: 32px; immersive: false; accent-fill: true;
+                value: AppState.volume; label: "Volume"; value-text: Math.round(AppState.volume * 100) + "%";
+                changed(v) => { AppState.set-volume(v); }
             }
+            VerticalLayout { alignment: center; IconButton { icon: Icons.queue; label: "Abrir a fila"; tint: Theme.ink; clicked => { AppState.queue-open = true; } } }
         }
-        HorizontalLayout {
-            alignment: end; spacing: 0px;
-            IconButton { icon: Icons.prev; label: "Faixa anterior"; tint: Theme.ink; y: (parent.height - self.height) / 2; clicked => { AppState.previous(); } }
-            IconButton { icon: AppState.playing ? Icons.pause : Icons.play; glyph: 28px; label: AppState.playing ? "Pausar" : "Tocar"; tint: Theme.ink; y: (parent.height - self.height) / 2; clicked => { AppState.toggle-play(); } }
-            IconButton { icon: Icons.next; label: "Próxima faixa"; tint: Theme.ink; y: (parent.height - self.height) / 2; clicked => { AppState.next(); } }
-            IconButton { icon: Icons.queue; label: "Abrir a fila"; active: AppState.queue-open; y: (parent.height - self.height) / 2; clicked => { AppState.queue-open = !AppState.queue-open; AppState.detail-open = false; } }
-            IconButton { icon: Icons.chevron-down; label: "Abrir o player"; y: (parent.height - self.height) / 2; clicked => { AppState.open-player(); } }
-        }
+    }
+}
+
+// Topo de cada tela: wordmark à esquerda (alvo 48) e botão Ajustes (vidro, 48) à direita. Nenhuma busca aqui.
+export component TopBar inherits Rectangle {
+    in property <bool> show-logo: Theme.compact;
+    height: Theme.compact ? Theme.topbar-h + 16px : 0px;
+    accessible-role: none;
+    HorizontalLayout {
+        if root.show-logo : Logo { y: (Theme.topbar-h - self.height) / 2; clicked => { Nav.go(Tab.home); } }
+        Rectangle { horizontal-stretch: 1; }
+        if Theme.compact : RoundButton { y: (Theme.topbar-h - self.height) / 2; icon: Icons.gear; label: "Ajustes"; active: AppState.tab == Tab.settings; clicked => { Nav.go(Tab.settings); } }
     }
 }

@@ -7,10 +7,13 @@ export global Theme {
     in-out property <bool> reduce-motion: false;
     /// largura da janela; o AppWindow atualiza em `changed width`.
     in property <length> window-w: 390px;
+    /// classes de janela (Material 3): compact < 600 (celular, base) | medium 600–839 | expanded 840–1199 | wide >= 1200.
     out property <bool> compact: window-w < bp-regular;
+    out property <bool> expanded: window-w >= bp-expanded;
     out property <bool> wide: window-w >= bp-wide;
-    out property <length> bp-regular: 720px;
-    out property <length> bp-wide: 1100px;
+    out property <length> bp-regular: 600px;
+    out property <length> bp-expanded: 840px;
+    out property <length> bp-wide: 1200px;
 
     // ---- transparência / blur (Slint 1.19 backdrop-blur: Skia e FemtoVG) --------------------------
     /// preferência do usuário (Configurações > Aparência > Reduzir transparência).
@@ -28,36 +31,69 @@ export global Theme {
     out property <color> accent-soft: accent.with-alpha(dark ? 0.16 : 0.14);
     out property <color> focus-ring: accent;
 
+    // ---- palco vivo (fundo ambiente) e matiz do vidro: o Rust escreve as duas variantes a partir do acento da capa
+    //      (DESIGN.md §3.5: stage = fórmula [L, C, dh] sobre o matiz); sem capa tocando valem os padrões em âmbar.
+    in-out property <color> stage-a-dark: #944f04;
+    in-out property <color> stage-a-light: #fec396;
+    out property <color> stage-a: dark ? stage-a-dark : stage-a-light;
+    in-out property <color> stage-b-dark: #a20222;
+    in-out property <color> stage-b-light: #ffbebb;
+    out property <color> stage-b: dark ? stage-b-dark : stage-b-light;
+    in-out property <color> stage-c-dark: #00555c;
+    in-out property <color> stage-c-light: #ace7ee;
+    out property <color> stage-c: dark ? stage-c-dark : stage-c-light;
+    in-out property <color> stage-d-dark: #625101;
+    in-out property <color> stage-d-light: #eedea1;
+    out property <color> stage-d: dark ? stage-d-dark : stage-d-light;
+    in-out property <color> glass-tint-dark: #331702;
+    in-out property <color> glass-tint-light: #fffbf4;
+    out property <color> glass-tint: dark ? glass-tint-dark : glass-tint-light;
+
     // ---- paleta (claro/escuro) -----------------------------------------------------------------
-    out property <color> bg: dark ? #0c0806 : #f6f3ed;
-    out property <color> surface: dark ? #17110e : #ece9e2;
-    out property <color> surface-2: dark ? #211a16 : #e3dfd8;
-    out property <color> surface-3: dark ? #2c2520 : #d8d4cc;
-    out property <color> ink: dark ? #f3efec : #1a1511;
-    out property <color> ink-2: dark ? #bcb6b1 : #47413c;
-    out property <color> ink-3: dark ? #98918b : #635c57;
-    out property <color> ink-disabled: dark ? #625c58 : #97918c;
-    out property <color> line: dark ? #ffffff17 : #1a15111a;
-    out property <color> line-strong: dark ? #ffffff2b : #1a151133;
-    out property <color> success: dark ? #61da92 : #027e47;
+    out property <color> bg: dark ? #120904 : #f5eee0;
+    out property <color> surface: dark ? #211208 : #ece9e2;
+    out property <color> surface-2: dark ? #2f1d10 : #e3dfd8;
+    out property <color> surface-3: dark ? #402b1c : #d8d4cc;
+    out property <color> ink: dark ? #faf8f5 : #1a1511;
+    out property <color> ink-2: dark ? #e1ddd8 : #47413c;
+    out property <color> ink-3: dark ? #cac3bc : #554e49;
+    out property <color> ink-disabled: dark ? #8c857f : #97918c;
+    out property <color> line: dark ? #ffffff24 : #1a15111a;
+    out property <color> line-strong: dark ? #ffffff42 : #1a151133;
+    out property <color> success: dark ? #61da92 : #037441;
     out property <color> warning: dark ? #edc14d : #8d5e05;
     out property <color> danger: dark ? #fd736d : #ba2b2e;
-    out property <color> glass-fill: dark ? #251e198c : #fcfaf694;
-    out property <color> glass-fill-strong: dark ? #1d1713cc : #fcfaf6d1;
-    out property <color> glass-solid: dark ? #221b17 : #f7f5f1;
-    out property <color> glass-solid-strong: dark ? #1d1713 : #fcfaf6;
-    out property <color> glass-edge: dark ? #ffffff29 : #ffffffd9;
-    out property <color> glass-edge-low: dark ? #ffffff0f : #1a151114;
-    out property <color> glass-sheen: dark ? #ffffff1a : #ffffff8c;
-    out property <color> shadow: dark ? #00000080 : #362c2438;
-    out property <color> ambient-scrim: dark ? #0c08069e : #f6f3edb2;
-    out property <length> glass-blur-radius: glass-live ? 28px : 0px;
-    out property <length> glass-blur-strong-radius: glass-live ? 40px : 0px;
+    out property <color> glass-solid: dark ? #2e1a0c : #f8f5ee;
+    out property <color> glass-solid-strong: dark ? #281508 : #fbf8f2;
+    out property <color> glass-edge: dark ? #ffffff75 : #fffffff2;
+    out property <color> glass-edge-low: dark ? #ffffff1a : #ffffff66;
+    out property <color> glass-sheen: dark ? #ffffff24 : #ffffff99;
+    out property <color> shadow: dark ? #05010099 : #683b184c;
+    out property <color> ambient-scrim: dark ? #270f0080 : #f4ead58c;
+    out property <color> stage-base: dark ? #270f00 : #f4ead5;
+    out property <color> glass-solid-3: dark ? #221106 : #fefcf7;
+    out property <color> scrim-bottom: dark ? #0e0300c7 : #f4ead5cc;
+    out property <color> glass-fill: glass-tint.with-alpha(dark ? 0.40 : 0.52);
+    out property <color> glass-fill-strong: glass-tint.with-alpha(dark ? 0.56 : 0.66);
+    out property <color> glass-fill-3: glass-tint.with-alpha(dark ? 0.72 : 0.80);
+    // blur por nível de profundidade (0 quando não há blur: renderer software ou reduzir transparência)
+    out property <length> glass-blur-1: glass-live ? 20px : 0px;
+    out property <length> glass-blur-2: glass-live ? 32px : 0px;
+    out property <length> glass-blur-3: glass-live ? 40px : 0px;
+    out property <length> glass-blur-radius: glass-blur-1;          // legado v1 = nível 1
+    out property <length> glass-blur-strong-radius: glass-blur-2;   // legado v1 = nível 2
     out property <length> glass-blur-light-radius: glass-live ? 16px : 0px;
-    /// fundo do painel: translúcido com blur ao vivo; sólido sem blur (renderer software / reduzir transparência).
+    /// fundo do painel por nível: translúcido com blur ao vivo; sólido sem blur.
     out property <color> glass-bg: glass-live ? glass-fill : glass-solid;
     out property <color> glass-bg-strong: glass-live ? glass-fill-strong : glass-solid-strong;
-    out property <float> ambient-opacity: dark ? 0.55 : 0.3;
+    out property <color> glass-bg-3: glass-live ? glass-fill-3 : glass-solid-3;
+    out property <length> glass-shadow-blur-1: 24px;
+    out property <length> glass-shadow-y-1: 8px;
+    out property <length> glass-shadow-blur-2: 32px;
+    out property <length> glass-shadow-y-2: 12px;
+    out property <length> glass-shadow-blur-3: 56px;
+    out property <length> glass-shadow-y-3: 24px;
+    out property <float> ambient-opacity: dark ? 0.5 : 0.35;
 
     // ---- imersivo (player em tela cheia): independe do tema --------------------------------------
     out property <color> im-ink: #faf8f5;
@@ -107,8 +143,8 @@ export global Theme {
     out property <length> lh-caption: 16px;
     out property <int> fw-caption: 600;
     out property <length> ls-caption: 0.1px;
-    out property <length> fs-player-title: 28px;
-    out property <length> lh-player-title: 34px;
+    out property <length> fs-player-title: 26px;
+    out property <length> lh-player-title: 32px;
     out property <int> fw-player-title: 700;
     out property <length> ls-player-title: -0.4px;
     out property <length> fs-player-title-desktop: 36px;
@@ -141,8 +177,8 @@ export global Theme {
     out property <length> r-lg: 20px;
     out property <length> r-xl: 28px;
     out property <length> r-full: 999px;
-    out property <length> hit: 44px;
-    out property <length> hit-comfortable: 48px;
+    out property <length> hit: 48px;
+    out property <length> hit-comfortable: 56px;
     out property <length> icon: 24px;
     out property <length> icon-sm: 20px;
     out property <length> icon-lg: 28px;
@@ -151,29 +187,42 @@ export global Theme {
     out property <length> thumb-radius: 10px;
     out property <length> card-radius: 18px;
     out property <length> hero-card-w-mobile: 300px;
-    out property <length> hero-card-h-mobile: 400px;
+    out property <length> hero-card-h-mobile: 380px;
     out property <length> hero-card-w-desktop: 380px;
     out property <length> hero-card-h-desktop: 460px;
     out property <length> dock-h: 64px;
     out property <length> dock-radius: 32px;
-    out property <length> dock-search: 52px;
+    out property <length> dock-search: 56px;
     out property <length> mini-h: 64px;
-    out property <length> mini-radius: 22px;
+    out property <length> mini-radius: 24px;
     out property <length> sidebar-w: 248px;
     out property <length> sidebar-w-compact: 80px;
-    out property <length> gutter-mobile: 20px;
+    out property <length> gutter-mobile: 16px;
     out property <length> gutter-desktop: 32px;
     out property <length> content-max: 1180px;
-    out property <length> player-cover-mobile: 340px;
+    out property <length> player-cover-mobile: 358px;
     out property <length> player-cover-desktop: 440px;
     out property <length> player-cover-radius: 28px;
-    out property <length> play-main: 84px;
+    out property <length> play-main: 76px;
     out property <length> play-main-desktop: 72px;
-    out property <length> progress-h: 6px;
-    out property <length> progress-h-active: 10px;
-    out property <length> slider-thumb: 20px;
+    out property <length> progress-h: 8px;
+    out property <length> progress-h-active: 12px;
+    out property <length> slider-thumb: 22px;
     out property <length> focus-ring-w: 2px;
     out property <length> focus-offset: 2px;
+    out property <length> hit-min: 44px;
+    out property <length> dock-margin: 12px;
+    out property <length> topbar-h: 56px;
+    out property <length> sheet-radius: 32px;
+    out property <length> grabber-w: 36px;
+    out property <length> grabber-h: 4px;
+    out property <length> rail-w: 88px;
+    out property <length> rail-w-wide: 248px;
+    out property <length> nowbar-h: 84px;
+    out property <length> chip-h: 40px;
+    out property <length> field-h: 56px;
+    out property <length> badge-h: 24px;
+    out property <length> collection-gap: 12px;
 
     // ---- elevação (drop-shadow-blur / -offset-y; a cor é `shadow` × strength) ------------------
     out property <length> e1-blur: 8px;

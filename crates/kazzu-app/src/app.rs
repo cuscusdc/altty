@@ -5,12 +5,15 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use kazzu_audio::{Engine, EngineConfig, EngineHandle, NullSink};
+use kazzu_audio::{CacheConfig, Engine, EngineConfig, EngineHandle, NullSink};
 use kazzu_core::PlaybackEvent;
 use slint::ComponentHandle;
 
-use crate::config::{AccentPref, Config, ThemePref};
+use crate::catalog::{Providers, YtmCatalog};
+use crate::config::{AccentPref, Config, StreamQualityPref, ThemePref};
 use crate::controller::{Controller, Msg, MsgSink, NavTab};
+use crate::covers::CoverFetcher;
+use crate::remote::RemoteWorker;
 use crate::slint_view::SlintView;
 use crate::ui;
 use crate::worker::{QueueMode, ThreadedRunner};
@@ -45,6 +48,8 @@ pub struct Options {
     pub null_audio: bool,
     /// O renderer ativo não suporta `backdrop-blur` (software).
     pub software_renderer: bool,
+    /// Sem YouTube Music (só arquivos locais): testes e `--no-youtube`.
+    pub no_remote: bool,
     /// Mostra a janela já na criação para descobrir se o renderer iniciou (falha = `AppError::RetrySoftware`).
     pub probe_renderer: bool,
 }
@@ -106,7 +111,9 @@ impl App {
         };
 
         // 3. Motor de áudio. O dispositivo só é aberto na primeira reprodução.
-        let config = EngineConfig { volume: crate::controller::sane_unit(cfg.volume, 1.0), ..EngineConfig::default() };
+        let mut config = EngineConfig { volume: crate::controller::sane_unit(cfg.volume, 1.0), ..EngineConfig::default() };
+        // faixas remotas ouvidas até o fim ficam em disco (base do modo offline); o limite protege o espaço do usuário
+        config.stream.cache = Some(CacheConfig { dir: data_dir.join("cache").join("streams"), max_bytes: STREAM_CACHE_BYTES });
         let engine: EngineHandle = if opts.null_audio {
             Engine::builder().sink(NullSink::new()).config(config).spawn()?
         } else {
@@ -117,18 +124,41 @@ impl App {
             let _ = slint::invoke_from_event_loop(move || dispatch(msg));
         });
         spawn_engine_bridge(&engine, sink.clone())?;
+        spawn_stream_bridge(&engine, sink.clone())?;
+
+        // YouTube Music: provedor padrão, ativo sem login. Falha ao abrir o cache/biblioteca dele não derruba o app.
+        let remote = if opts.no_remote {
+            None
+        } else {
+            match YtmCatalog::open(&data_dir) {
+                Ok(cat) => Some(RemoteWorker::new(Providers::new().with(Arc::new(cat)), CoverFetcher::new(Some(data_dir.join("cache").join("covers"))))),
+                Err(e) => {
+                    log::warn!("YouTube Music indisponível: {e}");
+                    None
+                }
+            }
+        };
+        let remote_on = remote.is_some();
 
         let emit_sink = sink.clone();
-        let runner = ThreadedRunner::spawn(data_dir, Arc::new(move |r| emit_sink(Msg::Job(r))))?;
+        let runner = ThreadedRunner::spawn(data_dir.clone(), Arc::new(move |r| emit_sink(Msg::Job(r))), remote)?;
 
+        if !opts.software_renderer {
+            watch_frames(&window, sink.clone());
+        }
         let view = SlintView::new(&window);
-        let controller = Rc::new(RefCell::new(Controller::new(view, engine, Box::new(runner), sink.clone(), cfg, cfg_path)));
+        let mut ctl = Controller::new(view, engine, Box::new(runner), sink.clone(), cfg, cfg_path);
+        ctl.set_data_dir(data_dir);
+        if remote_on {
+            ctl.enable_remote();
+        }
+        let controller = Rc::new(RefCell::new(ctl));
         CONTROLLER.with(|slot| *slot.borrow_mut() = Some(controller.clone()));
         wire(&window, &controller);
 
         controller.borrow_mut().init(Default::default());
         if let Some(text) = notice {
-            controller.borrow().notice(&text, true);
+            controller.borrow_mut().notice(&text, true);
         }
         // preferências do sistema chegam depois (leitura fora da thread de UI)
         let sys_sink = sink;
@@ -157,12 +187,16 @@ impl App {
     }
 }
 
+/// Limite do cache de streams remotos em disco.
+const STREAM_CACHE_BYTES: u64 = 256 * 1024 * 1024;
+
 fn licenses_text() -> String {
-    "Kazzu é software livre.\n\n\
+    "Kazzu é software livre, licenciado sob GPL-3.0.\n\n\
      Slint, usado sob GPL-3.0: interface gráfica.\n\
      Hanken Grotesk e Geist Mono (SIL OFL 1.1): fontes, incluídas com o app.\n\
      Symphonia (MPL-2.0): decodificação de áudio. libopus (BSD-3-Clause): decodificador Opus.\n\
-     cpal, rusqlite, lofty, image, rayon, rfd e demais bibliotecas: MIT ou Apache-2.0.\n\n\
+     cpal, rusqlite, lofty, image, ureq, rustls, rfd e demais bibliotecas: MIT ou Apache-2.0.\n\
+     O YouTube Music é um serviço de terceiros; o Kazzu o acessa sem conta e não tem vínculo com ele.\n\n\
      A lista completa, com versões, está em docs/DEPENDENCIES.md."
         .to_owned()
 }
@@ -182,6 +216,58 @@ fn spawn_engine_bridge(engine: &EngineHandle, sink: MsgSink) -> std::io::Result<
                 }
                 sink(Msg::Engine(ev));
             }
+        }
+    })?;
+    Ok(())
+}
+
+/// Orçamento de um quadro (60 fps).
+const FRAME_BUDGET: std::time::Duration = std::time::Duration::from_millis(16);
+/// Janela em que os quadros lentos precisam dominar para o app oferecer "Reduzir transparência".
+const SLOW_WINDOW: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Mede o tempo de desenho de cada quadro (só local, nada sai do aparelho). Se por 2 s a maioria dos quadros estoura
+/// 16 ms com o vidro ligado, avisa o controller UMA vez: ele oferece (não impõe) "Reduzir transparência".
+fn watch_frames(window: &ui::AppWindow, sink: MsgSink) {
+    use std::cell::Cell;
+    use std::time::Instant;
+    let started: Cell<Option<Instant>> = Cell::new(None);
+    let window_start: Cell<Option<Instant>> = Cell::new(None);
+    let (slow, total, offered) = (Cell::new(0u32), Cell::new(0u32), Cell::new(false));
+    let result = window.window().set_rendering_notifier(move |state, _| match state {
+        slint::RenderingState::BeforeRendering => started.set(Some(Instant::now())),
+        slint::RenderingState::AfterRendering => {
+            let (Some(t0), false) = (started.take(), offered.get()) else { return };
+            let now = Instant::now();
+            let w0 = *window_start.get().get_or_insert(now);
+            total.set(total.get() + 1);
+            if now - t0 > FRAME_BUDGET {
+                slow.set(slow.get() + 1);
+            }
+            if now - w0 >= SLOW_WINDOW {
+                // pelo menos 20 quadros na janela e 70% deles lentos: o aparelho não dá conta
+                if total.get() >= 20 && slow.get() * 10 >= total.get() * 7 {
+                    offered.set(true);
+                    sink(Msg::SlowFrames);
+                }
+                window_start.set(Some(now));
+                slow.set(0);
+                total.set(0);
+            }
+        }
+        _ => {}
+    });
+    if let Err(e) = result {
+        log::info!("medição de quadros indisponível neste renderer: {e}");
+    }
+}
+
+/// Lê os eventos de streaming (URL vencida, rede caiu) e os entrega à UI.
+fn spawn_stream_bridge(engine: &EngineHandle, sink: MsgSink) -> std::io::Result<()> {
+    let rx = engine.stream_events().clone();
+    std::thread::Builder::new().name("kazzu-stream-events".into()).spawn(move || {
+        while let Ok(ev) = rx.recv() {
+            sink(Msg::Stream(ev));
         }
     })?;
     Ok(())
@@ -311,33 +397,46 @@ fn wire(window: &ui::AppWindow, ctrl: &Rc<RefCell<Controller<SlintView>>>) {
     s.on_retry_track(cb!(ctrl, |c| c.retry_track()));
     s.on_open_lyrics(cb!(ctrl, |c| c.coming_soon("A letra das músicas")));
     s.on_open_output_picker(cb!(ctrl, |c| c.coming_soon("A troca de saída de áudio")));
+    s.on_set_sleep_timer(cb!(ctrl, |c, _m| c.coming_soon("O timer de sono")));
     s.on_recognize_ambient(cb!(ctrl, |c| c.coming_soon("O reconhecimento de música pelo som ambiente")));
-    s.on_connect_provider(cb!(ctrl, |c, _id| c.coming_soon("A conexão com provedores")));
+    s.on_connect_provider(cb!(ctrl, |c, _id| c.coming_soon("A conexão com outros provedores")));
+    s.on_download_track(cb!(ctrl, |c, _id| c.coming_soon("Baixar músicas")));
+
+    // Início e Explorar
+    s.on_home_section_changed(cb!(ctrl, |c, section| c.home_section_changed(crate::slint_view::home_section(section))));
+    s.on_dismiss_first_run_banner(cb!(ctrl, |c| c.dismiss_first_run_banner()));
+    s.on_retry_home(cb!(ctrl, |c| c.retry_home()));
+    s.on_retry_explore(cb!(ctrl, |c| c.retry_explore()));
+    s.on_open_item(cb!(ctrl, |c, kind, id| c.open_item(&kind, &id)));
+    s.on_play_item(cb!(ctrl, |c, kind, id| c.play_item(&kind, &id)));
 
     // fila
-    s.on_queue_remove(cb!(ctrl, |c, i| c.queue_remove(usize::try_from(i).unwrap_or(usize::MAX))));
-    s.on_queue_jump(cb!(ctrl, |c, i| c.queue_jump(usize::try_from(i).unwrap_or(usize::MAX))));
+    s.on_queue_remove(cb!(ctrl, |c, id| c.queue_remove(&id)));
+    s.on_queue_jump(cb!(ctrl, |c, id| c.queue_jump(&id)));
+    s.on_queue_move_up(cb!(ctrl, |c, id| c.queue_move_up(&id)));
     s.on_queue_clear(cb!(ctrl, |c| c.queue_clear()));
 
-    // biblioteca e detalhe
+    // biblioteca, playlists e detalhe
     s.on_open_album(cb!(ctrl, |c, id| c.open_album(&id)));
     s.on_open_playlist(cb!(ctrl, |c, id| c.open_playlist(&id)));
     s.on_open_collection(cb!(ctrl, |c, id| c.open_collection(&id)));
-    s.on_open_genre(cb!(ctrl, |c, id| c.open_genre(&id)));
     s.on_play_all(cb!(ctrl, |c| c.play_all(false)));
     s.on_shuffle_all(cb!(ctrl, |c| c.play_all(true)));
-    s.on_create_playlist_named(cb!(ctrl, |c, name| c.create_playlist(&name)));
+    s.on_retry_detail(cb!(ctrl, |c| c.retry_detail()));
+    s.on_toggle_detail_saved(cb!(ctrl, |c| c.toggle_detail_saved()));
+    s.on_goto_album(cb!(ctrl, |c, id| c.goto_album(&id)));
+    s.on_goto_artist(cb!(ctrl, |c, id| c.goto_artist(&id)));
+    s.on_create_playlist_named(cb!(ctrl, |c, name, track| c.create_playlist(&name, &track)));
+    s.on_add_to_playlist(cb!(ctrl, |c, track, playlist| c.add_to_playlist(&track, &playlist)));
     s.on_add_folder(cb!(ctrl, |c| c.add_folder()));
     s.on_remove_folder(cb!(ctrl, |c, path| c.remove_folder(&path)));
     s.on_rescan(cb!(ctrl, |c| c.rescan()));
 
     // busca
     s.on_search(cb!(ctrl, |c, text| c.search(&text)));
-    s.on_search_filter_changed(cb!(ctrl, |c, kind, sources| {
-        use slint::Model;
-        c.search_filters(kind, sources.row_data(0).unwrap_or(true));
-    }));
+    s.on_search_kind_changed(cb!(ctrl, |c, kind| c.search_kind_changed(kind)));
     s.on_clear_recent_searches(cb!(ctrl, |c| c.clear_recent_searches()));
+    s.on_remove_recent_search(cb!(ctrl, |c, text| c.remove_recent_search(&text)));
 
     // configurações
     s.on_theme_mode_changed(cb!(ctrl, |c, mode| c.set_theme(match mode {
@@ -349,7 +448,14 @@ fn wire(window: &ui::AppWindow, ctrl: &Rc<RefCell<Controller<SlintView>>>) {
         ui::AccentMode::FromCover => AccentPref::Cover,
         ui::AccentMode::Brand => AccentPref::Brand,
     })));
+    s.on_stream_quality_changed(cb!(ctrl, |c, i| c.set_stream_quality(StreamQualityPref::from_index(i))));
+    s.on_autoplay_radio_changed(cb!(ctrl, |c, on| c.set_autoplay_radio(on)));
     s.on_reduce_transparency_changed(cb!(ctrl, |c, on| c.set_reduce_transparency(on)));
     s.on_reduce_motion_changed(cb!(ctrl, |c, on| c.set_reduce_motion(on)));
+    s.on_perf_offer_accept(cb!(ctrl, |c| c.perf_offer_accept()));
+    s.on_perf_offer_dismiss(cb!(ctrl, |c| c.perf_offer_dismiss()));
+    s.on_clear_history(cb!(ctrl, |c| c.clear_history()));
+    s.on_report_problem(cb!(ctrl, |c| c.report_problem()));
+    s.on_toast_action(cb!(ctrl, |c| c.toast_action()));
     s.on_dismiss_toast(|| {});
 }

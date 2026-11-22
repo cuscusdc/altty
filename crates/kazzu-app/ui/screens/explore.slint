@@ -1,45 +1,69 @@
+// Explorar (SLINT_SPEC §4.2): novos lançamentos, humores e gêneros, "Em alta" numerada.
 import { Theme } from "../theme/tokens.slint";
 import { Icons } from "../theme/icons.slint";
-import { Tab, AppState } from "../theme/app-contract.slint";
-import { ScreenScroll, PageTop } from "../components/layout.slint";
-import { SectionHeader, EmptyState, Chip } from "../components/basics.slint";
-import { TrackRow, MoodTile } from "../components/media.slint";
+import { Metrics } from "../theme/metrics.slint";
+import { AppState, Tab, LoadState } from "../theme/app-contract.slint";
+import { ScreenScroll, Gutter, PageTitle, HRail } from "../components/layout.slint";
+import { SectionHeader, EmptyState, SkeletonRow, SkeletonTile, OfflineBar } from "../components/basics.slint";
+import { TrackRow, MediaTile, MoodTile } from "../components/media.slint";
+import { TopBar } from "../components/nav.slint";
 
 export component ExploreScreen inherits Rectangle {
-    property <int> source: 0;   // 0 Todos, 1 Local, 2 YT Music, 3 Spotify
+    property <length> mood-gap: 12px;
+    property <int> mood-cols: Theme.compact ? 2 : 3;
+    property <length> mood-w: (Metrics.content-w - Metrics.side-l - Metrics.side-r - (mood-cols - 1) * mood-gap) / mood-cols;
+    property <length> tile: Theme.expanded ? 168px : 148px;
+
     ScreenScroll {
-        width: parent.width; height: parent.height;
-        PageTop { title: "Explorar"; }
-        if AppState.moods.length > 0 : VerticalLayout {
-            padding-top: 16px; spacing: 12px;
-            SectionHeader { title: "Gêneros do seu acervo"; }
-            GridLayout {
-                spacing: 12px;
-                for m[i] in AppState.moods : MoodTile {
-                    row: floor(i / 2); col: mod(i, 2);
-                    item: m; clicked => { AppState.open-genre(m.id); }
-                }
-            }
+        tab: Tab.explore; width: parent.width; height: parent.height;
+        Gutter { TopBar { horizontal-stretch: 1; } }
+        PageTitle { text: "Explorar"; }
+        if !AppState.online || AppState.explore-state == LoadState.offline : Gutter { padding-bottom: 12px; OfflineBar { } }
+
+        if AppState.explore-state == LoadState.loading : VerticalLayout {
+            Rectangle { height: 8px; }
+            Gutter { SectionHeader { horizontal-stretch: 1; title: "Novos lançamentos"; } }
+            HRail { rail-h: root.tile + 64px; SkeletonTile { side: root.tile; } SkeletonTile { side: root.tile; } SkeletonTile { side: root.tile; } }
+            Rectangle { height: 28px; }
+            Gutter { VerticalLayout { SkeletonRow { } SkeletonRow { } SkeletonRow { } SkeletonRow { } } }
         }
-        VerticalLayout {
-            padding-top: 32px; spacing: 12px;
-            SectionHeader { title: "Novidades dos seus provedores"; }
-            HorizontalLayout {
-                spacing: 8px; alignment: start;
-                for name[i] in ["Todos", "Local", "YT Music", "Spotify"] : Chip { label: name; selected: root.source == i; clicked => { root.source = i; } }
+        if AppState.explore-state == LoadState.error : Gutter { padding-top: 16px;
+            EmptyState { icon: Icons.cloud-off; title: "O YouTube Music não respondeu";
+                message: AppState.explore-error-text != "" ? AppState.explore-error-text : "Sua conexão parece ok. O serviço pode estar fora do ar. Tente de novo em instantes.";
+                action-label: "Tentar de novo"; action => { AppState.retry-explore(); } }
+        }
+        if AppState.explore-state == LoadState.offline : Gutter { padding-top: 4px;
+            EmptyState { icon: Icons.cloud-off; title: "Explorar precisa de internet"; message: "Suas músicas baixadas e locais continuam tocando."; action-label: "Tentar de novo"; action => { AppState.retry-explore(); } }
+        }
+        if AppState.explore-state == LoadState.empty : Gutter { padding-top: 16px;
+            EmptyState { icon: Icons.explore; title: "Nada por aqui ainda"; message: "Quando o YouTube Music tiver novidades, elas aparecem aqui."; action-label: "Atualizar"; action => { AppState.retry-explore(); } }
+        }
+
+        if AppState.explore-state == LoadState.ready : VerticalLayout {
+            Rectangle { height: 8px; }
+            if AppState.new-releases.length > 0 : VerticalLayout {
+                Gutter { SectionHeader { horizontal-stretch: 1; title: "Novos lançamentos"; source-tag: AppState.source-label; } }
+                Rectangle { height: 8px; }
+                HRail { rail-h: root.tile + 64px; label: "Novos lançamentos";
+                    for a in AppState.new-releases : MediaTile { side: root.tile; cover: a.cover; title: a.title; subtitle: a.artist; clicked => { AppState.open-album(a.id); } }
+                }
+                Rectangle { height: 28px; }
             }
-            if root.source <= 1 : VerticalLayout {
-                padding-top: 4px; x: Theme.compact ? -8px : 0px; width: parent.width + (Theme.compact ? 16px : 0px);
-                for t[i] in AppState.recents : TrackRow { track: t; show-album: true; index: i; clicked => { AppState.play-track(t.id); } }
+            if AppState.moods.length > 0 : VerticalLayout {
+                Gutter { SectionHeader { horizontal-stretch: 1; title: "Humores e gêneros"; } }
+                Rectangle { height: 8px; }
+                Gutter { Rectangle {
+                    height: ceil(AppState.moods.length / root.mood-cols) * (root.mood-w / 1.55 + root.mood-gap);
+                    for m[i] in AppState.moods : MoodTile {
+                        x: mod(i, root.mood-cols) * (root.mood-w + root.mood-gap); y: floor(i / root.mood-cols) * (root.mood-w / 1.55 + root.mood-gap);
+                        width: root.mood-w; item: m; clicked => { AppState.open-item(m.kind, m.id); }
+                    }
+                } }
+                Rectangle { height: 16px; }
             }
-            if root.source > 1 : EmptyState {
-                icon: Icons.cloud-off; title: "Provedor ainda não conectado";
-                message: "YT Music e Spotify chegam na próxima etapa. Por enquanto, o Kazzu toca a sua biblioteca local.";
-            }
-            if root.source <= 1 && AppState.recents.length == 0 : EmptyState {
-                icon: Icons.library; title: "Sua biblioteca está vazia";
-                message: "Adicione uma pasta de músicas e as novidades aparecem aqui.";
-                action-label: "Adicionar pasta"; action => { AppState.add-folder(); }
+            if AppState.trending.length > 0 : VerticalLayout {
+                Gutter { SectionHeader { horizontal-stretch: 1; title: "Em alta"; source-tag: AppState.source-label; } }
+                for t[i] in AppState.trending : Gutter { TrackRow { horizontal-stretch: 1; track: t; number: i + 1; clicked => { AppState.play-track(t.id); } } }
             }
         }
     }

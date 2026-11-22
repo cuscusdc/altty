@@ -1,184 +1,291 @@
-// Linhas de faixa, cartões e menus (SLINT_SPEC §3.7 e §3.8).
+// Capas, linhas de faixa, cartões e placas (SLINT_SPEC §3.5 e §3.6). Sem vidro dentro de linhas.
 import { Theme } from "../theme/tokens.slint";
 import { Icons } from "../theme/icons.slint";
-import { Track, Album, Highlight, AppState } from "../theme/app-contract.slint";
-import { IconButton, FormatBadge, CoverImage } from "../theme/atoms.slint";
+import { Track, Album, Highlight, Collection, Artist, AppState } from "../theme/app-contract.slint";
+import { IconButton, FormatBadge, CoverImage, GlassPanel } from "../theme/atoms.slint";
 import { FocusRing, NowBars } from "basics.slint";
 
-// Menu "mais" (Tocar em seguida, Adicionar à fila, Curtir). Sólido: nunca vidro dentro de linhas.
-export component RowMenu inherits Rectangle {
-    in property <string> track-id;
-    in property <bool> liked: false;
-    in property <length> menu-x: 0px;
-    in property <length> menu-y: 0px;
-    public function open() { pop.show(); }
-    width: 0px; height: 0px;
-    pop := PopupWindow {
-        x: root.menu-x; y: root.menu-y; width: 244px; height: 3 * 48px + 16px;
-        close-policy: close-on-click-outside;
-        Rectangle {
-            border-radius: 16px; background: Theme.glass-solid-strong; border-width: 1px; border-color: Theme.line-strong;
-            drop-shadow-blur: Theme.e2-blur; drop-shadow-offset-y: Theme.e2-y; drop-shadow-color: Theme.e2-color;
-            VerticalLayout {
-                padding: 8px;
-                for item[i] in [
-                    { icon: Icons.queue, label: "Tocar em seguida" },
-                    { icon: Icons.playlist-add, label: "Adicionar à fila" },
-                    { icon: root.liked ? Icons.heart-fill : Icons.heart, label: root.liked ? "Remover dos curtidos" : "Curtir" },
-                ] : Rectangle {
-                    height: 48px; border-radius: 10px;
-                    background: mta.has-hover ? Theme.surface-2 : transparent;
-                    accessible-role: button; accessible-label: item.label;
-                    HorizontalLayout {
-                        padding-left: 12px; padding-right: 12px; spacing: 12px;
-                        Image { source: item.icon; width: 20px; height: 20px; y: (parent.height - 20px) / 2; colorize: Theme.ink-2; }
-                        Text { text: item.label; font-size: Theme.fs-callout; font-weight: 600; color: Theme.ink; vertical-alignment: center; }
-                    }
-                    mta := TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => {
-                            if (i == 0) { AppState.play-next(root.track-id); }
-                            else if (i == 1) { AppState.enqueue(root.track-id); }
-                            else { AppState.toggle-like(root.track-id); }
-                            pop.close();
-                        }
-                    }
-                }
+// Capa com placeholder: sem imagem (`source.width == 0`: sem capa embutida na tag, sem cover.jpg lido) mostra `Theme.surface-2`
+// com o ícone `disc` centralizado (SLINT_SPEC §1.10). `tint` (humores) substitui o fundo e dispensa o ícone.
+export component Cover inherits Rectangle {
+    in property <image> source;
+    in property <length> radius: Theme.thumb-radius;
+    in property <color> tint: transparent;       // cor da placa quando não há capa (humores)
+    in property <color> placeholder: Theme.surface-2;
+    in property <color> icon-tint: Theme.ink-3;
+    accessible-role: none;
+    CoverImage { source: root.source; radius: root.radius; placeholder: root.tint.alpha > 0 ? root.tint : root.placeholder; }
+    if root.source.width == 0 && root.tint.alpha == 0 : Image {
+        source: Icons.disc; width: min(root.width, root.height) * 0.4; height: self.width;
+        x: (root.width - self.width) / 2; y: (root.height - self.height) / 2; colorize: root.icon-tint;
+    }
+}
+
+// Mosaico 2×2 (Álbuns, Playlists). Sem nenhuma capa: um único placeholder com o disco; capas faltando: células com o disco.
+export component Mosaic inherits Rectangle {
+    in property <[image]> covers;
+    border-radius: 16px; clip: true; background: Theme.surface-2;
+    accessible-role: none;
+    if root.covers.length == 0 : Image {
+        source: Icons.disc; width: min(root.width, root.height) * 0.4; height: self.width;
+        x: (root.width - self.width) / 2; y: (root.height - self.height) / 2; colorize: Theme.ink-3;
+    }
+    if root.covers.length > 0 : Rectangle {
+        for i in 4 : Rectangle {
+            x: mod(i, 2) * root.width / 2; y: floor(i / 2) * root.height / 2; width: root.width / 2; height: root.height / 2;
+            background: Theme.surface-2;
+            if i >= root.covers.length || root.covers[i].width == 0 : Image {
+                source: Icons.disc; width: parent.width * 0.4; height: self.width;
+                x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; colorize: Theme.ink-3;
             }
+            if i < root.covers.length && root.covers[i].width > 0 : Image { source: root.covers[i]; width: 100%; height: 100%; image-fit: cover; }
         }
     }
 }
 
-// Linha de faixa. `queue-mode`: grip à esquerda, tempo mono e botão remover (fila).
+// Linha de faixa: capa 52, título 16 semibold, artista 14 ink-2, motivo (`why`) opcional, barras "tocando", selo de formato
+// (some em < 380 px) e botão `more` (48) que abre o MenuSheet. Altura mínima 64. Sem vidro.
 export component TrackRow inherits Rectangle {
     in property <Track> track;
-    in property <bool> show-album: false;
-    in property <bool> queue-mode: false;
-    in property <int> index: 0;
+    in property <bool> show-format: false;
+    in property <int> number: 0;                // > 0: linha numerada ("Em alta")
+    in property <bool> show-more: true;
+    in property <bool> emphasize: false;        // fundo ink 12% ("Tocando agora" na fila)
+    in property <string> more-label: "Mais opções para " + track.title;
     callback clicked();
-    callback remove();
-    height: Theme.row-h;
-    border-radius: 16px;
-    background: ta.pressed ? Theme.surface-2 : (ta.has-hover || fs.has-focus) ? Theme.surface : transparent;
+    callback more();
+    height: track.why != "" ? 84px : Theme.row-h;
+    border-radius: 18px;
+    background: root.emphasize ? Theme.ink.with-alpha(0.12) : ta.pressed ? Theme.ink.with-alpha(0.14) : (ta.has-hover || fs.has-focus) ? Theme.ink.with-alpha(0.08) : transparent;
     animate background { duration: Theme.dur-micro; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
     accessible-role: button;
-    accessible-label: root.track.title + ", " + root.track.artist + (root.track.playing ? ", tocando agora" : "");
+    accessible-label: root.track.title + ", " + root.track.artist + (root.track.playing ? ", tocando agora" : "") + (root.track.why != "" ? ", " + root.track.why : "");
     accessible-action-default => { root.clicked(); }
 
     ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
     fs := FocusScope { focus-on-click: false;
-        key-pressed(e) => {
-            if (e.text == Key.Return) { root.clicked(); return accept; }
-            if (queue-mode && e.text == Key.Delete) { root.remove(); return accept; }
-            return reject;
-        }
+        key-pressed(e) => { if (e.text == Key.Return) { root.clicked(); return accept; } return reject; }
     }
 
     HorizontalLayout {
-        padding: 8px; spacing: 12px; alignment: stretch;
-        CoverImage { width: Theme.row-cover; height: Theme.row-cover; source: root.track.cover; radius: Theme.thumb-radius; y: (parent.height - self.height) / 2; }
+        padding-left: 8px; padding-right: 4px; padding-top: 6px; padding-bottom: 6px; spacing: 12px;
+        if root.number > 0 : Text {
+            text: root.number; width: 24px; font-family: Theme.font-mono; font-size: Theme.fs-subhead; font-weight: 500;
+            color: Theme.ink-2; vertical-alignment: center; horizontal-alignment: center; accessible-role: none;
+        }
+        Cover { width: 52px; height: 52px; source: root.track.cover; radius: 12px; y: (parent.height - self.height) / 2; }
         VerticalLayout {
-            horizontal-stretch: 1; alignment: center;
-            Text {
-                text: root.track.title; font-size: Theme.fs-body; font-weight: 600; letter-spacing: Theme.ls-body;
-                color: root.track.playing ? Theme.accent : Theme.ink; overflow: elide; wrap: no-wrap;
+            alignment: center; spacing: 1px; horizontal-stretch: 1;
+            Text { text: root.track.title; font-size: Theme.fs-body; font-weight: 600; color: root.track.playing ? Theme.accent : Theme.ink; overflow: elide; wrap: no-wrap; accessible-role: none; }
+            Text { text: root.track.artist; font-size: Theme.fs-subhead; color: Theme.ink-2; overflow: elide; wrap: no-wrap; accessible-role: none; }
+            if root.track.why != "" : Text { text: root.track.why; font-size: Theme.fs-caption; font-weight: 600; color: Theme.ink-2; overflow: elide; wrap: no-wrap; accessible-role: none; }
+        }
+        if root.track.playing : VerticalLayout { alignment: center; NowBars { } }
+        if root.show-format && Theme.window-w >= 380px && root.track.codec != "" : VerticalLayout {
+            alignment: center;
+            FormatBadge { codec: root.track.codec; detail: root.track.detail; hires: root.track.hires; }
+        }
+        if root.show-more : VerticalLayout {
+            alignment: center;
+            IconButton {
+                icon: Icons.more; label: root.more-label; tint: Theme.ink;
+                clicked => { AppState.menu-track = root.track; AppState.menu-open = true; root.more(); }
             }
-            Text {
-                text: root.track.source == "" ? root.track.artist : root.track.artist + ", " + root.track.source;
-                font-size: Theme.fs-subhead; color: Theme.ink-3; overflow: elide; wrap: no-wrap;
-            }
-        }
-        if root.show-album && Theme.wide : Text {
-            text: root.track.album; font-size: Theme.fs-subhead; color: Theme.ink-3; overflow: elide; wrap: no-wrap;
-            width: (root.width - 16px) * 0.26; vertical-alignment: center;
-        }
-        if root.track.playing : NowBars { y: (parent.height - self.height) / 2; }
-        if root.track.codec != "" && (!Theme.compact || !root.queue-mode) : FormatBadge {
-            codec: root.track.codec; detail: root.track.detail; hires: root.track.hires; y: (parent.height - self.height) / 2;
-        }
-        if root.queue-mode : Text {
-            text: root.track.duration-label; font-family: Theme.font-mono; font-size: Theme.fs-timecode; color: Theme.ink-3;
-            width: 40px; horizontal-alignment: right; vertical-alignment: center;
-        }
-        if root.queue-mode : IconButton {
-            icon: Icons.close; glyph: Theme.icon-sm; label: "Remover " + root.track.title + " da fila"; tint: Theme.ink-2; y: (parent.height - self.height) / 2;
-            clicked => { root.remove(); }
-        }
-        if !root.queue-mode : more := IconButton {
-            icon: Icons.more; label: "Mais ações para " + root.track.title; tint: Theme.ink-2; y: (parent.height - self.height) / 2;
-            clicked => { menu.open(); }
         }
     }
-    FocusRing { active: fs.has-focus; radius: 16px; }
-    menu := RowMenu { track-id: root.track.id; liked: root.track.liked; menu-x: root.width - 252px; menu-y: root.height - 4px; }
+    FocusRing { active: fs.has-focus; radius: 18px; }
 }
 
-// Cartão de álbum (rail da Início, resultados de busca, grade do detalhe).
-export component AlbumTile inherits Rectangle {
-    in property <Album> item;
+// Linha genérica (artista, playlist, resultado de busca): capa 52 (redonda para artistas) + título + subtítulo.
+export component MediaRow inherits Rectangle {
+    in property <image> cover;
+    in property <string> title;
+    in property <string> subtitle;
+    in property <bool> round: false;
     callback clicked();
-    property <length> side: Theme.compact ? 148px : 176px;
-    width: side; height: side + 8px + 20px + 18px;
-    accessible-role: button; accessible-label: item.title + ", " + item.artist;
+    height: Theme.row-h; border-radius: 18px;
+    background: ta.pressed ? Theme.ink.with-alpha(0.14) : (ta.has-hover || fs.has-focus) ? Theme.ink.with-alpha(0.08) : transparent;
+    accessible-role: button; accessible-label: root.title + (root.subtitle != "" ? ", " + root.subtitle : "");
     accessible-action-default => { root.clicked(); }
-    Rectangle {
-        y: ta.has-hover ? -2px : 0px;
-        animate y { duration: Theme.dur-short; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
-        CoverImage { x: 0px; y: 0px; width: root.side; height: root.side; source: root.item.cover; radius: 16px; }
-        Text { x: 0px; y: root.side + 8px; width: root.side; height: 20px; text: root.item.title; font-size: Theme.fs-callout; font-weight: 600; color: Theme.ink; overflow: elide; wrap: no-wrap; }
-        Text { x: 0px; y: root.side + 28px; width: root.side; height: 18px; text: root.item.artist; font-size: Theme.fs-subhead; color: Theme.ink-3; overflow: elide; wrap: no-wrap; }
-    }
     ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
-    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
-    FocusRing { active: fs.has-focus; radius: 16px; width: root.side; height: root.side; }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return) { root.clicked(); return accept; } return reject; } }
+    HorizontalLayout {
+        padding-left: 8px; padding-right: 8px; padding-top: 6px; padding-bottom: 6px; spacing: 12px;
+        Cover { width: 52px; height: 52px; source: root.cover; radius: root.round ? 26px : 12px; y: (parent.height - self.height) / 2; }
+        VerticalLayout { alignment: center; spacing: 1px; horizontal-stretch: 1;
+            Text { text: root.title; font-size: Theme.fs-body; font-weight: 600; color: Theme.ink; overflow: elide; wrap: no-wrap; accessible-role: none; }
+            Text { text: root.subtitle; font-size: Theme.fs-subhead; color: Theme.ink-2; overflow: elide; wrap: no-wrap; accessible-role: none; }
+        }
+        VerticalLayout { alignment: center; Image { source: Icons.chevron-right; width: 20px; height: 20px; colorize: Theme.ink-2; } }
+    }
+    FocusRing { active: fs.has-focus; radius: 18px; }
 }
 
-// Cartão de destaque: capa full-bleed + placa escura (fill fixo, SLINT_SPEC §2).
+// Peça de trilho/grade: capa quadrada (raio 24), título 16 semibold, subtítulo 14 ink-2. `side` = lado da capa.
+export component MediaTile inherits Rectangle {
+    in property <image> cover;
+    in property <string> title;
+    in property <string> subtitle;
+    in property <length> side: 148px;
+    in property <color> tint: transparent;
+    in property <bool> round: false;
+    callback clicked();
+    width: side; height: side + 8px + title-t.preferred-height + (root.subtitle != "" ? 20px : 0px) + 4px;
+    accessible-role: button; accessible-label: root.title + (root.subtitle != "" ? ", " + root.subtitle : "");
+    accessible-action-default => { root.clicked(); }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return) { root.clicked(); return accept; } return reject; } }
+    Cover { x: 0px; y: 0px; width: root.side; height: root.side; source: root.cover; tint: root.tint; radius: root.round ? root.side / 2 : 24px; }
+    Rectangle { width: root.side; height: root.side; border-radius: root.round ? root.side / 2 : 24px; background: ta.pressed ? Theme.ink.with-alpha(0.14) : transparent; }
+    title-t := Text { x: 0px; y: root.side + 8px; width: root.side; text: root.title; font-size: Theme.fs-body; font-weight: 600; color: Theme.ink; overflow: elide; wrap: no-wrap; accessible-role: none; horizontal-alignment: root.round ? center : left; }
+    if root.subtitle != "" : Text { x: 0px; y: root.side + 8px + title-t.preferred-height; width: root.side; text: root.subtitle; font-size: Theme.fs-subhead; color: Theme.ink-2; overflow: elide; wrap: no-wrap; accessible-role: none; horizontal-alignment: root.round ? center : left; }
+    FocusRing { y: 0px; height: root.side; radius: root.round ? root.side / 2 : 24px; active: fs.has-focus; }
+}
+
+// Cartão de destaque (carrossel "Continue por aqui"): capa full-bleed + placa de vidro nível 1 + botão play de 52.
 export component HeroCard inherits Rectangle {
     in property <Highlight> item;
+    in property <length> card-w: Theme.hero-card-w-mobile;
     callback clicked();
-    width: Theme.compact ? Theme.hero-card-w-mobile : Theme.hero-card-w-desktop;
-    height: Theme.compact ? Theme.hero-card-h-mobile : Theme.hero-card-h-desktop;
-    accessible-role: button; accessible-label: item.caption + ", " + item.title + ", " + item.subtitle;
+    callback play();
+    width: card-w; height: card-w * 380 / 300;
+    border-radius: 28px; clip: true;
+    background: item.tint.alpha > 0 ? item.tint : Theme.surface-2;
+    accessible-role: button;
+    accessible-label: root.item.caption + ", " + root.item.title + ", " + root.item.subtitle;
     accessible-action-default => { root.clicked(); }
-    Rectangle {
-        y: ta.has-hover ? -2px : 0px;
-        animate y { duration: Theme.dur-short; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
-        CoverImage { width: 100%; height: 100%; source: root.item.cover; radius: 24px; }
-        // placa: fill fixo (preto-quente 64%); sólido sem blur
-        Rectangle {
-            x: 10px; y: parent.height - self.height - 10px; width: parent.width - 20px; height: 100px;
-            border-radius: 18px;
-            background: Theme.glass-live ? #0c0907a3 : #1a1511;
-            backdrop-blur: Theme.glass-blur-radius;
-            border-width: 1px; border-color: #ffffff1f;
-            Text { x: 16px; y: 16px; width: parent.width - 32px - 60px; height: 18px; text: root.item.caption; font-size: 13px; color: Theme.im-ink-2; overflow: elide; wrap: no-wrap; }
-            Text { x: 16px; y: 36px; width: parent.width - 32px - 60px; height: 28px; text: root.item.title; font-size: Theme.fs-title-2; font-weight: Theme.fw-title-2; letter-spacing: Theme.ls-title-2; color: Theme.im-ink; overflow: elide; wrap: no-wrap; }
-            Text { x: 16px; y: 66px; width: parent.width - 32px - 60px; height: 18px; text: root.item.subtitle; font-size: Theme.fs-subhead; color: Theme.im-ink-2; overflow: elide; wrap: no-wrap; }
-        }
-        Rectangle {
-            x: parent.width - 48px - 24px; y: parent.height - 48px - 24px; width: 48px; height: 48px; border-radius: 24px; background: Theme.accent;
-            Image { source: Icons.play; width: 28px; height: 28px; x: 11px; y: 10px; colorize: Theme.accent-ink; }
+    if root.item.cover.width > 0 : Image { source: root.item.cover; width: 100%; height: 100%; image-fit: cover; }
+    if root.item.cover.width == 0 && root.item.tint.alpha == 0 : Image { source: Icons.disc; width: parent.width * 0.3; height: self.width; x: (parent.width - self.width) / 2; y: parent.height * 0.3; colorize: Theme.ink-3; }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return) { root.clicked(); return accept; } return reject; } }
+    Rectangle { border-radius: 28px; border-width: 1px; border-color: Theme.ink.with-alpha(0.12); }
+    plate := GlassPanel {
+        level: 1; radius: 20px; x: 10px; width: parent.width - 20px; height: 88px; y: parent.height - 10px - self.height;
+        accessible-role: none;
+        HorizontalLayout {
+            padding-left: 14px; padding-right: 12px; padding-top: 10px; padding-bottom: 10px; spacing: 8px;
+            VerticalLayout { alignment: center; spacing: 1px; horizontal-stretch: 1;
+                Text { text: root.item.caption; font-size: Theme.fs-caption; font-weight: Theme.fw-caption; color: Theme.ink-2; overflow: elide; wrap: no-wrap; accessible-role: none; }
+                Text { text: root.item.title; font-size: Theme.fs-headline; font-weight: Theme.fw-headline; color: Theme.ink; overflow: elide; wrap: no-wrap; accessible-role: none; }
+                Text { text: root.item.subtitle; font-size: Theme.fs-subhead; color: Theme.ink-2; overflow: elide; wrap: no-wrap; accessible-role: none; }
+            }
+            VerticalLayout { alignment: center;
+                Rectangle {
+                    width: 52px; height: 52px; border-radius: 26px; background: pta.pressed ? Theme.accent.mix(Theme.bg, 0.78) : Theme.accent;
+                    accessible-role: button; accessible-label: "Tocar " + root.item.title;
+                    accessible-action-default => { root.play(); }
+                    Image { source: Icons.play; width: 26px; height: 26px; x: 14px; y: 13px; colorize: Theme.accent-ink; }
+                    pta := TouchArea { mouse-cursor: pointer; clicked => { root.play(); } }
+                }
+            }
         }
     }
-    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
-    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
-    FocusRing { active: fs.has-focus; radius: 24px; }
+    FocusRing { active: fs.has-focus; radius: 28px; }
 }
 
-// Gênero (Explorar): capa full-bleed com véu e título.
+// Humor/gênero (Explorar): proporção 1,55, raio 22, capa (ou cor `tint`) full-bleed + placa de vidro nível 1 no pé.
 export component MoodTile inherits Rectangle {
     in property <Highlight> item;
     callback clicked();
-    height: self.width / 1.6;
-    border-radius: 20px;
-    clip: true;
-    accessible-role: button; accessible-label: item.title;
+    height: self.width / 1.55;
+    border-radius: 22px; clip: true;
+    background: item.tint.alpha > 0 ? item.tint : Theme.surface-2;
+    accessible-role: button; accessible-label: root.item.title;
     accessible-action-default => { root.clicked(); }
-    CoverImage { width: 100%; height: 100%; source: root.item.cover; radius: 20px; }
-    Rectangle { background: @linear-gradient(180deg, transparent 35%, #000000b3 100%); }
-    Text { x: 14px; y: parent.height - self.height - 12px; width: parent.width - 28px; text: root.item.title; font-size: Theme.fs-title-2; font-weight: Theme.fw-title-2; letter-spacing: Theme.ls-title-2; color: Theme.im-ink; overflow: elide; wrap: no-wrap; }
+    if root.item.cover.width > 0 : Image { source: root.item.cover; width: 100%; height: 100%; image-fit: cover; }
+    if root.item.cover.width == 0 && root.item.tint.alpha == 0 : Image { source: Icons.disc; width: parent.height * 0.4; height: self.width; x: (parent.width - self.width) / 2; y: parent.height * 0.12; colorize: Theme.ink-3; }
     ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
-    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
-    FocusRing { active: fs.has-focus; radius: 20px; }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return) { root.clicked(); return accept; } return reject; } }
+    Rectangle { border-radius: 22px; border-width: 1px; border-color: Theme.ink.with-alpha(0.12); }
+    GlassPanel {
+        level: 1; radius: 16px; x: 10px; width: parent.width - 20px; height: 44px; y: parent.height - 10px - self.height;
+        accessible-role: none;
+        Text { x: 14px; width: parent.width - 28px; height: parent.height; text: root.item.title; font-size: Theme.fs-headline; font-weight: Theme.fw-headline; color: Theme.ink; vertical-alignment: center; overflow: elide; accessible-role: none; }
+    }
+    FocusRing { active: fs.has-focus; radius: 22px; }
+}
+
+// Cartão de coleção da Biblioteca. `kind`: 0 Baixados, 1 Curtidas, 2+ mosaico (Álbuns, Playlists).
+export component CollectionCard inherits GlassPanel {
+    in property <Collection> item;
+    in property <int> kind: 2;
+    callback clicked();
+    level: 1; radius: 24px;
+    height: self.width + 56px;
+    opacity: item.soon ? 0.7 : 1.0;
+    accessible-role: button;
+    accessible-label: root.item.title + ", " + (root.item.soon ? "em breve" : root.item.count-label);
+    accessible-enabled: !root.item.soon;
+    accessible-action-default => { if (!root.item.soon) { root.clicked(); } }
+    property <length> art: root.width - 24px;
+    ta := TouchArea { enabled: !root.item.soon; mouse-cursor: root.item.soon ? default : pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false; enabled: !root.item.soon; key-pressed(e) => { if (e.text == Key.Return) { root.clicked(); return accept; } return reject; } }
+    if root.kind == 0 : Rectangle {
+        x: 12px; y: 12px; width: root.art; height: root.art; border-radius: 16px; background: Theme.ink.with-alpha(0.10);
+        Image { source: Icons.download; width: 56px; height: 56px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; colorize: Theme.ink; }
+    }
+    if root.kind == 1 : Rectangle {
+        x: 12px; y: 12px; width: root.art; height: root.art; border-radius: 16px;
+        background: @linear-gradient(150deg, Theme.accent.mix(Theme.ink, 0.25) 0%, Theme.accent.mix(Theme.stage-b, 0.55) 100%);
+        Image { source: Icons.heart-fill; width: 56px; height: 56px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; colorize: Theme.accent-ink; }
+    }
+    if root.kind >= 2 : Mosaic { x: 12px; y: 12px; width: root.art; height: root.art; covers: root.item.covers; }
+    Text { x: 14px; y: 12px + root.art + 10px; width: root.width - 28px; text: root.item.title; font-size: Theme.fs-headline; font-weight: Theme.fw-headline; color: Theme.ink; overflow: elide; accessible-role: none; }
+    Text { x: 14px; y: 12px + root.art + 34px; width: root.width - 28px; text: root.item.soon ? "Em breve" : root.item.count-label; font-size: Theme.fs-subhead; color: Theme.ink-2; overflow: elide; accessible-role: none; }
+    FocusRing { active: fs.has-focus; radius: 24px; }
+}
+
+// "Melhor resultado" da busca: vidro nível 1, capa 96.
+export component BestResult inherits GlassPanel {
+    in property <Highlight> item;
+    callback clicked();
+    callback play();
+    level: 1; radius: 24px; height: 128px;
+    accessible-role: button; accessible-label: "Melhor resultado: " + root.item.title + ", " + root.item.subtitle;
+    accessible-action-default => { root.clicked(); }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return) { root.clicked(); return accept; } return reject; } }
+    HorizontalLayout {
+        padding: 16px; spacing: 16px;
+        Cover { width: 96px; height: 96px; source: root.item.cover; tint: root.item.tint; radius: root.item.kind == "artist" ? 48px : 20px; }
+        VerticalLayout { alignment: center; spacing: 2px; horizontal-stretch: 1;
+            Text { text: "Melhor resultado"; font-size: Theme.fs-caption; font-weight: Theme.fw-caption; color: Theme.ink-2; accessible-role: none; }
+            Text { text: root.item.title; font-size: Theme.fs-title-2; font-weight: Theme.fw-title-2; letter-spacing: Theme.ls-title-2; color: Theme.ink; overflow: elide; wrap: no-wrap; accessible-role: none; }
+            Text { text: root.item.subtitle; font-size: Theme.fs-subhead; color: Theme.ink-2; overflow: elide; wrap: no-wrap; accessible-role: none; }
+        }
+        VerticalLayout { alignment: center;
+            Rectangle {
+                width: 48px; height: 48px; border-radius: 24px; background: Theme.accent;
+                accessible-role: button; accessible-label: "Tocar " + root.item.title;
+                accessible-action-default => { root.play(); }
+                Image { source: Icons.play; width: 24px; height: 24px; x: 12px; y: 12px; colorize: Theme.accent-ink; }
+                TouchArea { mouse-cursor: pointer; clicked => { root.play(); } }
+            }
+        }
+    }
+    FocusRing { active: fs.has-focus; radius: 24px; }
+}
+
+// Linha de playlist com mosaico 2×2 (Biblioteca).
+export component PlaylistRow inherits Rectangle {
+    in property <[image]> covers;
+    in property <string> title;
+    in property <string> subtitle;
+    callback clicked();
+    height: Theme.row-h; border-radius: 18px;
+    background: ta.pressed ? Theme.ink.with-alpha(0.14) : (ta.has-hover || fs.has-focus) ? Theme.ink.with-alpha(0.08) : transparent;
+    accessible-role: button; accessible-label: root.title + ", " + root.subtitle;
+    accessible-action-default => { root.clicked(); }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return) { root.clicked(); return accept; } return reject; } }
+    HorizontalLayout {
+        padding-left: 8px; padding-right: 8px; padding-top: 6px; padding-bottom: 6px; spacing: 12px;
+        Mosaic { width: 52px; height: 52px; covers: root.covers; border-radius: 12px; y: (parent.height - self.height) / 2; }
+        VerticalLayout { alignment: center; spacing: 1px; horizontal-stretch: 1;
+            Text { text: root.title; font-size: Theme.fs-body; font-weight: 600; color: Theme.ink; overflow: elide; wrap: no-wrap; accessible-role: none; }
+            Text { text: root.subtitle; font-size: Theme.fs-subhead; color: Theme.ink-2; overflow: elide; wrap: no-wrap; accessible-role: none; }
+        }
+        VerticalLayout { alignment: center; Image { source: Icons.chevron-right; width: 20px; height: 20px; colorize: Theme.ink-2; } }
+    }
+    FocusRing { active: fs.has-focus; radius: 18px; }
 }

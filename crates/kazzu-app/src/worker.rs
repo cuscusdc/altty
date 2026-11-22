@@ -6,26 +6,30 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::time::Duration;
 
 use crossbeam_channel::{Receiver, RecvTimeoutError, Sender};
 use std::time::Instant;
 use kazzu_core::QueueItem;
-use kazzu_library::{Album, AlbumId, Artwork, Library, PlaylistId, ScanProgress, ScanReport, Track, TrackId};
+use kazzu_library::{Album, AlbumId, Artwork, Library, PlaylistEntry, PlaylistId, ScanProgress, ScanReport, Track, TrackId};
 
 use crate::accent;
 use crate::art::{self, Pixels};
+use crate::catalog::Providers;
 use crate::format;
 use crate::lru::Lru;
+use crate::remote::{RemoteJob, RemoteResult, RemoteWorker};
 use crate::vm::*;
+use crate::ytm_vm;
 
 /// Espera após a última digitação antes de consultar (debounce da busca).
 pub const SEARCH_DEBOUNCE: Duration = Duration::from_millis(200);
+/// Debounce das consultas ao provedor remoto (busca e sugestões): menos rede por tecla.
+pub const REMOTE_DEBOUNCE: Duration = Duration::from_millis(250);
 const SEARCH_LIMIT: usize = 50;
 const RECENTS: usize = 20;
 const HOME_ALBUMS: usize = 24;
-const MOODS: usize = 8;
 const THUMB_CACHE_MAX: usize = 400;
 
 /// O que tocar.
@@ -50,6 +54,8 @@ pub enum DetailRef {
     Albums,
     Playlist(String),
     Genre(String),
+    /// O álbum a que a faixa (id local) pertence.
+    AlbumOfTrack(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,7 +80,20 @@ pub enum Job {
     TrackVms { seq: u64, ids: Vec<String> },
     SetLiked { id: String, liked: bool },
     RecordPlay { id: String, listened_ms: u64 },
-    CreatePlaylist(String),
+    /// Cria a playlist e, se `add` vier, já coloca a faixa nela (`id`, e a faixa completa se for remota).
+    CreatePlaylist { name: String, add: Option<(String, Option<Box<kazzu_core::Track>>)> },
+    /// Põe uma faixa (local, ou remota por referência) numa playlist.
+    AddToPlaylist { playlist_id: String, track_id: String, remote: Option<Box<kazzu_core::Track>> },
+    /// Apaga o histórico de escuta (só local).
+    ClearHistory,
+    /// Grava a configuração (arquivo TOML, escrita atômica) fora da thread de UI.
+    SaveConfig { path: PathBuf, config: Box<crate::config::Config> },
+    /// Grava o texto de "Relatar um problema" (só local; nada é enviado).
+    WriteReport { path: PathBuf, text: String },
+    /// Abre uma faixa LOCAL de uma fila gerenciada pelo controller (ver `RemoteResult::Resolved`).
+    ResolveLocal { ctx_seq: u64, id: String, for_start: bool },
+    /// Trabalho de rede dos provedores remotos (roda fora da thread da biblioteca).
+    Remote(RemoteJob),
 }
 
 pub struct Snapshot {
@@ -82,7 +101,10 @@ pub struct Snapshot {
     pub library: LibraryVm,
     pub settings: SettingsVm,
     pub ambient: Option<Pixels>,
+    /// Ids curtidos: locais (numéricos) e remotos (`yt:…`).
     pub liked: HashSet<String>,
+    /// Faixas remotas curtidas (o controller as guarda para poder tocá-las).
+    pub remote_liked: Vec<kazzu_core::Track>,
 }
 
 pub enum JobResult {
@@ -92,7 +114,7 @@ pub enum JobResult {
     Search { seq: u64, songs: Vec<TrackVm>, albums: Vec<AlbumVm>, ids: Vec<String> },
     Queue { items: Vec<QueueItem>, start: usize, shuffle: bool, label: String },
     QueueItems { items: Vec<QueueItem>, mode: QueueMode },
-    Detail { seq: u64, detail: Box<DetailVm>, ids: Vec<String> },
+    Detail { seq: u64, detail: Box<DetailVm>, ids: Vec<String>, remote_tracks: Vec<kazzu_core::Track> },
     NowArt { seq: u64, art: Box<NowArtVm> },
     TrackVms { seq: u64, tracks: Vec<TrackVm> },
     /// Lista "Recentes" atualizada (depois de registrar uma escuta).
@@ -102,6 +124,10 @@ pub enum JobResult {
     /// Curtida gravada.
     LikedSaved { id: String, liked: bool },
     FoldersChanged,
+    /// Aviso pronto para o usuário (ex.: "Adicionada à playlist").
+    Notice(String),
+    /// Resultado de um [`RemoteJob`].
+    Remote(RemoteResult),
 }
 
 pub type Emit<'a> = &'a (dyn Fn(JobResult) + Sync);
@@ -133,6 +159,9 @@ impl ThumbCache {
             return hit.clone();
         }
         let px = art::load(path).map(|img| art::to_pixels(&img));
+        if px.is_none() {
+            log::warn!("capa local não carregou: {} (existe: {})", path.display(), path.exists());
+        }
         self.map.insert(key, px.clone());
         px
     }
@@ -143,6 +172,7 @@ pub struct Store {
     thumbs: ThumbCache,
     albums: HashMap<i64, Album>,
     liked: HashSet<i64>,
+    providers: Providers,
 }
 
 impl Store {
@@ -151,7 +181,18 @@ impl Store {
     }
 
     pub fn new(lib: Library) -> Self {
-        Self { lib, thumbs: ThumbCache::default(), albums: HashMap::new(), liked: HashSet::new() }
+        Self { lib, thumbs: ThumbCache::default(), albums: HashMap::new(), liked: HashSet::new(), providers: Providers::new() }
+    }
+
+    /// Provedores remotos cujas curtidas (guardadas no aparelho) entram em "Curtidos" e nas playlists.
+    pub fn with_providers(mut self, providers: Providers) -> Self {
+        self.providers = providers;
+        self
+    }
+
+    /// Faixas remotas curtidas, da mais nova para a mais antiga.
+    fn remote_liked(&self) -> Vec<kazzu_core::Track> {
+        self.providers.default_remote().map(|c| c.liked()).unwrap_or_default()
     }
 
     pub fn library(&self) -> &Library {
@@ -189,18 +230,13 @@ impl Store {
             source: String::new(),
             liked: self.liked.contains(&t.id.0),
             playing: false,
+            ..Default::default()
         }
     }
 
     fn album_vm(&mut self, a: &Album) -> AlbumVm {
         let cover = a.artwork.as_ref().and_then(|w| self.thumbs.get(&w.thumb.clone()));
-        AlbumVm { id: a.id.0.to_string(), title: a.title.clone(), artist: a.artist.clone(), cover }
-    }
-
-    /// Capa grande (≤ 640 px) do álbum, para cartões de destaque e gêneros.
-    fn big_cover(&mut self, a: &Album) -> Option<Pixels> {
-        let path = a.artwork.as_ref()?.cover.clone();
-        self.thumbs.get(&path)
+        AlbumVm { id: a.id.0.to_string(), title: a.title.clone(), artist: a.artist.clone(), cover, cover_url: None }
     }
 
     /// Nome para "Tocando de …" quando quem pediu não deu um.
@@ -302,8 +338,8 @@ impl Store {
             }
             Job::OpenDetail { seq, what } => {
                 self.reload_caches_if_empty()?;
-                let (detail, ids) = self.detail(&what)?;
-                emit(JobResult::Detail { seq, detail: Box::new(detail), ids });
+                let (detail, ids, remote_tracks) = self.detail(&what)?;
+                emit(JobResult::Detail { seq, detail: Box::new(detail), ids, remote_tracks });
             }
             Job::NowArt { seq, cover } => {
                 let art = match cover.as_deref().and_then(art::load) {
@@ -338,18 +374,71 @@ impl Store {
                     emit(JobResult::Recents(recents));
                 }
             }
-            Job::CreatePlaylist(name) => {
+            Job::CreatePlaylist { name, add } => {
                 let name = name.trim();
                 if name.is_empty() {
                     emit(JobResult::Failed("Dê um nome à playlist.".into()));
                 } else {
-                    self.lib.create_playlist(name)?;
+                    let id = self.lib.create_playlist(name)?;
+                    if let Some((track_id, remote)) = add {
+                        self.add_to_playlist(id, &track_id, remote.as_deref())?;
+                    }
                     let snap = self.snapshot()?;
                     emit(JobResult::Refreshed(Box::new(snap)));
+                    emit(JobResult::Notice("Playlist criada".into()));
                 }
             }
+            Job::AddToPlaylist { playlist_id, track_id, remote } => match parse_id(&playlist_id) {
+                Some(pid) => {
+                    self.add_to_playlist(PlaylistId(pid), &track_id, remote.as_deref())?;
+                    let snap = self.snapshot()?;
+                    emit(JobResult::Refreshed(Box::new(snap)));
+                    emit(JobResult::Notice("Adicionada à playlist".into()));
+                }
+                None => emit(JobResult::Failed("Não encontrei essa playlist.".into())),
+            },
+            Job::ClearHistory => {
+                self.lib.clear_history()?;
+                let recents = self.recent_tracks()?.iter().map(|t| self.track_vm(t)).collect();
+                emit(JobResult::Recents(recents));
+                emit(JobResult::Notice("Histórico de escuta apagado".into()));
+            }
+            Job::SaveConfig { path, config } => {
+                if let Err(e) = config.save(&path) {
+                    log::warn!("{e}");
+                    emit(JobResult::Failed("Não foi possível salvar as configurações.".into()));
+                }
+            }
+            Job::WriteReport { path, text } => match std::fs::write(&path, text) {
+                Ok(()) => emit(JobResult::Notice(format!("Relato salvo em {}. Nada foi enviado", path.display()))),
+                Err(e) => emit(JobResult::Failed(format!("Não deu para salvar o relato. {e}"))),
+            },
+            Job::ResolveLocal { ctx_seq, id, for_start } => {
+                let found = self.reload_caches_if_empty().and_then(|()| self.tracks_for(&Scope::Ids(vec![id.clone()])));
+                let item = found.ok().and_then(|tracks| tracks.first().and_then(|t| self.queue_item(t)));
+                match item {
+                    Some(item) => emit(JobResult::Remote(RemoteResult::Resolved { ctx_seq, item: Box::new(item), quality_label: String::new(), for_start })),
+                    None => {
+                        // o arquivo sumiu da biblioteca: a fila precisa saber, senão ficaria esperando para sempre
+                        let track = kazzu_core::Track::new(id, "Arquivo do aparelho", kazzu_core::TrackSource::Local { path: PathBuf::new() });
+                        emit(JobResult::Remote(RemoteResult::ResolveFailed { ctx_seq, track: Box::new(track), kind: crate::catalog::ErrorKind::NotFound, for_start }));
+                    }
+                }
+            }
+            // a rede não passa pela thread da biblioteca: `ThreadedRunner` desvia estes jobs antes de chegar aqui
+            Job::Remote(_) => emit(JobResult::Failed("Este trabalho de rede foi enviado ao lugar errado.".into())),
         }
         Ok(())
+    }
+
+    fn add_to_playlist(&mut self, id: PlaylistId, track_id: &str, remote: Option<&kazzu_core::Track>) -> Result<(), kazzu_library::Error> {
+        match remote {
+            Some(t) => self.lib.add_remote_to_playlist(id, std::slice::from_ref(t)),
+            None => match parse_id(track_id) {
+                Some(t) => self.lib.add_to_playlist(id, &[TrackId(t)]),
+                None => Ok(()),
+            },
+        }
     }
 
     fn reload_caches_if_empty(&mut self) -> Result<(), kazzu_library::Error> {
@@ -388,8 +477,7 @@ impl Store {
         let albums: Vec<AlbumVm> = order.iter().map(|a| self.album_vm(a)).collect();
 
         let liked_tracks = self.lib.liked()?;
-        let highlights = self.highlights(&all_albums, &liked_tracks);
-        let moods = self.moods()?;
+        let remote_liked = self.remote_liked();
 
         let playlists = self.lib.playlists()?;
         let mut playlist_vms = Vec::with_capacity(playlists.len());
@@ -406,14 +494,15 @@ impl Store {
         let covers_of_albums: Vec<Pixels> = all_albums.iter().filter_map(|a| self.album_vm(a).cover).take(3).collect();
         let liked_covers = self.distinct_covers(&liked_tracks, 1);
         let collections = vec![
-            CollectionVm { id: "downloads".into(), title: "Baixados".into(), count_label: "Em breve".into(), covers: vec![] },
-            CollectionVm { id: "liked".into(), title: "Curtidos".into(), count_label: format::songs_label(liked_tracks.len() as u64), covers: liked_covers },
-            CollectionVm { id: "albums".into(), title: "Álbuns".into(), count_label: format::albums_label(all_albums.len() as u64), covers: covers_of_albums },
+            CollectionVm { id: "downloads".into(), title: "Baixados".into(), count_label: "Em breve".into(), covers: vec![], soon: true },
+            CollectionVm { id: "liked".into(), title: "Curtidos".into(), count_label: format::songs_label((liked_tracks.len() + remote_liked.len()) as u64), covers: liked_covers, soon: false },
+            CollectionVm { id: "albums".into(), title: "Álbuns".into(), count_label: format::albums_label(all_albums.len() as u64), covers: covers_of_albums, soon: false },
             CollectionVm {
                 id: "playlists".into(),
                 title: "Playlists".into(),
                 count_label: format::playlists_label(playlists.len() as u64),
                 covers: playlist_vms.iter().flat_map(|p| p.covers.iter().cloned()).take(4).collect(),
+                soon: false,
             },
         ];
 
@@ -425,7 +514,7 @@ impl Store {
             .map(|img| art::to_pixels(&art::backdrop(&img)));
 
         Ok(Snapshot {
-            home: HomeVm { highlights, recents, albums, moods },
+            home: HomeVm { recents, albums, ..Default::default() },
             library: LibraryVm { collections, playlists: playlist_vms },
             settings: SettingsVm {
                 folders: folders.iter().map(|p| p.display().to_string()).collect(),
@@ -434,7 +523,8 @@ impl Store {
                 track_count,
             },
             ambient,
-            liked: self.liked.iter().map(|i| i.to_string()).collect(),
+            liked: self.liked.iter().map(|i| i.to_string()).chain(remote_liked.iter().map(|t| ytm_vm::remote_id(t.id.as_str()))).collect(),
+            remote_liked,
         })
     }
 
@@ -466,67 +556,17 @@ impl Store {
         out
     }
 
-    /// Até três cartões: álbum mais novo, curtidos, tudo em ordem aleatória.
-    fn highlights(&mut self, albums: &[Album], liked: &[Track]) -> Vec<HighlightVm> {
-        let mut out = Vec::new();
-        let newest = albums.iter().max_by_key(|a| a.id.0);
-        if let Some(a) = newest {
-            out.push(HighlightVm {
-                id: format!("album:{}", a.id.0),
-                caption: "Adicionado há pouco".into(),
-                title: a.title.clone(),
-                subtitle: format!("{}, {}", a.artist, format::count_label(u64::from(a.track_count), "faixa", "faixas")),
-                cover: self.big_cover(a),
-            });
-        }
-        if !liked.is_empty() {
-            let cover = liked.iter().find_map(|t| t.album_id).and_then(|id| self.albums.get(&id.0).cloned()).and_then(|a| self.big_cover(&a));
-            out.push(HighlightVm {
-                id: "liked".into(),
-                caption: "Dos seus curtidos".into(),
-                title: "Curtidos".into(),
-                subtitle: format::songs_label(liked.len() as u64),
-                cover,
-            });
-        }
-        if let Some(a) = albums.get(albums.len() / 2).filter(|_| albums.len() > 1 || out.is_empty()) {
-            let total: u64 = albums.iter().map(|a| u64::from(a.track_count)).sum();
-            out.push(HighlightVm {
-                id: "shuffle-all".into(),
-                caption: "Do seu acervo".into(),
-                title: "Tudo em ordem aleatória".into(),
-                subtitle: format::songs_label(total),
-                cover: self.big_cover(a),
-            });
-        }
-        out
-    }
-
-    /// Gêneros do acervo (tag de gênero), do maior para o menor.
-    fn moods(&mut self) -> Result<Vec<HighlightVm>, kazzu_library::Error> {
-        let mut by_genre: HashMap<String, (u64, Option<AlbumId>)> = HashMap::new();
-        for t in self.lib.tracks()? {
-            let Some(g) = t.genre.as_deref().map(str::trim).filter(|g| !g.is_empty()) else { continue };
-            let e = by_genre.entry(g.to_owned()).or_insert((0, None));
-            e.0 += 1;
-            if e.1.is_none() {
-                e.1 = t.album_id;
-            }
-        }
-        let mut genres: Vec<_> = by_genre.into_iter().collect();
-        genres.sort_by(|a, b| b.1.0.cmp(&a.1.0).then_with(|| a.0.cmp(&b.0)));
-        genres.truncate(MOODS);
-        let mut out = Vec::new();
-        for (g, (n, album)) in genres {
-            let cover = album.and_then(|id| self.albums.get(&id.0).cloned()).and_then(|a| self.big_cover(&a));
-            out.push(HighlightVm { id: g.clone(), caption: String::new(), title: g, subtitle: format::songs_label(n), cover });
-        }
-        Ok(out)
-    }
-
     /// Detalhe + ids das faixas (para tocar na ordem exibida).
-    fn detail(&mut self, r: &DetailRef) -> Result<(DetailVm, Vec<String>), kazzu_library::Error> {
+    fn detail(&mut self, r: &DetailRef) -> Result<(DetailVm, Vec<String>, Vec<kazzu_core::Track>), kazzu_library::Error> {
+        if let DetailRef::AlbumOfTrack(track_id) = r {
+            let album = parse_id(track_id).and_then(|i| self.lib.track(TrackId(i)).ok().flatten()).and_then(|t| t.album_id);
+            return match album {
+                Some(a) => self.detail(&DetailRef::Album(a.0.to_string())),
+                None => Ok((DetailVm { state: LoadStateVm::Empty, empty_text: "Esta música não tem álbum.".into(), title: "Álbum".into(), ..Default::default() }, vec![], vec![])),
+            };
+        }
         let (title, subtitle, empty, scope) = match r {
+            DetailRef::AlbumOfTrack(_) => unreachable_detail(),
             DetailRef::Album(id) => {
                 let album = parse_id(id).and_then(|i| self.albums.get(&i).cloned());
                 match album {
@@ -537,15 +577,23 @@ impl Store {
                     None => ("Álbum".into(), String::new(), "Não encontramos este álbum. Ele pode ter sido removido da pasta.".into(), Scope::Album(id.clone())),
                 }
             }
-            DetailRef::Liked => ("Curtidos".into(), String::new(), "Toque no coração de uma música para ela aparecer aqui.".into(), Scope::Liked),
-            DetailRef::Downloads => ("Baixados".into(), String::new(), "O modo offline com downloads chega em uma próxima etapa.".into(), Scope::Ids(vec![])),
+            DetailRef::Liked => {
+                // curtidas remotas (mais novas primeiro) e depois as locais
+                let mut entries: Vec<PlaylistEntry> = self.remote_liked().into_iter().map(PlaylistEntry::Remote).collect();
+                entries.extend(self.lib.liked()?.into_iter().map(PlaylistEntry::Local));
+                let mut out = self.mixed_detail("Curtidos".into(), "Toque no coração de uma música para ela aparecer aqui. Fica só neste aparelho.", entries)?;
+                out.0.subtitle = if out.0.tracks.is_empty() { String::new() } else { format!("{}. Fica só neste aparelho", out.0.subtitle) };
+                return Ok(out);
+            }
+            DetailRef::Downloads => ("Baixados".into(), String::new(), "O modo offline com downloads chega em uma próxima versão.".into(), Scope::Ids(vec![])),
             DetailRef::Albums => {
                 let mut albums: Vec<Album> = self.albums.values().cloned().collect();
                 albums.sort_by_key(|a| a.title.to_lowercase());
                 let vms = albums.iter().map(|a| self.album_vm(a)).collect::<Vec<_>>();
                 let sub = format::albums_label(vms.len() as u64);
                 return Ok((
-                    DetailVm { kind: DetailKindVm::Albums, title: "Álbuns".into(), subtitle: sub, empty_text: "Adicione uma pasta de músicas para ver seus álbuns.".into(), albums: vms, ..Default::default() },
+                    DetailVm { kind: DetailKindVm::Albums, state: LoadStateVm::Ready, title: "Álbuns".into(), subtitle: sub, empty_text: "Adicione uma pasta de músicas para ver seus álbuns.".into(), albums: vms, ..Default::default() },
+                    vec![],
                     vec![],
                 ));
             }
@@ -554,7 +602,7 @@ impl Store {
                     .and_then(|i| self.lib.playlists().ok()?.into_iter().find(|p| p.id.0 == i))
                     .map(|p| p.name)
                     .unwrap_or_else(|| "Playlist".into());
-                (name, String::new(), "Esta playlist ainda está vazia.".into(), Scope::Playlist(id.clone()))
+                return self.mixed_detail(name, "Esta playlist ainda está vazia.", parse_id(id).map_or_else(Vec::new, |pid| self.lib.playlist_entries(PlaylistId(pid)).unwrap_or_default()));
             }
             DetailRef::Genre(g) => (g.clone(), String::new(), "Nenhuma música com este gênero.".into(), Scope::Genre(g.clone())),
         };
@@ -567,8 +615,38 @@ impl Store {
         } else {
             subtitle
         };
-        Ok((DetailVm { kind: DetailKindVm::Tracks, title, subtitle, empty_text: empty, tracks: vms, albums: vec![] }, ids))
+        let state = if vms.is_empty() { LoadStateVm::Empty } else { LoadStateVm::Ready };
+        Ok((DetailVm { kind: DetailKindVm::Tracks, state, title, subtitle, empty_text: empty, tracks: vms, ..Default::default() }, ids, vec![]))
     }
+
+    /// Detalhe de uma lista que mistura faixas locais e remotas (playlists, curtidas), na ordem dada.
+    fn mixed_detail(&mut self, title: String, empty: &str, entries: Vec<PlaylistEntry>) -> Result<(DetailVm, Vec<String>, Vec<kazzu_core::Track>), kazzu_library::Error> {
+        let mut vms = Vec::with_capacity(entries.len());
+        let mut remote = Vec::new();
+        let mut total_ms = 0u64;
+        for e in entries {
+            match e {
+                PlaylistEntry::Local(t) => {
+                    total_ms += t.duration_ms;
+                    vms.push(self.track_vm(&t));
+                }
+                PlaylistEntry::Remote(t) => {
+                    total_ms += t.duration.map_or(0, |d| d.as_millis() as u64);
+                    vms.push(ytm_vm::track_vm(&t, false, ""));
+                    remote.push(t);
+                }
+            }
+        }
+        let ids = vms.iter().map(|t| t.id.clone()).collect();
+        let subtitle = if vms.is_empty() { String::new() } else { format!("{}, {} min", format::songs_label(vms.len() as u64), format::thousands(total_ms.div_ceil(60_000))) };
+        let state = if vms.is_empty() { LoadStateVm::Empty } else { LoadStateVm::Ready };
+        Ok((DetailVm { kind: DetailKindVm::Tracks, state, title, subtitle, empty_text: empty.to_owned(), tracks: vms, ..Default::default() }, ids, remote))
+    }
+}
+
+/// `DetailRef::AlbumOfTrack` já foi tratado antes do `match`; este ramo só existe para o compilador.
+fn unreachable_detail() -> (String, String, String, Scope) {
+    (String::new(), String::new(), String::new(), Scope::Ids(vec![]))
 }
 
 /// Scan com progresso. Roda na thread que chamar (o app usa uma thread dedicada).
@@ -601,22 +679,28 @@ pub fn scan(lib: &mut Library, emit: Emit<'_>) -> Result<ScanReport, String> {
 // Execução em threads
 // ---------------------------------------------------------------------------------------------
 
-/// Thread do `Store` + thread de scan dedicada.
+/// Thread do `Store` + thread de scan dedicada + despachante dos jobs de rede.
 pub struct ThreadedRunner {
     tx: Sender<Job>,
+    remote_tx: Sender<RemoteJob>,
 }
 
 impl ThreadedRunner {
     /// `emit` é chamado das threads de trabalho; deve só empurrar para a UI (ex.: `invoke_from_event_loop`).
-    pub fn spawn(data_dir: PathBuf, emit: Arc<dyn Fn(JobResult) + Send + Sync>) -> std::io::Result<Self> {
+    /// `remote`: rede dos provedores (capas, Início, busca, streams); `None` = só biblioteca local.
+    pub fn spawn(data_dir: PathBuf, emit: Arc<dyn Fn(JobResult) + Send + Sync>, remote: Option<Arc<RemoteWorker>>) -> std::io::Result<Self> {
         let (tx, rx) = crossbeam_channel::unbounded::<Job>();
+        let (remote_tx, remote_rx) = crossbeam_channel::unbounded::<RemoteJob>();
         let scanning = Arc::new(AtomicBool::new(false));
         // Scan pedido durante outro scan (pasta adicionada/removida no meio): roda de novo quando o atual termina.
         let rescan_pending = Arc::new(AtomicBool::new(false));
         let own_tx = tx.clone();
+        let providers = remote.as_ref().map(|r| r.providers().clone()).unwrap_or_default();
+        let store_emit = emit.clone();
         std::thread::Builder::new().name("kazzu-library".into()).spawn(move || {
+            let emit = store_emit;
             let mut store = match Store::open(&data_dir) {
-                Ok(s) => s,
+                Ok(s) => s.with_providers(providers),
                 Err(e) => {
                     emit(JobResult::Failed(format!("Não foi possível abrir a biblioteca. {e}")));
                     return;
@@ -651,13 +735,132 @@ impl ThreadedRunner {
                 }
             }
         })?;
-        Ok(Self { tx })
+
+        // Rede: uma thread despacha (com debounce de busca e sugestões) para um POOL pequeno de trabalhadores, então um
+        // Início lento nunca atrasa tocar uma faixa, o número de conexões é limitado e nada toca a thread da
+        // biblioteca nem a da UI. Job de uma geração velha (busca/Início/detalhe já substituídos) é descartado antes
+        // de começar.
+        let (pool_tx, pool_rx) = crossbeam_channel::unbounded::<RemoteJob>();
+        let latest = Arc::new(LatestSeq::default());
+        for n in 0..REMOTE_WORKERS {
+            let (rx, worker, emit, latest) = (pool_rx.clone(), remote.clone(), emit.clone(), latest.clone());
+            std::thread::Builder::new().name(format!("kazzu-remote-{n}")).spawn(move || {
+                while let Ok(job) = rx.recv() {
+                    if latest.is_stale(&job) {
+                        log::debug!("trabalho de rede descartado (já substituído)");
+                        continue;
+                    }
+                    match &worker {
+                        Some(w) => w.run(job, &*emit),
+                        None => emit(JobResult::Failed("Nenhum provedor de música está ativo.".into())),
+                    }
+                }
+            })?;
+        }
+        std::thread::Builder::new().name("kazzu-remote".into()).spawn(move || {
+            let mut queue = RemoteQueue::new(remote_rx, REMOTE_DEBOUNCE);
+            while let Some(job) = queue.next_job() {
+                latest.note(&job);
+                if pool_tx.send(job).is_err() {
+                    break;
+                }
+            }
+        })?;
+        Ok(Self { tx, remote_tx })
     }
 }
 
 impl JobRunner for ThreadedRunner {
     fn submit(&self, job: Job) {
-        let _ = self.tx.send(job);
+        match job {
+            Job::Remote(r) => {
+                let _ = self.remote_tx.send(r);
+            }
+            other => {
+                let _ = self.tx.send(other);
+            }
+        }
+    }
+}
+
+/// Trabalhadores de rede simultâneos (conexões e memória limitadas, inclusive no Android).
+pub const REMOTE_WORKERS: usize = 5;
+
+/// Última geração (`seq`) vista de cada tipo de pedido que a tela substitui: um job de geração menor que a última
+/// já enviada ao pool é lixo e não vale a rede.
+#[derive(Default)]
+pub struct LatestSeq {
+    home: AtomicU64,
+    explore: AtomicU64,
+    search: AtomicU64,
+    suggest: AtomicU64,
+    open: AtomicU64,
+}
+
+impl LatestSeq {
+    fn slot(&self, job: &RemoteJob) -> Option<(&AtomicU64, u64)> {
+        match job {
+            RemoteJob::LoadHome { seq, .. } => Some((&self.home, *seq)),
+            RemoteJob::LoadExplore { seq } => Some((&self.explore, *seq)),
+            RemoteJob::Search { seq, .. } => Some((&self.search, *seq)),
+            RemoteJob::Suggest { seq, .. } => Some((&self.suggest, *seq)),
+            RemoteJob::Open { seq, .. } => Some((&self.open, *seq)),
+            _ => None,
+        }
+    }
+
+    /// Registra o job que está entrando no pool.
+    pub fn note(&self, job: &RemoteJob) {
+        if let Some((a, seq)) = self.slot(job) {
+            a.fetch_max(seq, Ordering::SeqCst);
+        }
+    }
+
+    /// Há um job mais novo do mesmo tipo?
+    pub fn is_stale(&self, job: &RemoteJob) -> bool {
+        self.slot(job).is_some_and(|(a, seq)| a.load(Ordering::SeqCst) > seq)
+    }
+}
+
+/// Fila dos jobs de rede com debounce: a busca e as sugestões de uma rajada de digitação viram uma só (a última),
+/// disparada `debounce` depois da última tecla; qualquer outro job passa na hora.
+pub struct RemoteQueue {
+    rx: Receiver<RemoteJob>,
+    debounce: Duration,
+    pending: Vec<(RemoteJob, Instant)>,
+}
+
+impl RemoteQueue {
+    pub fn new(rx: Receiver<RemoteJob>, debounce: Duration) -> Self {
+        Self { rx, debounce, pending: Vec::new() }
+    }
+
+    fn slot(job: &RemoteJob) -> Option<u8> {
+        match job {
+            RemoteJob::Search { .. } => Some(0),
+            RemoteJob::Suggest { .. } => Some(1),
+            _ => None,
+        }
+    }
+
+    pub fn next_job(&mut self) -> Option<RemoteJob> {
+        loop {
+            let due = self.pending.iter().enumerate().min_by_key(|(_, (_, at))| *at).map(|(i, (_, at))| (i, *at));
+            let received = match due {
+                Some((i, at)) => match self.rx.recv_timeout(at.saturating_duration_since(Instant::now())) {
+                    Ok(j) => j,
+                    Err(RecvTimeoutError::Timeout | RecvTimeoutError::Disconnected) => return Some(self.pending.remove(i).0),
+                },
+                None => self.rx.recv().ok()?,
+            };
+            match Self::slot(&received) {
+                Some(slot) => {
+                    self.pending.retain(|(j, _)| Self::slot(j) != Some(slot));
+                    self.pending.push((received, Instant::now() + self.debounce));
+                }
+                None => return Some(received),
+            }
+        }
     }
 }
 
