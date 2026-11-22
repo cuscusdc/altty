@@ -75,6 +75,7 @@ pub struct Controller<V: View> {
     view: V,
     engine: EngineHandle,
     jobs: Box<dyn JobRunner>,
+    #[cfg_attr(target_os = "android", allow(dead_code))] // no Android o seletor de pastas (único uso) não existe
     sink: MsgSink,
     cfg: Config,
     cfg_path: Option<PathBuf>,
@@ -802,6 +803,15 @@ impl<V: View> Controller<V> {
         self.jobs.submit(Job::CreatePlaylist(name.to_owned()));
     }
 
+    /// Android: sem seletor de pastas nesta versão; adiciona (ou reescaneia) `Music` e pede a permissão se faltar.
+    #[cfg(target_os = "android")]
+    pub fn add_folder(&mut self) {
+        if !crate::android::add_music_folder_from_ui() {
+            self.view.toast("Permita o acesso às músicas para o Kazzu ler a pasta Música do aparelho.", true);
+        }
+    }
+
+    #[cfg(not(target_os = "android"))]
     pub fn add_folder(&mut self) {
         let sink = self.sink.clone();
         let spawned = std::thread::Builder::new().name("kazzu-folder-dialog".into()).spawn(move || {

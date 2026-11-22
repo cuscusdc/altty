@@ -22,16 +22,6 @@ kazzu-core = { path = "../kazzu-core" }
 kazzu-audio = { path = "../kazzu-audio" }
 kazzu-library = { path = "../kazzu-library" }
 
-slint = { version = "1.19", default-features = false, features = [
-    "std",
-    "backend-default",
-    "renderer-femtovg",
-    "renderer-software",
-    "accessibility",
-    "compat-1-2",
-] }
-pollster = "0.4"
-rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "async-std"] }
 crossbeam-channel = "0.5"
 directories = "6"
 serde = { version = "1", features = ["derive"] }
@@ -47,6 +37,36 @@ lofty = { version = "0.25", optional = true }
 
 [build-dependencies]
 slint-build = "1.19"
+
+# --- Desktop (Linux/Windows/macOS) ---
+[target.'cfg(not(target_os = "android"))'.dependencies]
+slint = { version = "1.19", default-features = false, features = [
+    "std",
+    "backend-default",
+    "renderer-femtovg",
+    "renderer-software",
+    "accessibility",
+    "compat-1-2",
+] }
+pollster = "0.4"
+rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "async-std"] }
+
+# --- Android (ver docs/ANDROID.md) ---
+# Backend `android-activity` do Slint (NativeActivity, sem Java/Gradle próprio). Sem `backend-default`: o winit não é usado.
+[target.'cfg(target_os = "android")'.dependencies]
+slint = { version = "1.19", default-features = false, features = [
+    "std",
+    "backend-android-activity-06",
+    "renderer-femtovg",
+    "renderer-software",
+    "compat-1-2",
+] }
+# libopus compilada junto (cmake do SDK): no Android não há libopus do sistema.
+symphonia-adapter-libopus = { version = "0.3", default-features = false, features = ["bundled"] }
+# Logs no logcat (nada sai do aparelho).
+android_logger = "0.15"
+# Pedido de permissão em tempo de execução (checkSelfPermission/requestPermissions).
+jni = "0.21"
 
 [dev-dependencies]
 hound = "3.5"

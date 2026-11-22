@@ -1,0 +1,122 @@
+# APK do Kazzu para Android no CI gratuito do GitHub Actions (repositório privado: minutos do plano grátis).
+#
+# - push de tag `v*` (ex.: v0.1.0-alpha.1): compila, assina e anexa o APK + SHA-256 à release da tag
+#   (prerelease se a tag tiver `-`);
+# - workflow_dispatch / pull request: só compila e guarda o APK como artefato do workflow.
+#
+# Assinatura: a chave de release do autor NUNCA fica no repositório. Para publicar com ela, cadastre os segredos
+#   KAZZU_KEYSTORE_B64      (base64 -w0 ~/.android/kazzu-release.jks)
+#   KAZZU_KEYSTORE_PASSWORD (conteúdo de ~/.android/kazzu-release.pass)
+# Sem esses segredos o CI assina com uma chave descartável (--debug-sign) e NÃO publica na release: um APK com
+# outra chave não atualiza por cima do instalado e confundiria os testadores. Ver docs/ANDROID.md.
+name: android
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "android/**"
+      - "scripts/build-apk.sh"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/android.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NDK_VERSION: "30.0.16248370"      # o Skia pré-compilado do Slint exige o libc++ do NDK r30 (ver docs/ANDROID.md)
+  BUILD_TOOLS: "35.0.1"
+  CARGO_TERM_COLOR: always
+  CI: "true"
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write   # anexar o APK à release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Rust (stable) + alvo Android
+        run: |
+          rustup toolchain install stable --profile minimal --target aarch64-linux-android
+          rustup default stable
+          rustc --version
+
+      - name: Android SDK/NDK/cmake
+        run: |
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses >/dev/null || true
+          "$SDKM" "platforms;android-35" "build-tools;$BUILD_TOOLS" "ndk;$NDK_VERSION" "cmake;3.31.6" >/dev/null
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/android
+          key: android-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: android-${{ runner.os }}-
+
+      - name: Versão
+        id: ver
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then v="${GITHUB_REF_NAME#v}"; else v="$(sed -n 's/^version *= *"\(.*\)"/\1/p' Cargo.toml | head -1)-ci.${GITHUB_RUN_NUMBER}"; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Chave de assinatura
+        id: sign
+        env:
+          KS_B64: ${{ secrets.KAZZU_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.KAZZU_KEYSTORE_PASSWORD }}
+        run: |
+          if [[ -n "$KS_B64" && -n "$KS_PASS" ]]; then
+            umask 077
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/kazzu-release.jks"
+            printf '%s\n' "$KS_PASS" > "$RUNNER_TEMP/kazzu-release.pass"
+            echo "KAZZU_KEYSTORE=$RUNNER_TEMP/kazzu-release.jks" >> "$GITHUB_ENV"
+            echo "KAZZU_KEYSTORE_PASS_FILE=$RUNNER_TEMP/kazzu-release.pass" >> "$GITHUB_ENV"
+            echo "release_key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "release_key=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Segredos de assinatura ausentes: APK assinado com chave descartável; não será publicado na release."
+          fi
+
+      - name: Compilar e assinar o APK (arm64-v8a)
+        run: |
+          flag=""; [[ "${{ steps.sign.outputs.release_key }}" == "true" ]] || flag="--debug-sign"
+          scripts/build-apk.sh --abi arm64-v8a --version "${{ steps.ver.outputs.version }}" $flag
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kazzu-${{ steps.ver.outputs.version }}-android
+          path: |
+            target/android/apk/*.apk
+            target/android/apk/*.sha256
+          if-no-files-found: error
+
+      - name: Anexar à release
+        if: github.ref_type == 'tag' && steps.sign.outputs.release_key == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pre=""; [[ "$GITHUB_REF_NAME" == *-* ]] && pre="--prerelease"
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" $pre --title "Kazzu $GITHUB_REF_NAME" --notes "APK para Android (arm64-v8a). Ver docs/ANDROID.md."
+          gh release upload "$GITHUB_REF_NAME" target/android/apk/*.apk target/android/apk/*.sha256 --clobber
