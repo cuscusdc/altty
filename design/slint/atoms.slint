@@ -91,7 +91,12 @@ export component Chip inherits Rectangle {
     accessible-action-default => { root.clicked(); }
     lbl := Text { text: root.text; font-size: Theme.fs-subhead; font-weight: Theme.fw-caption; color: root.selected ? Theme.bg : Theme.ink; x: 16px; y: (parent.height - self.height) / 2; }
     // alvo de toque de 48 (o chip tem 40): área invisível de 4px acima e abaixo
-    TouchArea { y: -4px; height: parent.height + 8px; clicked => { root.clicked(); } }
+    TouchArea { y: -4px; height: parent.height + 8px; mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false;
+        key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; }
+    }
+    // anel de foco por dentro da pílula (não é cortado por clip nem por rolagem)
+    Rectangle { visible: fs.has-focus; border-radius: parent.height / 2; border-width: Theme.focus-ring-w; border-color: Theme.focus-ring; }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -109,7 +114,7 @@ export component CoverImage inherits Rectangle {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Botão de ícone: alvo 44px, foco visível, rótulo de acessibilidade OBRIGATÓRIO.
+// Botão de ícone: alvo 48px, foco visível, rótulo de acessibilidade OBRIGATÓRIO.
 // ---------------------------------------------------------------------------------------------
 export component IconButton inherits Rectangle {
     in property <image> icon;
@@ -165,7 +170,7 @@ export component FormatBadge inherits Rectangle {
     height: 22px; border-radius: 7px;
     border-width: 1px;
     border-color: hires ? Theme.accent.with-alpha(0.55) : Theme.line-strong;
-    width: row.preferred-width + 16px;
+    width: row.preferred-width;
     accessible-role: text;
     accessible-label: codec + " " + detail;
     row := HorizontalLayout {
@@ -177,7 +182,7 @@ export component FormatBadge inherits Rectangle {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Interruptor 52x32 (alvo 44 com margem invisível). `locked` = ligado e não editável (Sem telemetria).
+// Interruptor 52x32 (alvo 64x48 com margem invisível). `locked` = ligado e não editável (Sem telemetria).
 // ---------------------------------------------------------------------------------------------
 export component KSwitch inherits Rectangle {
     in-out property <bool> checked: false;
@@ -199,7 +204,8 @@ export component KSwitch inherits Rectangle {
         background: (root.checked || root.locked) ? Theme.accent-ink : Theme.ink;
         animate x { duration: Theme.dur-short; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
     }
-    TouchArea { x: -6px; y: -6px; width: parent.width + 12px; height: parent.height + 12px; enabled: !root.locked; clicked => { root.flip(); } }
+    // alvo de toque de 48 (o interruptor tem 32 de altura): 8 px invisíveis acima e abaixo, 6 nas laterais
+    TouchArea { x: -6px; y: (parent.height - Theme.hit) / 2; width: parent.width + 12px; height: Theme.hit; enabled: !root.locked; clicked => { root.flip(); } }
     fs := FocusScope { focus-on-click: false;
         enabled: !root.locked;
         key-pressed(e) => { if (e.text == " " || e.text == Key.Return) { root.flip(); return accept; } return reject; }
@@ -267,7 +273,9 @@ export component KSlider inherits Rectangle {
         background: root.immersive ? Theme.im-ink : Theme.ink;
         drop-shadow-blur: Theme.e1-blur; drop-shadow-offset-y: Theme.e1-y; drop-shadow-color: Theme.e1-color;
     }
+    // a barra pode ser fina (32, volume do NowBar): a área de toque cresce para 48 de altura, centrada (mouse-x não muda)
     ta := TouchArea {
+        y: min(0px, (parent.height - Theme.hit) / 2); height: max(parent.height, Theme.hit);
         enabled: root.enabled;
         mouse-cursor: pointer;
         pointer-event(e) => {

@@ -1,0 +1,28 @@
+[package]
+name = "kazzu-ui-gallery"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Kazzu: galeria da UI Slint (dados falsos, capturas e prova de vidro)"
+publish = false
+build = "build.rs"
+
+[[bin]]
+name = "kazzu-ui-gallery"
+path = "src/main.rs"
+
+[dependencies]
+# só para `--hit-targets` (API de testes do Slint: ElementHandle/ElementQuery); GPL-3.0-only OR royalty-free, mesma licença do Slint
+i-slint-backend-testing = "1.19"
+image = { version = "0.25", default-features = false, features = ["png"] }
+slint = { version = "1.19", default-features = false, features = [
+    "std",
+    "backend-winit",
+    "renderer-femtovg",
+    "renderer-software",
+    "accessibility",
+    "compat-1-2",
+] }
+
+[build-dependencies]
+slint-build = "1.19"
