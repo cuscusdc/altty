@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Configurações — Kazzu</title>
+<title>Ajustes — Kazzu</title>
 <meta name="color-scheme" content="dark light">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/tokens.css">
 <link rel="stylesheet" href="assets/covers.css">
+<link rel="stylesheet" href="assets/stage.css">
 <link rel="stylesheet" href="assets/kazzu.css">
 </head>
-<body class="app dyn cv-07" data-screen="settings" data-cover="07">
+<body class="dyn cv-07" data-screen="settings" data-cover="07">
+<a class="skip" href="#main">Ir para o conteúdo</a>
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
 <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.2 12 4l8 7.2V19a1.5 1.5 0 0 1-1.5 1.5H15V15H9v5.5H5.5A1.5 1.5 0 0 1 4 19z"/></symbol>
 <symbol id="i-explore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="m15.6 8.4-1.9 5.3-5.3 1.9 1.9-5.3z"/></symbol>
@@ -56,80 +58,67 @@
 <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 14.2A7.75 7.75 0 0 1 9.8 4.5a7.75 7.75 0 1 0 9.7 9.7z"/></symbol>
 <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></symbol>
 <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="M12 11v5.25"/><circle cx="12" cy="7.9" r=".6" fill="currentColor"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M12 3.5l1.3 2.1 2.4-.6.9 2.3 2.3.9-.6 2.4 2.1 1.3-2.1 1.3.6 2.4-2.3.9-.9 2.3-2.4-.6L12 20.5l-1.3-2.1-2.4.6-.9-2.3-2.3-.9.6-2.4L3.5 12l2.1-1.3-.6-2.4 2.3-.9.9-2.3 2.4.6z"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4"/></symbol>
+<symbol id="i-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18.5a4.25 4.25 0 0 1-.6-8.45 5.75 5.75 0 0 1 11.1 1.2 3.65 3.65 0 0 1-.4 7.25z"/></symbol>
+<symbol id="i-stats" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V12M12 20V5M19 20v-5"/></symbol>
+<symbol id="i-timer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7"/><path d="M12 10v3.5l2.2 1.3M9.5 3.5h5"/></symbol>
+<symbol id="i-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+<symbol id="i-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></symbol>
+<symbol id="i-badge-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="m8.2 12.3 2.6 2.6 5-5.4"/></symbol>
 <symbol id="i-cloud-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l16 16M8.6 8.2A5 5 0 0 0 7 18h10.6M17 10.2a4 4 0 0 1 3 3.8"/></symbol>
 </svg>
-<div class="ambient" aria-hidden="true"><img src="covers/cover-07.svg" alt="" width="640" height="640" data-ambient></div><aside class="sidebar glass" aria-label="Navegação principal">
-  <a class="logo-link" href="home.html" aria-label="Kazzu, ir para Início">
-    <span class="logo-rail"><img class="mark th-d" src="../assets/kazzu-mark-dark.svg" alt="" width="36" height="36"><img class="mark th-l" src="../assets/kazzu-mark-light.svg" alt="" width="36" height="36"></span>
-    <span class="logo-wide"><img class="logo th-d" src="../assets/kazzu-wordmark-dark.svg" alt="Kazzu" width="108" height="28"><img class="logo th-l" src="../assets/kazzu-wordmark-light.svg" alt="Kazzu" width="108" height="28"></span>
-  </a>
-  <nav style="display:grid;gap:4px"><a class="side-link" href="home.html"><svg class="ic " aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a><a class="side-link" href="explore.html"><svg class="ic " aria-hidden="true"><use href="#i-explore"/></svg><span>Explorar</span></a><a class="side-link" href="library.html"><svg class="ic " aria-hidden="true"><use href="#i-library"/></svg><span>Biblioteca</span></a>
-    <div class="side-sep" role="presentation"></div>
-    <a class="side-link side-search" href="search.html" aria-label="Buscar"><svg class="ic " aria-hidden="true"><use href="#i-search"/></svg><span>Buscar</span></a>
-  </nav>
-  <div class="side-spacer"></div>
-  <a class="side-link" href="settings.html" aria-current="page"><svg class="ic " aria-hidden="true"><use href="#i-sliders"/></svg><span>Configurações</span></a>
-</aside><main class="content" id="main" style="max-width:760px">
-  <header class="topbar mobile-only"><a class="logo-hit" href="home.html" aria-label="Kazzu, ir para Início"><img class="logo th-d" src="../assets/kazzu-wordmark-dark.svg" alt="Kazzu" width="108" height="28"><img class="logo th-l" src="../assets/kazzu-wordmark-light.svg" alt="Kazzu" width="108" height="28"></a><a class="avatar" href="settings.html" aria-label="Conta">C</a></header>
-  <div class="screen-title"><h1 class="t-large">Configurações</h1></div>
-
-  <h2 class="t-title2 group-title" style="margin-top:var(--sp-3)">Provedores</h2>
-  <div class="group">
-    <div class="set-row"><span class="lead"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-folder"/></svg></span><span class="txt"><span class="t-body" style="font-weight:600">Biblioteca local</span><span class="t-sub">3 pastas, 1.284 músicas</span></span><span class="tag">Ativa</span></div>
-    <div class="set-row"><span class="lead"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-disc"/></svg></span><span class="txt"><span class="t-body" style="font-weight:600">YT Music</span><span class="t-sub">Conectado, conta cuscusdoce</span></span><button class="btn-text" type="button">Sair</button></div>
-    <div class="set-row"><span class="lead"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-disc"/></svg></span><span class="txt"><span class="t-body" style="font-weight:600">Spotify</span><span class="t-sub">Toque para conectar sua conta</span></span><button class="btn-pill btn-quiet" type="button">Conectar</button></div>
-    <div class="set-row"><span class="lead"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-disc"/></svg></span><span class="txt"><span class="t-body" style="font-weight:600">Tidal e Qobuz</span><span class="t-sub">Chegam em uma próxima versão</span></span><span class="tag">Em breve</span></div>
+<div class="stage" aria-hidden="true"><img class="cv" src="covers/cover-07.svg" alt="" width="640" height="640" data-stage></div>
+<aside class="rail-nav glass g2" aria-label="Navegação principal">
+  <a class="mk" href="home.html" aria-label="Kazzu, ir para Início"><img class="mark-sm th-d" src="../assets/kazzu-mark-dark.svg" alt="" width="36" height="36"><img class="mark-sm th-l" src="../assets/kazzu-mark-light.svg" alt="" width="36" height="36"><img class="logo-w th-d" src="../assets/kazzu-wordmark-dark.svg" alt="Kazzu" width="108" height="28"><img class="logo-w th-l" src="../assets/kazzu-wordmark-light.svg" alt="Kazzu" width="108" height="28"></a>
+  <nav><a class="tab" href="home.html"><svg class="ic " aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a><a class="tab" href="explore.html"><svg class="ic " aria-hidden="true"><use href="#i-explore"/></svg><span>Explorar</span></a><a class="tab" href="library.html"><svg class="ic " aria-hidden="true"><use href="#i-library"/></svg><span>Biblioteca</span></a><a class="tab" href="search.html"><svg class="ic " aria-hidden="true"><use href="#i-search"/></svg><span>Buscar</span></a></nav>
+  <div class="sp"></div>
+  <a class="tab" href="settings.html" aria-current="page"><svg class="ic " aria-hidden="true"><use href="#i-gear"/></svg><span>Ajustes</span></a>
+</aside><main class="page" id="main">
+  <header class="topbar"><a class="btn-ic glass" href="home.html" aria-label="Voltar"><svg class="ic " aria-hidden="true"><use href="#i-back"/></svg></a><h1 class="t-title1" style="margin-right:auto;margin-left:12px">Ajustes</h1></header>
+  <section class="section" aria-labelledby="g1"><h2 class="group-h" id="g1">Fontes de música</h2>
+    <div class="group glass">
+      <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-cloud"/></svg></span><span><span class="t" style="display:block">YouTube Music</span><span class="d">Ativo e padrão. Sem login.</span></span><span class="tag ok">Ativo</span></div>
+      <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-folder"/></svg></span><span><span class="t" style="display:block">Arquivos neste aparelho</span><span class="d">1 pasta, 2 músicas</span></span><a class="btn btn-glass" href="states.html#s=permission" style="min-height:44px">Adicionar pasta</a></div>
+      <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-plus"/></svg></span><span><span class="t" style="display:block">Outras fontes</span><span class="d">Spotify, Tidal e Qobuz entram depois, só se você ligar.</span></span><span class="tag">Em breve</span></div>
+    </div></section>
+  <section class="section" aria-labelledby="g2"><h2 class="group-h" id="g2">Áudio</h2>
+    <div class="group glass">
+      <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-wave"/></svg></span><span><span class="t" style="display:block">Qualidade</span><span class="d">Original, sem equalizador. O que a fonte entrega é o que toca.</span></span><span class="tag">Original</span></div>
+      <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-eq"/></svg></span><span><span class="t" style="display:block">Equalizador</span><span class="d">Desligado. Desligado significa sinal intacto.</span></span><span class="tag">Em breve</span></div>
+      <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-download"/></svg></span><span><span class="t" style="display:block">Baixar só no Wi-Fi</span><span class="d">Evita gastar seu plano de dados.</span></span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Baixar só no Wi-Fi"></button></div>
+    </div></section>
+  <section class="section" aria-labelledby="g3"><h2 class="group-h" id="g3">Aparência</h2>
+    <div class="group glass">
+      <div class="set-row" style="grid-template-columns:1fr"><div role="radiogroup" aria-label="Tema" class="seg lite"><button type="button" role="radio" aria-checked="false" data-theme="auto">Automático</button><button type="button" role="radio" aria-checked="true" data-theme="dark">Escuro</button><button type="button" role="radio" aria-checked="false" data-theme="light">Claro</button></div></div>
+      <div class="set-row" style="grid-template-columns:1fr"><div role="radiogroup" aria-label="Cor de destaque" class="seg lite"><button type="button" role="radio" aria-checked="true" data-accent="dyn">Da capa</button><button type="button" role="radio" aria-checked="false" data-accent="brand">Âmbar Kazzu</button></div></div>
+      <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-moon"/></svg></span><span><span class="t" style="display:block">Reduzir transparência</span><span class="d">Troca o vidro por painéis sólidos. Ajuda em telas lentas e em baixa visão.</span></span><button class="switch" type="button" role="switch" aria-checked="false" aria-label="Reduzir transparência" data-setting=reduce-transparency></button></div>
+      <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-sliders"/></svg></span><span><span class="t" style="display:block">Reduzir movimento</span><span class="d">Corta animações e a troca suave de capas.</span></span><button class="switch" type="button" role="switch" aria-checked="false" aria-label="Reduzir movimento" data-setting=reduce-motion></button></div>
+    </div></section>
+  <section class="section" aria-labelledby="g4"><h2 class="group-h" id="g4">Privacidade</h2>
+    <div class="group glass">
+      <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-shield"/></svg></span><span><span class="t" style="display:block">Sem telemetria</span><span class="d">O Kazzu só recebe dados. Nada sobre você sai do aparelho. Não dá para desligar.</span></span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Sem telemetria, sempre ligado" aria-disabled=true></button></div>
+      <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-lock"/></svg></span><span><span class="t" style="display:block">Histórico de escuta</span><span class="d">Fica só neste aparelho.</span></span><button class="btn btn-glass" type="button" style="min-height:44px">Apagar</button></div>
+    </div></section>
+  <section class="section" aria-labelledby="g5"><h2 class="group-h" id="g5">Sobre</h2>
+    <div class="group glass">
+      <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-info"/></svg></span><span><span class="t" style="display:block">Kazzu 0.1</span><span class="d">Licença GPL-3.0, código aberto.</span></span><a class="btn-ic" href="settings.html" aria-label="Ver licenças"><svg class="ic " aria-hidden="true"><use href="#i-chevron-right"/></svg></a></div>
+    </div></section>
+</main>
+<div class="chrome">
+  <div class="mini glass g2" role="region" aria-label="Tocando agora">
+    <a class="cover" href="player.html" aria-label="Abrir o player: Quase Verão, Nina Sabiá" style="display:block"><span class="cover "><img src="covers/cover-07.svg" alt="" width="96" height="96" loading="lazy" decoding="async"></span></a>
+    <a class="meta" href="player.html" tabindex="-1" aria-hidden="true"><span class="t-callout ellipsis w6">Quase Verão</span><span class="t-sub muted2 ellipsis">Nina Sabiá</span></a>
+    <span class="extra"><span class="t-mono">1:02</span><div class="slider" role="slider" tabindex="0" aria-label="Progresso" aria-valuemin="0" aria-valuemax="201" aria-valuenow="62" aria-valuetext="1:02 de 3:21" data-kind="seek"><div class="track"><div class="fill"></div><div class="thumb"></div></div></div><span class="t-mono">3:21</span></span>
+    <button class="btn-ic" type="button" aria-label="Pausar" data-playtoggle><svg class="ic ic-lg" aria-hidden="true"><use href="#i-pause"/></svg></button>
+    <button class="btn-ic" type="button" aria-label="Próxima faixa"><svg class="ic " aria-hidden="true"><use href="#i-next"/></svg></button>
+    <span class="prog" aria-hidden="true" style="--p:31%"></span>
   </div>
-
-  <h2 class="t-title2 group-title">Áudio</h2>
-  <div class="group">
-    <div class="set-row"><span class="lead"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-output"/></svg></span><span class="txt"><span class="t-body" style="font-weight:600">Saída</span><span class="t-sub">Padrão do sistema: Fones do estúdio</span></span><button class="btn-text" type="button">Trocar</button></div>
-    <div class="set-row"><span class="lead"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-check"/></svg></span><span class="txt"><span class="t-body" style="font-weight:600">Qualidade original</span><span class="t-sub">Sem normalizar e sem reamostrar. Só convertemos a taxa se o dispositivo de saída exigir.</span></span><span class="tag">Sempre</span></div>
-    <div class="set-row"><span class="lead"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-eq"/></svg></span><span class="txt"><span class="t-body" style="font-weight:600">Equalizador</span><span class="t-sub">Desligado: reprodução bit-perfect.</span></span><button class="switch" role="switch" aria-checked="false" aria-label="Equalizador" type="button" ></button></div>
-    <div class="set-row" style="display:block;padding:var(--sp-4) 0 var(--sp-5)" aria-label="Prévia do equalizador, indisponível">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3)"><span class="t-sub muted">Equalizador de 10 bandas, com curvas por fone</span><span class="tag">Em breve</span></div>
-      <div style="display:flex;justify-content:space-between;opacity:.55;pointer-events:none"><div style="display:grid;justify-items:center;gap:6px"><div class="slider light" role="slider" aria-disabled="true" aria-label="Banda 31" aria-valuemin="-12" aria-valuemax="12" aria-valuenow="0" style="--p:50%;height:84px;width:28px;flex-direction:column"><div class="track" style="width:6px;height:100%"><div class="fill" style="width:100%;height:50%;top:auto;bottom:0;opacity:0"></div></div><div class="thumb" style="opacity:1;left:50%;top:50%;background:var(--ink-3)"></div></div><span class="t-mono muted" style="font-size:12px">31</span></div><div style="display:grid;justify-items:center;gap:6px"><div class="slider light" role="slider" aria-disabled="true" aria-label="Banda 62" aria-valuemin="-12" aria-valuemax="12" aria-valuenow="0" style="--p:50%;height:84px;width:28px;flex-direction:column"><div class="track" style="width:6px;height:100%"><div class="fill" style="width:100%;height:50%;top:auto;bottom:0;opacity:0"></div></div><div class="thumb" style="opacity:1;left:50%;top:50%;background:var(--ink-3)"></div></div><span class="t-mono muted" style="font-size:12px">62</span></div><div style="display:grid;justify-items:center;gap:6px"><div class="slider light" role="slider" aria-disabled="true" aria-label="Banda 125" aria-valuemin="-12" aria-valuemax="12" aria-valuenow="0" style="--p:50%;height:84px;width:28px;flex-direction:column"><div class="track" style="width:6px;height:100%"><div class="fill" style="width:100%;height:50%;top:auto;bottom:0;opacity:0"></div></div><div class="thumb" style="opacity:1;left:50%;top:50%;background:var(--ink-3)"></div></div><span class="t-mono muted" style="font-size:12px">125</span></div><div style="display:grid;justify-items:center;gap:6px"><div class="slider light" role="slider" aria-disabled="true" aria-label="Banda 250" aria-valuemin="-12" aria-valuemax="12" aria-valuenow="0" style="--p:50%;height:84px;width:28px;flex-direction:column"><div class="track" style="width:6px;height:100%"><div class="fill" style="width:100%;height:50%;top:auto;bottom:0;opacity:0"></div></div><div class="thumb" style="opacity:1;left:50%;top:50%;background:var(--ink-3)"></div></div><span class="t-mono muted" style="font-size:12px">250</span></div><div style="display:grid;justify-items:center;gap:6px"><div class="slider light" role="slider" aria-disabled="true" aria-label="Banda 500" aria-valuemin="-12" aria-valuemax="12" aria-valuenow="0" style="--p:50%;height:84px;width:28px;flex-direction:column"><div class="track" style="width:6px;height:100%"><div class="fill" style="width:100%;height:50%;top:auto;bottom:0;opacity:0"></div></div><div class="thumb" style="opacity:1;left:50%;top:50%;background:var(--ink-3)"></div></div><span class="t-mono muted" style="font-size:12px">500</span></div><div style="display:grid;justify-items:center;gap:6px"><div class="slider light" role="slider" aria-disabled="true" aria-label="Banda 1k" aria-valuemin="-12" aria-valuemax="12" aria-valuenow="0" style="--p:50%;height:84px;width:28px;flex-direction:column"><div class="track" style="width:6px;height:100%"><div class="fill" style="width:100%;height:50%;top:auto;bottom:0;opacity:0"></div></div><div class="thumb" style="opacity:1;left:50%;top:50%;background:var(--ink-3)"></div></div><span class="t-mono muted" style="font-size:12px">1k</span></div><div style="display:grid;justify-items:center;gap:6px"><div class="slider light" role="slider" aria-disabled="true" aria-label="Banda 2k" aria-valuemin="-12" aria-valuemax="12" aria-valuenow="0" style="--p:50%;height:84px;width:28px;flex-direction:column"><div class="track" style="width:6px;height:100%"><div class="fill" style="width:100%;height:50%;top:auto;bottom:0;opacity:0"></div></div><div class="thumb" style="opacity:1;left:50%;top:50%;background:var(--ink-3)"></div></div><span class="t-mono muted" style="font-size:12px">2k</span></div><div style="display:grid;justify-items:center;gap:6px"><div class="slider light" role="slider" aria-disabled="true" aria-label="Banda 4k" aria-valuemin="-12" aria-valuemax="12" aria-valuenow="0" style="--p:50%;height:84px;width:28px;flex-direction:column"><div class="track" style="width:6px;height:100%"><div class="fill" style="width:100%;height:50%;top:auto;bottom:0;opacity:0"></div></div><div class="thumb" style="opacity:1;left:50%;top:50%;background:var(--ink-3)"></div></div><span class="t-mono muted" style="font-size:12px">4k</span></div><div style="display:grid;justify-items:center;gap:6px"><div class="slider light" role="slider" aria-disabled="true" aria-label="Banda 8k" aria-valuemin="-12" aria-valuemax="12" aria-valuenow="0" style="--p:50%;height:84px;width:28px;flex-direction:column"><div class="track" style="width:6px;height:100%"><div class="fill" style="width:100%;height:50%;top:auto;bottom:0;opacity:0"></div></div><div class="thumb" style="opacity:1;left:50%;top:50%;background:var(--ink-3)"></div></div><span class="t-mono muted" style="font-size:12px">8k</span></div><div style="display:grid;justify-items:center;gap:6px"><div class="slider light" role="slider" aria-disabled="true" aria-label="Banda 16k" aria-valuemin="-12" aria-valuemax="12" aria-valuenow="0" style="--p:50%;height:84px;width:28px;flex-direction:column"><div class="track" style="width:6px;height:100%"><div class="fill" style="width:100%;height:50%;top:auto;bottom:0;opacity:0"></div></div><div class="thumb" style="opacity:1;left:50%;top:50%;background:var(--ink-3)"></div></div><span class="t-mono muted" style="font-size:12px">16k</span></div></div>
-    </div>
+  <div class="dock-row">
+    <nav class="dock glass g2" aria-label="Navegação principal"><a class="tab" href="home.html"><svg class="ic " aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a><a class="tab" href="explore.html"><svg class="ic " aria-hidden="true"><use href="#i-explore"/></svg><span>Explorar</span></a><a class="tab" href="library.html"><svg class="ic " aria-hidden="true"><use href="#i-library"/></svg><span>Biblioteca</span></a></nav>
+    <a class="search-btn glass g2" href="search.html" aria-label="Buscar"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-search"/></svg></a>
   </div>
-
-  <h2 class="t-title2 group-title">Aparência</h2>
-  <div class="group">
-    <div class="set-row"><span class="lead"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-moon"/></svg></span><span class="txt"><span class="t-body" style="font-weight:600">Tema</span></span><div class="seg" role="radiogroup" aria-label="Tema"><button type="button" role="radio" aria-checked="false" data-theme="auto">Auto</button><button type="button" role="radio" aria-checked="false" data-theme="light">Claro</button><button type="button" role="radio" aria-checked="true" data-theme="dark">Escuro</button></div></div>
-    <div class="set-row"><span class="lead"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-sliders"/></svg></span><span class="txt"><span class="t-body" style="font-weight:600">Cor de destaque</span><span class="t-sub">A cor vem da capa da faixa que toca.</span></span><div class="seg" role="radiogroup" aria-label="Cor de destaque"><button type="button" role="radio" aria-checked="true" data-accent="dyn">Da capa</button><button type="button" role="radio" aria-checked="false" data-accent="brand">Âmbar</button></div></div>
-    <div class="set-row"><span class="lead"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-info"/></svg></span><span class="txt"><span class="t-body" style="font-weight:600">Reduzir transparência</span><span class="t-sub">Troca o vidro desfocado por painéis sólidos. Ajuda em telas lentas.</span></span><button class="switch" role="switch" aria-checked="false" aria-label="Reduzir transparência" type="button" data-setting="reduce-transparency"></button></div>
-    <div class="set-row"><span class="lead"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-info"/></svg></span><span class="txt"><span class="t-body" style="font-weight:600">Reduzir movimento</span><span class="t-sub">Remove transições e animações.</span></span><button class="switch" role="switch" aria-checked="false" aria-label="Reduzir movimento" type="button" data-setting="reduce-motion"></button></div>
-  </div>
-
-  <h2 class="t-title2 group-title">Privacidade</h2>
-  <div class="group">
-    <div class="set-row"><span class="lead"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-shield"/></svg></span><span class="txt"><span class="t-body" style="font-weight:600">Sem telemetria</span><span class="t-sub">O Kazzu só se conecta quando você pede algo. Nenhum dado de uso sai do seu aparelho, e esta opção não pode ser desligada.</span></span><button class="switch locked" role="switch" aria-checked="true" aria-disabled="true" aria-label="Sem telemetria, sempre ativado" type="button"></button></div>
-  </div>
-
-  <h2 class="t-title2 group-title">Sobre</h2>
-  <div class="group">
-    <div class="set-row"><span class="lead"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-info"/></svg></span><span class="txt"><span class="t-body" style="font-weight:600">Kazzu 0.1.0</span><span class="t-sub">Código aberto, licença GPL-3.0.</span></span><button class="btn-text" type="button">Licenças</button></div>
-  </div>
-</main><div class="dockwrap">
-  <a class="mini glass" href="player.html" aria-label="Abrir player: Quase Verão, Nina Sabiá">
-    <span class="cover "><img src="covers/cover-07.svg" alt="" width="48" height="48" loading="lazy"></span>
-    <span class="meta"><span class="t-callout ellipsis" style="font-weight:600">Quase Verão</span><span class="t-sub muted ellipsis">Nina Sabiá</span></span>
-    <button class="btn-ic" type="button" aria-label="Pausar" data-stop><svg class="ic ic-lg" aria-hidden="true"><use href="#i-pause"/></svg></button>
-    <button class="btn-ic" type="button" aria-label="Próxima faixa" data-stop><svg class="ic " aria-hidden="true"><use href="#i-next"/></svg></button>
-    <span class="prog" aria-hidden="true" style="--p:31%"><i></i></span>
-  </a>
-  <nav class="dock glass strong" aria-label="Navegação principal">
-    <div class="tabs"><a class="tab" href="home.html"><svg class="ic " aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a><a class="tab" href="explore.html"><svg class="ic " aria-hidden="true"><use href="#i-explore"/></svg><span>Explorar</span></a><a class="tab" href="library.html"><svg class="ic " aria-hidden="true"><use href="#i-library"/></svg><span>Biblioteca</span></a></div>
-    <span class="sep" aria-hidden="true"></span>
-    <a class="search-btn" href="search.html" aria-label="Buscar"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-search"/></svg></a>
-  </nav>
-</div>
-<div class="nowbar glass" role="region" aria-label="Tocando agora">
-  <span class="cover "><img src="covers/cover-07.svg" alt="" width="56" height="56" loading="lazy"></span>
-  <span class="meta"><span class="t-callout ellipsis" style="font-weight:600">Quase Verão</span><span class="t-sub muted ellipsis">Nina Sabiá</span></span>
-  <span class="mid"><div class="slider" role="slider" tabindex="0" aria-label="Progresso" aria-valuemin="0" aria-valuemax="201" aria-valuenow="62" aria-valuetext="1:02 de 3:21" style="--p:31%" data-kind="seek"><div class="track"><div class="fill"></div><div class="thumb"></div></div></div><span class="t-mono"><span>1:02</span><span>3:21</span></span></span>
-  <span class="btns"><button class="btn-ic" type="button" aria-label="Anterior"><svg class="ic " aria-hidden="true"><use href="#i-prev"/></svg></button><button class="btn-ic" type="button" aria-label="Pausar"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-pause"/></svg></button><button class="btn-ic" type="button" aria-label="Próxima"><svg class="ic " aria-hidden="true"><use href="#i-next"/></svg></button></span>
-  <a class="btn-ic" href="queue.html" aria-label="Abrir fila"><svg class="ic " aria-hidden="true"><use href="#i-queue"/></svg></a>
-  <a class="btn-ic" href="player.html" aria-label="Abrir player em tela cheia"><svg class="ic " aria-hidden="true"><use href="#i-chevron-down"/></svg></a>
 </div>
 <script src="assets/app.js"></script>
 </body>

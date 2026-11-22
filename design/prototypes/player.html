@@ -8,9 +8,11 @@
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/tokens.css">
 <link rel="stylesheet" href="assets/covers.css">
+<link rel="stylesheet" href="assets/stage.css">
 <link rel="stylesheet" href="assets/kazzu.css">
 </head>
-<body class="player dyn cv-07" data-screen="player" data-cover="07">
+<body class="dyn cv-07 immersive scope-dark" data-screen="player" data-cover="07" data-immersive="1">
+<a class="skip" href="#main">Ir para o conteúdo</a>
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
 <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.2 12 4l8 7.2V19a1.5 1.5 0 0 1-1.5 1.5H15V15H9v5.5H5.5A1.5 1.5 0 0 1 4 19z"/></symbol>
 <symbol id="i-explore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="m15.6 8.4-1.9 5.3-5.3 1.9 1.9-5.3z"/></symbol>
@@ -56,47 +58,50 @@
 <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 14.2A7.75 7.75 0 0 1 9.8 4.5a7.75 7.75 0 1 0 9.7 9.7z"/></symbol>
 <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></symbol>
 <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="M12 11v5.25"/><circle cx="12" cy="7.9" r=".6" fill="currentColor"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M12 3.5l1.3 2.1 2.4-.6.9 2.3 2.3.9-.6 2.4 2.1 1.3-2.1 1.3.6 2.4-2.3.9-.9 2.3-2.4-.6L12 20.5l-1.3-2.1-2.4.6-.9-2.3-2.3-.9.6-2.4L3.5 12l2.1-1.3-.6-2.4 2.3-.9.9-2.3 2.4.6z"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4"/></symbol>
+<symbol id="i-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18.5a4.25 4.25 0 0 1-.6-8.45 5.75 5.75 0 0 1 11.1 1.2 3.65 3.65 0 0 1-.4 7.25z"/></symbol>
+<symbol id="i-stats" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V12M12 20V5M19 20v-5"/></symbol>
+<symbol id="i-timer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7"/><path d="M12 10v3.5l2.2 1.3M9.5 3.5h5"/></symbol>
+<symbol id="i-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+<symbol id="i-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></symbol>
+<symbol id="i-badge-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="m8.2 12.3 2.6 2.6 5-5.4"/></symbol>
 <symbol id="i-cloud-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l16 16M8.6 8.2A5 5 0 0 0 7 18h10.6M17 10.2a4 4 0 0 1 3 3.8"/></symbol>
 </svg>
-<div class="pl-bg" aria-hidden="true"><img src="covers/cover-07.svg" alt="" width="640" height="640" data-blur></div>
-<div class="pl">
-  <header class="pl-top">
-    <a class="btn-ic" href="home.html" aria-label="Minimizar player"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-chevron-down"/></svg></a>
-    <div class="src">Tocando de Recentes<span>Fones do estúdio</span></div>
-    <button class="btn-ic" type="button" aria-label="Mais opções"><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></button>
+<div class="stage" aria-hidden="true"><img class="cv" src="covers/cover-07.svg" alt="" width="640" height="640" data-stage></div>
+<main class="player" id="main" data-gesture="sheet">
+  <div class="grabber" aria-hidden="true"></div>
+  <header class="player-top">
+    <a class="btn-ic" href="home.html" aria-label="Fechar o player"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-chevron-down"/></svg></a>
+    <span class="from t-sub"><span>Tocando de</span><span class="w6 ellipsis">Mix Foco</span></span>
+    <a class="btn-ic" href="sheets.html" aria-label="Mais opções da faixa"><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></a>
   </header>
-  <main class="pl-main" id="main">
-    <div class="pl-art"><img src="covers/cover-07.svg" alt="Capa de Calor de Março, de Nina Sabiá" width="640" height="640" data-art></div>
-    <section class="pl-ctl" aria-label="Controles de reprodução">
-      <div class="pl-meta">
-        <div class="txt"><h1 class="ellipsis" data-song>Quase Verão</h1><p class="artist ellipsis" data-artist>Nina Sabiá</p></div>
-        <button class="btn-ic" type="button" aria-label="Curtir" aria-pressed="true" data-toggle><svg class="ic " aria-hidden="true"><use href="#i-heart-fill"/></svg></button>
-        <button class="btn-ic" type="button" aria-label="Mais opções da faixa"><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></button>
-      </div>
-      <div>
-        <div class="slider accent" role="slider" tabindex="0" aria-label="Progresso da faixa" aria-valuemin="0" aria-valuemax="201" aria-valuenow="62" aria-valuetext="1:02 de 3:21" style="--p:31%" data-kind="seek"><div class="track"><div class="fill"></div><div class="thumb"></div></div></div>
-        <div class="pl-times t-mono"><span data-cur>1:02</span><span class="fmt hires" data-fmt-badge title="Qualidade original"><b data-fmt>FLAC</b><i></i><span data-bits>24-bit/96 kHz</span></span><span class="r" data-left>−2:19</span></div>
-      </div>
-      <div class="transport">
-        <button class="btn-ic sm" type="button" aria-label="Aleatório" aria-pressed="false" data-toggle><svg class="ic " aria-hidden="true"><use href="#i-shuffle"/></svg></button>
-        <button class="btn-ic" type="button" aria-label="Anterior"><svg class="ic " aria-hidden="true"><use href="#i-prev"/></svg></button>
-        <button class="play-main" type="button" aria-label="Pausar" data-playtoggle><svg class="ic " aria-hidden="true"><use href="#i-pause"/></svg></button>
-        <button class="btn-ic" type="button" aria-label="Próxima"><svg class="ic " aria-hidden="true"><use href="#i-next"/></svg></button>
-        <button class="btn-ic sm" type="button" aria-label="Repetir" aria-pressed="false" data-toggle><svg class="ic " aria-hidden="true"><use href="#i-repeat"/></svg></button>
-      </div>
-      <div class="vol"><svg class="ic " aria-hidden="true"><use href="#i-vol-low"/></svg><div class="slider" role="slider" tabindex="0" aria-label="Volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="68" aria-valuetext="68%" style="--p:68%" data-kind="vol"><div class="track"><div class="fill"></div><div class="thumb"></div></div></div><svg class="ic " aria-hidden="true"><use href="#i-vol-high"/></svg></div>
-      <div class="pl-actions">
-        <button class="pl-action" type="button"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-lyrics"/></svg>Letra</button>
-        <button class="pl-action" type="button" aria-label="Saída de áudio: Fones do estúdio"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-output"/></svg><span class="ellipsis">Fones do estúdio</span></button>
-        <a class="pl-action" href="queue.html"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-queue"/></svg>Fila</a>
-      </div>
-      <p class="pl-note"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-check"/></svg>Original, sem equalizador</p>
-    </section>
-  </main>
-  <div class="demo-swatches" role="group" aria-label="Protótipo: trocar a capa para ver o acento dinâmico"><button type="button" data-cover-pick="01" aria-label="Capa 01: Cidade Submersa"><img src="covers/cover-01.svg" alt="" width="22" height="22"></button><button type="button" data-cover-pick="02" aria-label="Capa 02: Nove Horas"><img src="covers/cover-02.svg" alt="" width="22" height="22"></button><button type="button" data-cover-pick="03" aria-label="Capa 03: Bruma"><img src="covers/cover-03.svg" alt="" width="22" height="22"></button><button type="button" data-cover-pick="04" aria-label="Capa 04: Quadra 7"><img src="covers/cover-04.svg" alt="" width="22" height="22"></button><button type="button" data-cover-pick="05" aria-label="Capa 05: Sal e Cinza"><img src="covers/cover-05.svg" alt="" width="22" height="22"></button><button type="button" data-cover-pick="06" aria-label="Capa 06: Linha de Fuga"><img src="covers/cover-06.svg" alt="" width="22" height="22"></button><button type="button" data-cover-pick="07" aria-label="Capa 07: Calor de Março"><img src="covers/cover-07.svg" alt="" width="22" height="22"></button><button type="button" data-cover-pick="08" aria-label="Capa 08: Vidro Líquido"><img src="covers/cover-08.svg" alt="" width="22" height="22"></button><button type="button" data-cover-pick="09" aria-label="Capa 09: Papel de Seda"><img src="covers/cover-09.svg" alt="" width="22" height="22"></button><button type="button" data-cover-pick="10" aria-label="Capa 10: Fita Magnética"><img src="covers/cover-10.svg" alt="" width="22" height="22"></button></div>
-</div>
-<script>window.KAZZU_TRACKS = {"01": {"song": "Maré Alta", "artist": "Aurora Vento", "fmt": "FLAC", "bits": "24-bit/96 kHz", "hires": true}, "02": {"song": "Hora do Café", "artist": "Doma", "fmt": "FLAC", "bits": "16-bit/44,1 kHz", "hires": false}, "03": {"song": "Mapa de Neblina", "artist": "Lia Cantos", "fmt": "MP3", "bits": "320 kbps", "hires": false}, "04": {"song": "Canal Sete", "artist": "Os Faróis", "fmt": "WAV", "bits": "16-bit/44,1 kHz", "hires": false}, "05": {"song": "Escada de Sal", "artist": "Tomás Reis", "fmt": "FLAC", "bits": "24-bit/192 kHz", "hires": true}, "06": {"song": "Linha de Fuga", "artist": "Meridiano", "fmt": "FLAC", "bits": "24-bit/48 kHz", "hires": true}, "07": {"song": "Quase Verão", "artist": "Nina Sabiá", "fmt": "FLAC", "bits": "24-bit/96 kHz", "hires": true}, "08": {"song": "Respiração de Vidro", "artist": "Kaito e Vê", "fmt": "OPUS", "bits": "160 kbps", "hires": false}, "09": {"song": "Seda e Sal", "artist": "Ilha Branca", "fmt": "FLAC", "bits": "16-bit/44,1 kHz", "hires": false}, "10": {"song": "Fita sem Fim", "artist": "Rádio Cobre", "fmt": "WAV", "bits": "24-bit/96 kHz", "hires": true}};</script>
-
+  <div class="p-art"><img src="covers/cover-07.svg" alt="Capa de Calor de Março" width="640" height="640" data-art></div>
+  <div class="p-head">
+    <div style="min-width:0"><h1 data-song>Quase Verão</h1><p class="artist ellipsis" data-artist>Nina Sabiá</p></div>
+    <button class="btn-ic glass" type="button" aria-label="Curtir" aria-pressed="false" data-toggle><svg class="ic ic-lg" aria-hidden="true"><use href="#i-heart"/></svg></button>
+  </div>
+  <div>
+    <div class="slider" role="slider" tabindex="0" aria-label="Progresso da faixa" aria-valuemin="0" aria-valuemax="201" aria-valuenow="62" aria-valuetext="1:02 de 3:21" data-kind="seek"><div class="track"><div class="fill"></div><div class="thumb"></div></div></div>
+    <div class="p-times t-mono"><span>1:02</span><span>-2:19</span></div>
+  </div>
+  <div class="transport glass g2" role="group" aria-label="Controles de reprodução">
+    <button class="btn-ic" type="button" aria-label="Aleatório" aria-pressed="false" data-toggle><svg class="ic " aria-hidden="true"><use href="#i-shuffle"/></svg></button>
+    <button class="btn-ic" type="button" aria-label="Faixa anterior"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-prev"/></svg></button>
+    <button class="btn-ic play-main" type="button" aria-label="Pausar" data-playtoggle><svg class="ic " aria-hidden="true"><use href="#i-pause"/></svg></button>
+    <button class="btn-ic" type="button" aria-label="Próxima faixa"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-next"/></svg></button>
+    <button class="btn-ic" type="button" aria-label="Repetir" aria-pressed="false" data-toggle><svg class="ic " aria-hidden="true"><use href="#i-repeat"/></svg></button>
+  </div>
+  <div class="p-vol"><svg class="ic" aria-hidden="true"><use href="#i-vol-low"/></svg><div class="slider" role="slider" tabindex="0" aria-label="Volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="70" style="--p:70%"><div class="track"><div class="fill"></div><div class="thumb"></div></div></div><svg class="ic" aria-hidden="true"><use href="#i-vol-high"/></svg></div>
+  <div class="p-pills">
+    <a class="pill" href="queue.html"><svg class="ic " aria-hidden="true"><use href="#i-queue"/></svg>Fila</a>
+    <button class="pill" type="button"><svg class="ic " aria-hidden="true"><use href="#i-lyrics"/></svg>Letra</button>
+    <button class="pill" type="button"><svg class="ic " aria-hidden="true"><use href="#i-timer"/></svg>Timer</button>
+    <button class="pill" type="button"><svg class="ic " aria-hidden="true"><use href="#i-device"/></svg>Este celular</button>
+  </div>
+  <div class="p-quality" data-quality><span class="fmt" data-fmt-badge><b data-fmt>OPUS</b><i></i><span data-bits>160 kbps</span></span><span>Do YouTube Music</span><span>Original, sem equalizador</span></div>
+</main>
 <script src="assets/app.js"></script>
 </body>
 </html>

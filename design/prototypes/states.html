@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Estados vazios — Kazzu</title>
+<title>Estados — Kazzu</title>
 <meta name="color-scheme" content="dark light">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/tokens.css">
 <link rel="stylesheet" href="assets/covers.css">
+<link rel="stylesheet" href="assets/stage.css">
 <link rel="stylesheet" href="assets/kazzu.css">
 </head>
-<body class="app dyn cv-07" data-screen="states" data-cover="07">
+<body class="dyn cv-07" data-screen="states" data-cover="07">
+<a class="skip" href="#main">Ir para o conteúdo</a>
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
 <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.2 12 4l8 7.2V19a1.5 1.5 0 0 1-1.5 1.5H15V15H9v5.5H5.5A1.5 1.5 0 0 1 4 19z"/></symbol>
 <symbol id="i-explore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="m15.6 8.4-1.9 5.3-5.3 1.9 1.9-5.3z"/></symbol>
@@ -56,52 +58,41 @@
 <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 14.2A7.75 7.75 0 0 1 9.8 4.5a7.75 7.75 0 1 0 9.7 9.7z"/></symbol>
 <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></symbol>
 <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="M12 11v5.25"/><circle cx="12" cy="7.9" r=".6" fill="currentColor"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M12 3.5l1.3 2.1 2.4-.6.9 2.3 2.3.9-.6 2.4 2.1 1.3-2.1 1.3.6 2.4-2.3.9-.9 2.3-2.4-.6L12 20.5l-1.3-2.1-2.4.6-.9-2.3-2.3-.9.6-2.4L3.5 12l2.1-1.3-.6-2.4 2.3-.9.9-2.3 2.4.6z"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4"/></symbol>
+<symbol id="i-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18.5a4.25 4.25 0 0 1-.6-8.45 5.75 5.75 0 0 1 11.1 1.2 3.65 3.65 0 0 1-.4 7.25z"/></symbol>
+<symbol id="i-stats" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V12M12 20V5M19 20v-5"/></symbol>
+<symbol id="i-timer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7"/><path d="M12 10v3.5l2.2 1.3M9.5 3.5h5"/></symbol>
+<symbol id="i-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+<symbol id="i-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></symbol>
+<symbol id="i-badge-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="m8.2 12.3 2.6 2.6 5-5.4"/></symbol>
 <symbol id="i-cloud-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l16 16M8.6 8.2A5 5 0 0 0 7 18h10.6M17 10.2a4 4 0 0 1 3 3.8"/></symbol>
 </svg>
-<div class="ambient" aria-hidden="true"><img src="covers/cover-07.svg" alt="" width="640" height="640" data-ambient></div><aside class="sidebar glass" aria-label="Navegação principal">
-  <a class="logo-link" href="home.html" aria-label="Kazzu, ir para Início">
-    <span class="logo-rail"><img class="mark th-d" src="../assets/kazzu-mark-dark.svg" alt="" width="36" height="36"><img class="mark th-l" src="../assets/kazzu-mark-light.svg" alt="" width="36" height="36"></span>
-    <span class="logo-wide"><img class="logo th-d" src="../assets/kazzu-wordmark-dark.svg" alt="Kazzu" width="108" height="28"><img class="logo th-l" src="../assets/kazzu-wordmark-light.svg" alt="Kazzu" width="108" height="28"></span>
-  </a>
-  <nav style="display:grid;gap:4px"><a class="side-link" href="home.html"><svg class="ic " aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a><a class="side-link" href="explore.html"><svg class="ic " aria-hidden="true"><use href="#i-explore"/></svg><span>Explorar</span></a><a class="side-link" href="library.html"><svg class="ic " aria-hidden="true"><use href="#i-library"/></svg><span>Biblioteca</span></a>
-    <div class="side-sep" role="presentation"></div>
-    <a class="side-link side-search" href="search.html" aria-label="Buscar"><svg class="ic " aria-hidden="true"><use href="#i-search"/></svg><span>Buscar</span></a>
-  </nav>
-  <div class="side-spacer"></div>
-  <a class="side-link" href="settings.html"><svg class="ic " aria-hidden="true"><use href="#i-sliders"/></svg><span>Configurações</span></a>
-</aside><main class="content" id="main" style="max-width:1100px">
-  <div class="screen-title"><h1 class="t-large">Estados vazios</h1></div>
-  <p class="t-callout muted" style="max-width:56ch;margin-bottom:var(--sp-6)">Cada estado diz o que está vazio, por que importa e oferece uma ação. Sem ilustração decorativa: só um ícone do sistema.</p>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--sp-4)">
-    <div class="group" style="padding:var(--sp-5) var(--sp-4)"><div class="empty" style="padding:var(--sp-6) 0"><span class="art"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-library"/></svg></span><h2 class="t-title2">Sua biblioteca está vazia</h2><p>Adicione uma pasta de músicas ou conecte um provedor. O Kazzu encontra capas e tags sozinho.</p><button class="btn-pill btn-primary" type="button">Adicionar pasta</button></div></div>
-    <div class="group" style="padding:var(--sp-5) var(--sp-4)"><div class="empty" style="padding:var(--sp-6) 0"><span class="art"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-search"/></svg></span><h2 class="t-title2">Nada para “aurorx”</h2><p>Confira a grafia ou busque só o nome do artista.</p><button class="btn-pill btn-primary" type="button">Limpar filtros</button></div></div>
-    <div class="group" style="padding:var(--sp-5) var(--sp-4)"><div class="empty" style="padding:var(--sp-6) 0"><span class="art"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-queue"/></svg></span><h2 class="t-title2">A fila está vazia</h2><p>Toque em uma música e ela aparece aqui, junto com as próximas.</p><button class="btn-pill btn-primary" type="button">Ir para o Início</button></div></div>
-    <div class="group" style="padding:var(--sp-5) var(--sp-4)"><div class="empty" style="padding:var(--sp-6) 0"><span class="art"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-cloud-off"/></svg></span><h2 class="t-title2">Sem conexão</h2><p>Suas músicas baixadas continuam tocando. O resto volta quando a rede voltar.</p><button class="btn-pill btn-primary" type="button">Ver baixados</button></div></div>
+<div class="stage" aria-hidden="true"><img class="cv" src="covers/cover-07.svg" alt="" width="640" height="640" data-stage></div>
+<aside class="rail-nav glass g2" aria-label="Navegação principal">
+  <a class="mk" href="home.html" aria-label="Kazzu, ir para Início"><img class="mark-sm th-d" src="../assets/kazzu-mark-dark.svg" alt="" width="36" height="36"><img class="mark-sm th-l" src="../assets/kazzu-mark-light.svg" alt="" width="36" height="36"><img class="logo-w th-d" src="../assets/kazzu-wordmark-dark.svg" alt="Kazzu" width="108" height="28"><img class="logo-w th-l" src="../assets/kazzu-wordmark-light.svg" alt="Kazzu" width="108" height="28"></a>
+  <nav><a class="tab" href="home.html"><svg class="ic " aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a><a class="tab" href="explore.html"><svg class="ic " aria-hidden="true"><use href="#i-explore"/></svg><span>Explorar</span></a><a class="tab" href="library.html" aria-current="page"><svg class="ic " aria-hidden="true"><use href="#i-library"/></svg><span>Biblioteca</span></a><a class="tab" href="search.html"><svg class="ic " aria-hidden="true"><use href="#i-search"/></svg><span>Buscar</span></a></nav>
+  <div class="sp"></div>
+  <a class="tab" href="settings.html"><svg class="ic " aria-hidden="true"><use href="#i-gear"/></svg><span>Ajustes</span></a>
+</aside><main class="page" id="main">
+  <header class="topbar"><a class="btn-ic glass" href="home.html" aria-label="Voltar"><svg class="ic " aria-hidden="true"><use href="#i-back"/></svg></a><h1 class="t-title1" style="margin-right:auto;margin-left:12px">Estados</h1></header>
+  <div class="chips" role="group" aria-label="Escolher estado"><a class="chip" href="#s=empty" aria-current="true" data-pick="empty">Vazio</a><a class="chip" href="#s=loading" aria-current="false" data-pick="loading">Carregando</a><a class="chip" href="#s=error" aria-current="false" data-pick="error">Erro de provedor</a><a class="chip" href="#s=offline" aria-current="false" data-pick="offline">Offline</a><a class="chip" href="#s=permission" aria-current="false" data-pick="permission">Sem permissão</a><a class="chip" href="#s=noresult" aria-current="false" data-pick="noresult">Sem resultados</a></div>
+  <section data-state="empty" aria-label="Vazio"><div class="state glass"><span class="art"><svg class="ic " aria-hidden="true"><use href="#i-library"/></svg></span><h2>Sua biblioteca está vazia</h2><p>Curta uma música ou adicione uma pasta e ela aparece aqui.</p><a class="btn btn-primary" href="states.html#s=permission">Adicionar pasta</a></div></section><section data-state="loading" hidden aria-label="Carregando"><div class="glass card" aria-busy="true" aria-label="Carregando"><div style="display:grid;gap:2px"><div class="sk-row"><span class="sk"></span><span class="sk-lines"><span class="sk"></span><span class="sk"></span></span></div><div class="sk-row"><span class="sk"></span><span class="sk-lines"><span class="sk"></span><span class="sk"></span></span></div><div class="sk-row"><span class="sk"></span><span class="sk-lines"><span class="sk"></span><span class="sk"></span></span></div><div class="sk-row"><span class="sk"></span><span class="sk-lines"><span class="sk"></span><span class="sk"></span></span></div></div></div></section><section data-state="error" hidden aria-label="Erro de provedor"><div class="state glass"><span class="art"><svg class="ic " aria-hidden="true"><use href="#i-cloud-off"/></svg></span><h2>Não deu para carregar o Início</h2><p>O YouTube Music não respondeu. Suas músicas locais continuam disponíveis.</p><button class="btn btn-primary" type="button"><svg class="ic " aria-hidden="true"><use href="#i-refresh"/></svg>Tentar de novo</button><span class="code">Código: provedor-indisponível</span></div></section><section data-state="offline" hidden aria-label="Offline"><div class="glass offline-bar" role="status"><svg class="ic " aria-hidden="true"><use href="#i-cloud-off"/></svg><span>Sem conexão. Tocando só o que está no aparelho.</span></div><div class="state glass"><span class="art"><svg class="ic " aria-hidden="true"><use href="#i-download"/></svg></span><h2>Seus baixados estão aqui</h2><p>Sem internet, o Kazzu mostra só o que já está no aparelho.</p><a class="btn btn-glass" href="library.html">Ver baixados</a></div></section><section data-state="permission" hidden aria-label="Sem permissão"><div class="state glass"><span class="art"><svg class="ic " aria-hidden="true"><use href="#i-folder"/></svg></span><h2>O Kazzu precisa de acesso à pasta</h2><p>Para tocar suas músicas locais, escolha uma pasta. O Kazzu lê só o que você escolher e nada sai do aparelho.</p><button class="btn btn-primary" type="button">Escolher pasta</button></div></section><section data-state="noresult" hidden aria-label="Sem resultados"><div class="state glass"><span class="art"><svg class="ic " aria-hidden="true"><use href="#i-search"/></svg></span><h2>Nada para “zzz”</h2><p>Confira a grafia ou busque só o nome do artista.</p><button class="btn btn-glass" type="button">Limpar filtros</button></div></section>
+</main>
+<div class="chrome">
+  <div class="mini glass g2" role="region" aria-label="Tocando agora">
+    <a class="cover" href="player.html" aria-label="Abrir o player: Quase Verão, Nina Sabiá" style="display:block"><span class="cover "><img src="covers/cover-07.svg" alt="" width="96" height="96" loading="lazy" decoding="async"></span></a>
+    <a class="meta" href="player.html" tabindex="-1" aria-hidden="true"><span class="t-callout ellipsis w6">Quase Verão</span><span class="t-sub muted2 ellipsis">Nina Sabiá</span></a>
+    <span class="extra"><span class="t-mono">1:02</span><div class="slider" role="slider" tabindex="0" aria-label="Progresso" aria-valuemin="0" aria-valuemax="201" aria-valuenow="62" aria-valuetext="1:02 de 3:21" data-kind="seek"><div class="track"><div class="fill"></div><div class="thumb"></div></div></div><span class="t-mono">3:21</span></span>
+    <button class="btn-ic" type="button" aria-label="Pausar" data-playtoggle><svg class="ic ic-lg" aria-hidden="true"><use href="#i-pause"/></svg></button>
+    <button class="btn-ic" type="button" aria-label="Próxima faixa"><svg class="ic " aria-hidden="true"><use href="#i-next"/></svg></button>
+    <span class="prog" aria-hidden="true" style="--p:31%"></span>
   </div>
-  <h2 class="t-title2 group-title">Carregando</h2>
-  <div class="group" aria-busy="true" aria-label="Carregando lista"><div class="row" style="pointer-events:none"><span class="cover" style="width:48px;background:var(--surface-3)"></span><span class="meta" style="gap:6px"><span style="height:14px;width:55%;border-radius:7px;background:var(--surface-3)"></span><span style="height:12px;width:34%;border-radius:6px;background:var(--surface-2)"></span></span></div><div class="row" style="pointer-events:none"><span class="cover" style="width:48px;background:var(--surface-3)"></span><span class="meta" style="gap:6px"><span style="height:14px;width:55%;border-radius:7px;background:var(--surface-3)"></span><span style="height:12px;width:34%;border-radius:6px;background:var(--surface-2)"></span></span></div><div class="row" style="pointer-events:none"><span class="cover" style="width:48px;background:var(--surface-3)"></span><span class="meta" style="gap:6px"><span style="height:14px;width:55%;border-radius:7px;background:var(--surface-3)"></span><span style="height:12px;width:34%;border-radius:6px;background:var(--surface-2)"></span></span></div></div>
-  <p class="t-sub muted" style="margin-top:var(--sp-3)">Placeholders estáticos: o spinner só aparece depois de 300 ms e fica visível por pelo menos 300 ms.</p>
-</main><div class="dockwrap">
-  <a class="mini glass" href="player.html" aria-label="Abrir player: Quase Verão, Nina Sabiá">
-    <span class="cover "><img src="covers/cover-07.svg" alt="" width="48" height="48" loading="lazy"></span>
-    <span class="meta"><span class="t-callout ellipsis" style="font-weight:600">Quase Verão</span><span class="t-sub muted ellipsis">Nina Sabiá</span></span>
-    <button class="btn-ic" type="button" aria-label="Pausar" data-stop><svg class="ic ic-lg" aria-hidden="true"><use href="#i-pause"/></svg></button>
-    <button class="btn-ic" type="button" aria-label="Próxima faixa" data-stop><svg class="ic " aria-hidden="true"><use href="#i-next"/></svg></button>
-    <span class="prog" aria-hidden="true" style="--p:31%"><i></i></span>
-  </a>
-  <nav class="dock glass strong" aria-label="Navegação principal">
-    <div class="tabs"><a class="tab" href="home.html"><svg class="ic " aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a><a class="tab" href="explore.html"><svg class="ic " aria-hidden="true"><use href="#i-explore"/></svg><span>Explorar</span></a><a class="tab" href="library.html"><svg class="ic " aria-hidden="true"><use href="#i-library"/></svg><span>Biblioteca</span></a></div>
-    <span class="sep" aria-hidden="true"></span>
-    <a class="search-btn" href="search.html" aria-label="Buscar"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-search"/></svg></a>
-  </nav>
-</div>
-<div class="nowbar glass" role="region" aria-label="Tocando agora">
-  <span class="cover "><img src="covers/cover-07.svg" alt="" width="56" height="56" loading="lazy"></span>
-  <span class="meta"><span class="t-callout ellipsis" style="font-weight:600">Quase Verão</span><span class="t-sub muted ellipsis">Nina Sabiá</span></span>
-  <span class="mid"><div class="slider" role="slider" tabindex="0" aria-label="Progresso" aria-valuemin="0" aria-valuemax="201" aria-valuenow="62" aria-valuetext="1:02 de 3:21" style="--p:31%" data-kind="seek"><div class="track"><div class="fill"></div><div class="thumb"></div></div></div><span class="t-mono"><span>1:02</span><span>3:21</span></span></span>
-  <span class="btns"><button class="btn-ic" type="button" aria-label="Anterior"><svg class="ic " aria-hidden="true"><use href="#i-prev"/></svg></button><button class="btn-ic" type="button" aria-label="Pausar"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-pause"/></svg></button><button class="btn-ic" type="button" aria-label="Próxima"><svg class="ic " aria-hidden="true"><use href="#i-next"/></svg></button></span>
-  <a class="btn-ic" href="queue.html" aria-label="Abrir fila"><svg class="ic " aria-hidden="true"><use href="#i-queue"/></svg></a>
-  <a class="btn-ic" href="player.html" aria-label="Abrir player em tela cheia"><svg class="ic " aria-hidden="true"><use href="#i-chevron-down"/></svg></a>
+  <div class="dock-row">
+    <nav class="dock glass g2" aria-label="Navegação principal"><a class="tab" href="home.html"><svg class="ic " aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a><a class="tab" href="explore.html"><svg class="ic " aria-hidden="true"><use href="#i-explore"/></svg><span>Explorar</span></a><a class="tab" href="library.html" aria-current="page"><svg class="ic " aria-hidden="true"><use href="#i-library"/></svg><span>Biblioteca</span></a></nav>
+    <a class="search-btn glass g2" href="search.html" aria-label="Buscar"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-search"/></svg></a>
+  </div>
 </div>
 <script src="assets/app.js"></script>
 </body>

@@ -8,9 +8,11 @@
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/tokens.css">
 <link rel="stylesheet" href="assets/covers.css">
+<link rel="stylesheet" href="assets/stage.css">
 <link rel="stylesheet" href="assets/kazzu.css">
 </head>
-<body class="app dyn cv-07" data-screen="search" data-cover="07">
+<body class="dyn cv-07" data-screen="search" data-cover="07">
+<a class="skip" href="#main">Ir para o conteúdo</a>
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
 <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.2 12 4l8 7.2V19a1.5 1.5 0 0 1-1.5 1.5H15V15H9v5.5H5.5A1.5 1.5 0 0 1 4 19z"/></symbol>
 <symbol id="i-explore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="m15.6 8.4-1.9 5.3-5.3 1.9 1.9-5.3z"/></symbol>
@@ -56,74 +58,67 @@
 <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 14.2A7.75 7.75 0 0 1 9.8 4.5a7.75 7.75 0 1 0 9.7 9.7z"/></symbol>
 <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></symbol>
 <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="M12 11v5.25"/><circle cx="12" cy="7.9" r=".6" fill="currentColor"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M12 3.5l1.3 2.1 2.4-.6.9 2.3 2.3.9-.6 2.4 2.1 1.3-2.1 1.3.6 2.4-2.3.9-.9 2.3-2.4-.6L12 20.5l-1.3-2.1-2.4.6-.9-2.3-2.3-.9.6-2.4L3.5 12l2.1-1.3-.6-2.4 2.3-.9.9-2.3 2.4.6z"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4"/></symbol>
+<symbol id="i-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18.5a4.25 4.25 0 0 1-.6-8.45 5.75 5.75 0 0 1 11.1 1.2 3.65 3.65 0 0 1-.4 7.25z"/></symbol>
+<symbol id="i-stats" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V12M12 20V5M19 20v-5"/></symbol>
+<symbol id="i-timer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7"/><path d="M12 10v3.5l2.2 1.3M9.5 3.5h5"/></symbol>
+<symbol id="i-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+<symbol id="i-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></symbol>
+<symbol id="i-badge-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="m8.2 12.3 2.6 2.6 5-5.4"/></symbol>
 <symbol id="i-cloud-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l16 16M8.6 8.2A5 5 0 0 0 7 18h10.6M17 10.2a4 4 0 0 1 3 3.8"/></symbol>
 </svg>
-<div class="ambient" aria-hidden="true"><img src="covers/cover-07.svg" alt="" width="640" height="640" data-ambient></div><aside class="sidebar glass" aria-label="Navegação principal">
-  <a class="logo-link" href="home.html" aria-label="Kazzu, ir para Início">
-    <span class="logo-rail"><img class="mark th-d" src="../assets/kazzu-mark-dark.svg" alt="" width="36" height="36"><img class="mark th-l" src="../assets/kazzu-mark-light.svg" alt="" width="36" height="36"></span>
-    <span class="logo-wide"><img class="logo th-d" src="../assets/kazzu-wordmark-dark.svg" alt="Kazzu" width="108" height="28"><img class="logo th-l" src="../assets/kazzu-wordmark-light.svg" alt="Kazzu" width="108" height="28"></span>
-  </a>
-  <nav style="display:grid;gap:4px"><a class="side-link" href="home.html"><svg class="ic " aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a><a class="side-link" href="explore.html"><svg class="ic " aria-hidden="true"><use href="#i-explore"/></svg><span>Explorar</span></a><a class="side-link" href="library.html"><svg class="ic " aria-hidden="true"><use href="#i-library"/></svg><span>Biblioteca</span></a>
-    <div class="side-sep" role="presentation"></div>
-    <a class="side-link side-search" href="search.html" aria-label="Buscar" aria-current="page"><svg class="ic " aria-hidden="true"><use href="#i-search"/></svg><span>Buscar</span></a>
-  </nav>
-  <div class="side-spacer"></div>
-  <a class="side-link" href="settings.html"><svg class="ic " aria-hidden="true"><use href="#i-sliders"/></svg><span>Configurações</span></a>
-</aside><main class="content" id="main">
-  <div class="screen-title mobile-only" style="padding-bottom:var(--sp-3)"><h1 class="t-large">Buscar</h1></div>
-  <header class="page-intro" style="margin-bottom:var(--sp-4)"><h1 class="t-large">Buscar</h1></header>
-  <form role="search" onsubmit="return false"><label class="field"><svg class="ic " aria-hidden="true"><use href="#i-search"/></svg><span class="sr-only">Buscar músicas, álbuns e artistas</span><input type="search" placeholder="Músicas, álbuns, artistas" value="aurora" autocomplete="off" data-search-input>
-    <button class="btn-ic" type="button" aria-label="Limpar busca" data-clear><svg class="ic ic-sm" aria-hidden="true"><use href="#i-close"/></svg></button>
-    <button class="btn-ic" type="button" aria-label="Reconhecer música pelo som ambiente" style="background:var(--accent-soft);color:var(--accent)"><svg class="ic " aria-hidden="true"><use href="#i-wave"/></svg></button></label></form>
-  <div class="chips" style="margin-top:var(--sp-4)" role="group" aria-label="Filtrar por tipo"><button class="chip" aria-pressed="true" type="button">Tudo</button><button class="chip" aria-pressed="false" type="button">Músicas</button><button class="chip" aria-pressed="false" type="button">Álbuns</button><button class="chip" aria-pressed="false" type="button">Artistas</button><button class="chip" aria-pressed="false" type="button">Playlists</button></div>
-  <div class="chips" style="margin-top:var(--sp-2)" role="group" aria-label="Fontes"><button class="chip" aria-pressed="true" type="button">Local</button><button class="chip" aria-pressed="true" type="button">YT Music</button><button class="chip" aria-pressed="false" type="button">Spotify</button></div>
-
-  <div data-state="results">
-    <section class="section" aria-labelledby="h-m"><div class="section-head"><h2 class="t-title2" id="h-m">Músicas</h2></div><ul class="rows"><li><a class="row" href="player.html">
-      <span class="cover "><img src="covers/cover-01.svg" alt="" width="96" height="96" loading="lazy"></span>
-      <span class="meta"><span class="title ellipsis">Maré Alta</span><span class="sub ellipsis">Aurora Vento</span></span>
-      <span class="album ellipsis">Cidade Submersa</span>
-      <span class="end"><span class="fmt hires"><b>FLAC</b><i></i>24/96</span><button class="btn-ic" type="button" aria-label="Mais opções para Maré Alta" data-stop><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></button></span>
-    </a></li><li><a class="row" href="player.html">
-      <span class="cover "><img src="covers/cover-08.svg" alt="" width="96" height="96" loading="lazy"></span>
-      <span class="meta"><span class="title ellipsis">Respiração de Vidro</span><span class="sub ellipsis">Kaito e Vê, YT Music</span></span>
-      <span class="album ellipsis">Vidro Líquido</span>
-      <span class="end"><span class="fmt"><b>OPUS</b><i></i>160</span><button class="btn-ic" type="button" aria-label="Mais opções para Respiração de Vidro" data-stop><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></button></span>
-    </a></li><li><a class="row" href="player.html">
-      <span class="cover "><img src="covers/cover-05.svg" alt="" width="96" height="96" loading="lazy"></span>
-      <span class="meta"><span class="title ellipsis">Escada de Sal</span><span class="sub ellipsis">Tomás Reis</span></span>
-      <span class="album ellipsis">Sal e Cinza</span>
-      <span class="end"><span class="fmt hires"><b>FLAC</b><i></i>24/192</span><button class="btn-ic" type="button" aria-label="Mais opções para Escada de Sal" data-stop><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></button></span>
-    </a></li></ul></section>
-    <section class="section" aria-labelledby="h-a"><div class="section-head"><h2 class="t-title2" id="h-a">Álbuns</h2></div><div class="tiles"><a class="tile" href="player.html"><span class="cover "><img src="covers/cover-01.svg" alt="" width="352" height="352" loading="lazy"></span><span><span class="title ellipsis" style="display:block">Cidade Submersa</span><span class="sub ellipsis" style="display:block">Aurora Vento</span></span></a><a class="tile" href="player.html"><span class="cover "><img src="covers/cover-06.svg" alt="" width="352" height="352" loading="lazy"></span><span><span class="title ellipsis" style="display:block">Linha de Fuga</span><span class="sub ellipsis" style="display:block">Meridiano</span></span></a><a class="tile" href="player.html"><span class="cover "><img src="covers/cover-10.svg" alt="" width="352" height="352" loading="lazy"></span><span><span class="title ellipsis" style="display:block">Fita Magnética</span><span class="sub ellipsis" style="display:block">Rádio Cobre</span></span></a></div></section>
+<div class="stage" aria-hidden="true"><img class="cv" src="covers/cover-07.svg" alt="" width="640" height="640" data-stage></div>
+<aside class="rail-nav glass g2" aria-label="Navegação principal">
+  <a class="mk" href="home.html" aria-label="Kazzu, ir para Início"><img class="mark-sm th-d" src="../assets/kazzu-mark-dark.svg" alt="" width="36" height="36"><img class="mark-sm th-l" src="../assets/kazzu-mark-light.svg" alt="" width="36" height="36"><img class="logo-w th-d" src="../assets/kazzu-wordmark-dark.svg" alt="Kazzu" width="108" height="28"><img class="logo-w th-l" src="../assets/kazzu-wordmark-light.svg" alt="Kazzu" width="108" height="28"></a>
+  <nav><a class="tab" href="home.html"><svg class="ic " aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a><a class="tab" href="explore.html"><svg class="ic " aria-hidden="true"><use href="#i-explore"/></svg><span>Explorar</span></a><a class="tab" href="library.html"><svg class="ic " aria-hidden="true"><use href="#i-library"/></svg><span>Biblioteca</span></a><a class="tab" href="search.html" aria-current="page"><svg class="ic " aria-hidden="true"><use href="#i-search"/></svg><span>Buscar</span></a></nav>
+  <div class="sp"></div>
+  <a class="tab" href="settings.html"><svg class="ic " aria-hidden="true"><use href="#i-gear"/></svg><span>Ajustes</span></a>
+</aside><main class="page" id="main">
+  <header class="topbar"><a class="logo-link" href="home.html" aria-label="Kazzu, ir para Início"><img class="logo th-d" src="../assets/kazzu-wordmark-dark.svg" alt="Kazzu" width="108" height="28"><img class="logo th-l" src="../assets/kazzu-wordmark-light.svg" alt="Kazzu" width="108" height="28"></a><h1 class="t-large page-title">Buscar</h1><span></span></header>
+  <form class="field glass g2" role="search" onsubmit="return false">
+      <svg class="ic" aria-hidden="true" style="color:var(--ink-2)"><use href="#i-search"/></svg>
+      <input type="search" aria-label="Buscar músicas, artistas e álbuns" placeholder="Músicas, artistas, álbuns" value="" data-q>
+      <button class="btn-ic" type="button" aria-label="Reconhecer música pelo som ambiente" title="Reconhecer pelo som"><svg class="ic " aria-hidden="true"><use href="#i-wave"/></svg></button>
+    </form>
+  <div class="chips" role="group" aria-label="Filtrar por tipo"><button class="chip" aria-pressed="true" type="button">Tudo</button><button class="chip" aria-pressed="false" type="button">Músicas</button><button class="chip" aria-pressed="false" type="button">Álbuns</button><button class="chip" aria-pressed="false" type="button">Artistas</button><button class="chip" aria-pressed="false" type="button">Playlists</button></div>
+  <div data-state="idle">
+    <section class="section"><div class="section-head"><h2>Buscas recentes</h2><button class="btn-text" type="button">Limpar</button></div>
+    <ul class="rows"><li><div class="row" style="grid-template-columns:40px minmax(0,1fr) auto"><span class="lead" style="width:40px;height:40px;display:grid;place-items:center;border-radius:12px;background:var(--chip)"><svg class="ic " aria-hidden="true"><use href="#i-clock"/></svg></span><a class="meta" href="search.html#s=results"><span class="title">Nina Sabiá</span></a><span class="end"><button class="btn-ic" type="button" aria-label="Remover Nina Sabiá das buscas recentes"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-close"/></svg></button></span></div></li><li><div class="row" style="grid-template-columns:40px minmax(0,1fr) auto"><span class="lead" style="width:40px;height:40px;display:grid;place-items:center;border-radius:12px;background:var(--chip)"><svg class="ic " aria-hidden="true"><use href="#i-clock"/></svg></span><a class="meta" href="search.html#s=results"><span class="title">música para foco</span></a><span class="end"><button class="btn-ic" type="button" aria-label="Remover música para foco das buscas recentes"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-close"/></svg></button></span></div></li><li><div class="row" style="grid-template-columns:40px minmax(0,1fr) auto"><span class="lead" style="width:40px;height:40px;display:grid;place-items:center;border-radius:12px;background:var(--chip)"><svg class="ic " aria-hidden="true"><use href="#i-clock"/></svg></span><a class="meta" href="search.html#s=results"><span class="title">Meridiano</span></a><span class="end"><button class="btn-ic" type="button" aria-label="Remover Meridiano das buscas recentes"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-close"/></svg></button></span></div></li></ul></section>
+    <section class="section" style="margin-top:24px"><div class="section-head"><h2>Para experimentar</h2></div><div class="chips" style="flex-wrap:wrap;overflow:visible"><button class="chip" type="button">Calmaria</button><button class="chip" type="button">Estrada</button><button class="chip" type="button">Madrugada</button><button class="chip" type="button">Verão</button></div></section>
+  </div><div data-state="results" hidden>
+    <a class="glass card" href="player.html" style="display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:14px;align-items:center;--g-r:26px;padding:12px" aria-label="Melhor resultado: Nina Sabiá">
+      <span class="cover "><img src="covers/cover-07.svg" alt="" width="192" height="192" loading="lazy" decoding="async"></span><span><span class="t-caption muted2" style="display:block">Melhor resultado</span><span class="t-title2" style="display:block">Nina Sabiá</span><span class="t-sub muted2">Artista</span></span><span class="go" style="width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink)"><svg class="ic " aria-hidden="true"><use href="#i-play"/></svg></span></a>
+    <section class="section" style="margin-top:20px"><div class="section-head"><h2>Músicas</h2><span class="src"><svg class="ic " aria-hidden="true"><use href="#i-cloud"/></svg>Do YouTube Music</span></div><ul class="rows"><li><div class="row">
+      <a class="cover" href="player.html" aria-label="Tocar Quase Verão" style="width:52px;height:52px;border-radius:12px"><span class="cover "><img src="covers/cover-07.svg" alt="" width="104" height="104" loading="lazy" decoding="async"></span></a>
+      <a class="meta" href="player.html"><span class="title ellipsis">Quase Verão</span><span class="sub ellipsis">Nina Sabiá</span></a>
+      <span class="end"><span class="fmt" aria-label="OPUS 160 kbps"><b>OPUS</b><i></i>160</span><a class="btn-ic" href="sheets.html" aria-label="Mais opções para Quase Verão"><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></a></span>
+    </div></li><li><div class="row">
+      <a class="cover" href="player.html" aria-label="Tocar Respiração de Vidro" style="width:52px;height:52px;border-radius:12px"><span class="cover "><img src="covers/cover-08.svg" alt="" width="104" height="104" loading="lazy" decoding="async"></span></a>
+      <a class="meta" href="player.html"><span class="title ellipsis">Respiração de Vidro</span><span class="sub ellipsis">Kaito e Vê</span></a>
+      <span class="end"><span class="fmt" aria-label="AAC 256 kbps"><b>AAC</b><i></i>256</span><a class="btn-ic" href="sheets.html" aria-label="Mais opções para Respiração de Vidro"><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></a></span>
+    </div></li><li><div class="row">
+      <a class="cover" href="player.html" aria-label="Tocar Maré Alta" style="width:52px;height:52px;border-radius:12px"><span class="cover "><img src="covers/cover-01.svg" alt="" width="104" height="104" loading="lazy" decoding="async"></span></a>
+      <a class="meta" href="player.html"><span class="title ellipsis">Maré Alta</span><span class="sub ellipsis">Aurora Vento</span></a>
+      <span class="end"><span class="fmt" aria-label="OPUS 160 kbps"><b>OPUS</b><i></i>160</span><a class="btn-ic" href="sheets.html" aria-label="Mais opções para Maré Alta"><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></a></span>
+    </div></li></ul></section>
+    <section class="section" style="margin-top:20px"><div class="section-head"><h2>Álbuns</h2></div><div class="rail tiles-rail"><a class="tile" href="album.html"><span class="cover "><img src="covers/cover-07.svg" alt="" width="352" height="352" loading="lazy" decoding="async"></span><span><span class="title ellipsis" style="display:block">Calor de Março</span><span class="sub ellipsis" style="display:block">Nina Sabiá</span></span></a><a class="tile" href="album.html"><span class="cover "><img src="covers/cover-02.svg" alt="" width="352" height="352" loading="lazy" decoding="async"></span><span><span class="title ellipsis" style="display:block">Nove Horas</span><span class="sub ellipsis" style="display:block">Doma</span></span></a><a class="tile" href="album.html"><span class="cover "><img src="covers/cover-09.svg" alt="" width="352" height="352" loading="lazy" decoding="async"></span><span><span class="title ellipsis" style="display:block">Papel de Seda</span><span class="sub ellipsis" style="display:block">Ilha Branca</span></span></a></div></section>
+  </div><div data-state="empty" hidden><div class="state glass"><span class="art"><svg class="ic " aria-hidden="true"><use href="#i-search"/></svg></span><h2>Nada para “nina sabiá verão”</h2><p>Confira a grafia ou busque só o nome do artista.</p><button class="btn btn-glass" type="button">Limpar filtros</button></div></div><div data-state="loading" hidden aria-busy="true" aria-label="Buscando"><div style="display:grid;gap:2px;margin-inline:-8px"><div class="sk-row"><span class="sk"></span><span class="sk-lines"><span class="sk"></span><span class="sk"></span></span></div><div class="sk-row"><span class="sk"></span><span class="sk-lines"><span class="sk"></span><span class="sk"></span></span></div><div class="sk-row"><span class="sk"></span><span class="sk-lines"><span class="sk"></span><span class="sk"></span></span></div><div class="sk-row"><span class="sk"></span><span class="sk-lines"><span class="sk"></span><span class="sk"></span></span></div><div class="sk-row"><span class="sk"></span><span class="sk-lines"><span class="sk"></span><span class="sk"></span></span></div></div></div><div data-state="error" hidden><div class="state glass"><span class="art"><svg class="ic " aria-hidden="true"><use href="#i-cloud-off"/></svg></span><h2>O YouTube Music não respondeu</h2><p>Sua conexão parece ok. O serviço pode estar fora do ar. Tente de novo em instantes.</p><button class="btn btn-primary" type="button"><svg class="ic " aria-hidden="true"><use href="#i-refresh"/></svg>Tentar de novo</button><span class="code">Código: provedor-indisponível</span></div></div><div data-state="offline" hidden><div class="state glass"><span class="art"><svg class="ic " aria-hidden="true"><use href="#i-cloud-off"/></svg></span><h2>Sem conexão</h2><p>A busca no YouTube Music precisa de internet. Suas músicas baixadas e locais continuam tocando.</p><a class="btn btn-glass" href="library.html">Ver baixados</a></div></div>
+</main>
+<div class="chrome">
+  <div class="mini glass g2" role="region" aria-label="Tocando agora">
+    <a class="cover" href="player.html" aria-label="Abrir o player: Quase Verão, Nina Sabiá" style="display:block"><span class="cover "><img src="covers/cover-07.svg" alt="" width="96" height="96" loading="lazy" decoding="async"></span></a>
+    <a class="meta" href="player.html" tabindex="-1" aria-hidden="true"><span class="t-callout ellipsis w6">Quase Verão</span><span class="t-sub muted2 ellipsis">Nina Sabiá</span></a>
+    <span class="extra"><span class="t-mono">1:02</span><div class="slider" role="slider" tabindex="0" aria-label="Progresso" aria-valuemin="0" aria-valuemax="201" aria-valuenow="62" aria-valuetext="1:02 de 3:21" data-kind="seek"><div class="track"><div class="fill"></div><div class="thumb"></div></div></div><span class="t-mono">3:21</span></span>
+    <button class="btn-ic" type="button" aria-label="Pausar" data-playtoggle><svg class="ic ic-lg" aria-hidden="true"><use href="#i-pause"/></svg></button>
+    <button class="btn-ic" type="button" aria-label="Próxima faixa"><svg class="ic " aria-hidden="true"><use href="#i-next"/></svg></button>
+    <span class="prog" aria-hidden="true" style="--p:31%"></span>
   </div>
-  <div data-state="idle" hidden>
-    <section class="section" aria-labelledby="h-r"><div class="section-head"><h2 class="t-title2" id="h-r">Buscas recentes</h2><button class="btn-text" type="button">Limpar</button></div><ul class="rows"><li><a class="row" href="search.html" style="min-height:52px"><svg class="ic " aria-hidden="true"><use href="#i-clock"/></svg><span class="meta"><span class="title ellipsis" style="font-weight:400">aurora vento</span></span><button class="btn-ic" type="button" aria-label="Remover aurora vento do histórico" data-stop><svg class="ic ic-sm" aria-hidden="true"><use href="#i-close"/></svg></button></a></li><li><a class="row" href="search.html" style="min-height:52px"><svg class="ic " aria-hidden="true"><use href="#i-clock"/></svg><span class="meta"><span class="title ellipsis" style="font-weight:400">jazz de madrugada</span></span><button class="btn-ic" type="button" aria-label="Remover jazz de madrugada do histórico" data-stop><svg class="ic ic-sm" aria-hidden="true"><use href="#i-close"/></svg></button></a></li><li><a class="row" href="search.html" style="min-height:52px"><svg class="ic " aria-hidden="true"><use href="#i-clock"/></svg><span class="meta"><span class="title ellipsis" style="font-weight:400">nina sabiá ao vivo</span></span><button class="btn-ic" type="button" aria-label="Remover nina sabiá ao vivo do histórico" data-stop><svg class="ic ic-sm" aria-hidden="true"><use href="#i-close"/></svg></button></a></li><li><a class="row" href="search.html" style="min-height:52px"><svg class="ic " aria-hidden="true"><use href="#i-clock"/></svg><span class="meta"><span class="title ellipsis" style="font-weight:400">flac 24 bits</span></span><button class="btn-ic" type="button" aria-label="Remover flac 24 bits do histórico" data-stop><svg class="ic ic-sm" aria-hidden="true"><use href="#i-close"/></svg></button></a></li></ul></section>
+  <div class="dock-row">
+    <nav class="dock glass g2" aria-label="Navegação principal"><a class="tab" href="home.html"><svg class="ic " aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a><a class="tab" href="explore.html"><svg class="ic " aria-hidden="true"><use href="#i-explore"/></svg><span>Explorar</span></a><a class="tab" href="library.html"><svg class="ic " aria-hidden="true"><use href="#i-library"/></svg><span>Biblioteca</span></a></nav>
+    <a class="search-btn glass g2" href="search.html" aria-label="Buscar" aria-current="page"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-search"/></svg></a>
   </div>
-  <div data-state="empty" hidden>
-    <div class="empty"><span class="art"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-search"/></svg></span><h2 class="t-title2">Nada para “aurorx”</h2><p>Confira a grafia ou tente buscar só o nome do artista. A busca também olha seus arquivos locais.</p><button class="btn-pill btn-quiet" type="button">Limpar filtros</button></div>
-  </div>
-</main><div class="dockwrap">
-  <a class="mini glass" href="player.html" aria-label="Abrir player: Quase Verão, Nina Sabiá">
-    <span class="cover "><img src="covers/cover-07.svg" alt="" width="48" height="48" loading="lazy"></span>
-    <span class="meta"><span class="t-callout ellipsis" style="font-weight:600">Quase Verão</span><span class="t-sub muted ellipsis">Nina Sabiá</span></span>
-    <button class="btn-ic" type="button" aria-label="Pausar" data-stop><svg class="ic ic-lg" aria-hidden="true"><use href="#i-pause"/></svg></button>
-    <button class="btn-ic" type="button" aria-label="Próxima faixa" data-stop><svg class="ic " aria-hidden="true"><use href="#i-next"/></svg></button>
-    <span class="prog" aria-hidden="true" style="--p:31%"><i></i></span>
-  </a>
-  <nav class="dock glass strong" aria-label="Navegação principal">
-    <div class="tabs"><a class="tab" href="home.html"><svg class="ic " aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a><a class="tab" href="explore.html"><svg class="ic " aria-hidden="true"><use href="#i-explore"/></svg><span>Explorar</span></a><a class="tab" href="library.html"><svg class="ic " aria-hidden="true"><use href="#i-library"/></svg><span>Biblioteca</span></a></div>
-    <span class="sep" aria-hidden="true"></span>
-    <a class="search-btn" href="search.html" aria-label="Buscar" aria-current="page"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-search"/></svg></a>
-  </nav>
-</div>
-<div class="nowbar glass" role="region" aria-label="Tocando agora">
-  <span class="cover "><img src="covers/cover-07.svg" alt="" width="56" height="56" loading="lazy"></span>
-  <span class="meta"><span class="t-callout ellipsis" style="font-weight:600">Quase Verão</span><span class="t-sub muted ellipsis">Nina Sabiá</span></span>
-  <span class="mid"><div class="slider" role="slider" tabindex="0" aria-label="Progresso" aria-valuemin="0" aria-valuemax="201" aria-valuenow="62" aria-valuetext="1:02 de 3:21" style="--p:31%" data-kind="seek"><div class="track"><div class="fill"></div><div class="thumb"></div></div></div><span class="t-mono"><span>1:02</span><span>3:21</span></span></span>
-  <span class="btns"><button class="btn-ic" type="button" aria-label="Anterior"><svg class="ic " aria-hidden="true"><use href="#i-prev"/></svg></button><button class="btn-ic" type="button" aria-label="Pausar"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-pause"/></svg></button><button class="btn-ic" type="button" aria-label="Próxima"><svg class="ic " aria-hidden="true"><use href="#i-next"/></svg></button></span>
-  <a class="btn-ic" href="queue.html" aria-label="Abrir fila"><svg class="ic " aria-hidden="true"><use href="#i-queue"/></svg></a>
-  <a class="btn-ic" href="player.html" aria-label="Abrir player em tela cheia"><svg class="ic " aria-hidden="true"><use href="#i-chevron-down"/></svg></a>
 </div>
 <script src="assets/app.js"></script>
 </body>
