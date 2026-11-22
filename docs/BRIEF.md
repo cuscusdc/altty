@@ -51,6 +51,16 @@ Kazzu é um player/cliente de música multiplataforma, **Rust + Slint**, com vis
 8. Documente decisões em `docs/` em português do Brasil. Código e identificadores em inglês.
 9. Não faça `git commit`/`push`: o orquestrador integra. Edite apenas os diretórios designados para você.
 
+## Regra de custo: 100% grátis
+
+O Kazzu, tudo o que ele usa e tudo o que é preciso para publicá-lo devem ser gratuitos para o autor e para quem usa.
+
+- Só dependências open source, sem plano pago, sem chave de API paga, sem servidor pago. Serviços externos só se tiverem camada gratuita estável e sem cartão (ex.: MusicBrainz/ListenBrainz); sempre opt-in.
+- Slint: usar a licença GPL-3.0 (gratuita). Não usar a licença comercial. O app seguirá GPL-3.0 (hipótese de trabalho, a confirmar pelo autor; isso também libera crates GPL).
+- Sem infraestrutura hospedada: sync e "ouvir junto" por LAN/P2P (mDNS, QUIC); relay só se for gratuito e auto-hospedável pelo usuário.
+- Distribuição só por canais gratuitos (GitHub Releases, AppImage, Flatpak/Flathub, Android APK/F-Droid). Nada de contas de desenvolvedor pagas (Apple Developer, Google Play) por ora.
+- Provedores: o app é gratuito; o acesso a Spotify (Premium), Tidal e Qobuz depende de uma assinatura que o USUÁRIO já tem. Nunca o app cobra, nem embute conta do autor. Prioridade: fontes gratuitas (arquivos locais, YT Music sem Premium, Internet Archive/Jamendo etc., a avaliar na Etapa 2). Reconhecimento por som: só soluções gratuitas e abertas; serviços pagos descartados.
+
 ## Etapas
 
 | Etapa | Escopo |
