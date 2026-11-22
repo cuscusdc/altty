@@ -6,14 +6,16 @@ Repositório: `cuscusdc/altty`. Mapa mental do autor: [`docs/mindmap/Kazzu.canva
 
 ## Estado
 
-Etapa 1 (Fundação) em andamento. Desenvolvimento em etapas, ver o brief.
+Etapa 1 (Fundação) concluída: motor de áudio bit-perfect, biblioteca local, design system e UI Slint tocando música local. Próxima: Etapa 2 (provedores). Ver [`docs/BRIEF.md`](docs/BRIEF.md).
 
 ## Build
 
 ```sh
-cargo build
-cargo test
+cargo run -p kazzu-app --release -- --demo-library target/fixtures/kazzu-demo
+cargo test --workspace
 ```
+
+Veja `crates/kazzu-app/README.md` para flags (`--null-audio`, `--renderer`, `--snapshot`).
 
 ## Material de referência (não versionado, `.refs/`)
 
