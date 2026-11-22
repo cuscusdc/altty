@@ -1,0 +1,203 @@
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { Tab, AppState, ThemeMode, AccentMode } from "../theme/app-contract.slint";
+import { IconButton, KSwitch } from "../theme/atoms.slint";
+import { ScreenScroll, PageTop, ScanBanner } from "../components/layout.slint";
+import { PillButton, PillKind, TextButton, Tag, Segmented } from "../components/basics.slint";
+
+component SettingGroup inherits Rectangle {
+    border-radius: Theme.r-lg; background: Theme.surface;
+    VerticalLayout { padding-top: 4px; padding-bottom: 4px; padding-left: Theme.compact ? 16px : 20px; padding-right: Theme.compact ? 16px : 20px; @children }
+}
+
+component SettingRow inherits Rectangle {
+    in property <image> icon;
+    in property <string> title;
+    in property <string> subtitle;
+    in property <bool> divider: true;
+    min-height: 60px;
+    HorizontalLayout {
+        padding-top: 10px; padding-bottom: 10px; spacing: 12px;
+        VerticalLayout {
+            alignment: start; width: 36px;
+            Rectangle { height: 36px; width: 36px; border-radius: 10px; background: Theme.surface-3;
+                Image { source: root.icon; width: 20px; height: 20px; x: 8px; y: 8px; colorize: Theme.ink-2; } }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1; alignment: center; spacing: 2px;
+            Text { text: root.title; font-size: Theme.fs-body; font-weight: 600; color: Theme.ink; overflow: elide; wrap: no-wrap; accessible-role: text; }
+            if root.subtitle != "" : Text { text: root.subtitle; font-size: Theme.fs-subhead; color: Theme.ink-3; wrap: word-wrap; }
+        }
+        VerticalLayout { alignment: center; @children }
+    }
+    if root.divider : Rectangle { y: 0px; height: 1px; width: parent.width; background: Theme.line; }
+}
+
+component GroupTitle inherits Text {
+    font-size: Theme.fs-title-2; font-weight: Theme.fw-title-2; letter-spacing: Theme.ls-title-2; color: Theme.ink;
+    accessible-role: text;
+}
+
+export component SettingsScreen inherits Rectangle {
+    property <bool> licenses-open: false;
+    ScreenScroll {
+        width: parent.width; height: parent.height; max-w: 760px;
+        PageTop { title: "Configurações"; }
+        ScanBanner { }
+
+        VerticalLayout {
+            padding-top: 24px; spacing: 12px;
+            GroupTitle { text: "Pastas de música"; }
+            SettingGroup {
+                VerticalLayout {
+                    if AppState.folders.length == 0 : SettingRow {
+                        icon: Icons.folder; title: "Nenhuma pasta adicionada"; subtitle: "Escolha onde ficam as suas músicas. O Kazzu lê tags e capas e nunca altera os arquivos."; divider: false;
+                    }
+                    for f[i] in AppState.folders : SettingRow {
+                        icon: Icons.folder; title: f; divider: i > 0;
+                        IconButton { icon: Icons.close; glyph: 20px; label: "Remover a pasta " + f; clicked => { AppState.remove-folder(f); } }
+                    }
+                    SettingRow {
+                        icon: Icons.plus; title: "Adicionar pasta"; subtitle: AppState.library-summary; divider: true;
+                        PillButton { kind: PillKind.quiet; label: "Escolher"; clicked => { AppState.add-folder(); } }
+                    }
+                    if AppState.folders.length > 0 : SettingRow {
+                        icon: Icons.clock; title: "Reescanear"; subtitle: "Procura músicas novas ou removidas nas pastas acima.";
+                        TextButton { label: "Reescanear"; enabled: !AppState.scanning; clicked => { AppState.rescan(); } }
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            padding-top: 32px; spacing: 12px;
+            GroupTitle { text: "Provedores"; }
+            SettingGroup {
+                VerticalLayout {
+                    for p[i] in AppState.providers : SettingRow {
+                        icon: i == 0 ? Icons.folder : Icons.disc; title: p.name; subtitle: p.status-label; divider: i > 0;
+                        if p.connected : Tag { label: "Ativa"; }
+                        if !p.connected && !p.available : Tag { label: "Em breve"; }
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            padding-top: 32px; spacing: 12px;
+            GroupTitle { text: "Áudio"; }
+            SettingGroup {
+                VerticalLayout {
+                    SettingRow { icon: Icons.output; title: "Saída"; subtitle: AppState.output-name; divider: false; Tag { label: "Padrão do sistema"; } }
+                    SettingRow {
+                        icon: Icons.check; title: "Qualidade original";
+                        subtitle: "Sem normalizar e sem reamostrar. Só convertemos a taxa se o dispositivo de saída exigir.";
+                        Tag { label: "Sempre"; }
+                    }
+                    SettingRow {
+                        icon: Icons.eq; title: "Equalizador"; subtitle: "Desligado, o som sai bit a bit como no arquivo.";
+                        Tag { label: "Em breve"; }
+                    }
+                    Rectangle {
+                        height: 168px; opacity: 0.55;
+                        accessible-role: groupbox; accessible-label: "Equalizador de 10 bandas, em breve";
+                        VerticalLayout {
+                            padding-top: 4px; padding-bottom: 16px; spacing: 12px;
+                            Text { text: "Equalizador de 10 bandas, com curvas por fone"; font-size: Theme.fs-subhead; color: Theme.ink-3; wrap: word-wrap; }
+                            HorizontalLayout {
+                                spacing: 0px; alignment: space-between;
+                                for hz in ["31", "62", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"] : VerticalLayout {
+                                    width: 28px; spacing: 6px;
+                                    Rectangle { height: 84px; width: 28px;
+                                        Rectangle { width: 6px; height: 84px; x: 11px; border-radius: 3px; background: Theme.surface-3; }
+                                        Rectangle { width: 16px; height: 16px; x: 6px; y: 34px; border-radius: 8px; background: Theme.ink-3; }
+                                    }
+                                    Text { text: hz; font-family: Theme.font-mono; font-size: Theme.fs-caption; color: Theme.ink-3; horizontal-alignment: center; }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            padding-top: 32px; spacing: 12px;
+            GroupTitle { text: "Aparência"; }
+            SettingGroup {
+                VerticalLayout {
+                    SettingRow {
+                        icon: Icons.moon; title: "Tema"; divider: false;
+                        Segmented {
+                            width: 228px; label: "Tema"; options: ["Auto", "Claro", "Escuro"];
+                            selected: AppState.theme-mode == ThemeMode.auto ? 0 : AppState.theme-mode == ThemeMode.light ? 1 : 2;
+                            changed(i) => { AppState.theme-mode-changed(i == 0 ? ThemeMode.auto : i == 1 ? ThemeMode.light : ThemeMode.dark); }
+                        }
+                    }
+                    SettingRow {
+                        icon: Icons.sun; title: "Cor de destaque";
+                        Segmented {
+                            width: 196px; label: "Cor de destaque"; options: ["Da capa", "Âmbar"];
+                            selected: AppState.accent-mode == AccentMode.from-cover ? 0 : 1;
+                            changed(i) => { AppState.accent-mode-changed(i == 0 ? AccentMode.from-cover : AccentMode.brand); }
+                        }
+                    }
+                    SettingRow {
+                        icon: Icons.device; title: "Reduzir transparência";
+                        subtitle: "Troca o vidro desfocado por painéis sólidos. Ajuda em telas lentas.";
+                        KSwitch { label: "Reduzir transparência"; checked: Theme.reduce-transparency; toggled(c) => { Theme.reduce-transparency = c; AppState.reduce-transparency-changed(c); } }
+                    }
+                    SettingRow {
+                        icon: Icons.sliders; title: "Reduzir movimento";
+                        subtitle: "Remove transições e fundos animados.";
+                        KSwitch { label: "Reduzir movimento"; checked: Theme.reduce-motion; toggled(c) => { Theme.reduce-motion = c; AppState.reduce-motion-changed(c); } }
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            padding-top: 32px; spacing: 12px;
+            GroupTitle { text: "Privacidade"; }
+            SettingGroup {
+                SettingRow {
+                    icon: Icons.shield; title: "Sem telemetria";
+                    subtitle: "O Kazzu só se conecta quando você pede algo. Nenhum dado de uso sai do seu aparelho, e esta opção não pode ser desligada.";
+                    divider: false;
+                    KSwitch { locked: true; label: "Sem telemetria, sempre ativado"; }
+                }
+            }
+        }
+
+        VerticalLayout {
+            padding-top: 32px; spacing: 12px;
+            GroupTitle { text: "Sobre"; }
+            SettingGroup {
+                SettingRow {
+                    icon: Icons.info; title: AppState.version-label + ", código aberto"; divider: false;
+                    TextButton { label: "Licenças"; clicked => { root.licenses-open = true; } }
+                }
+            }
+        }
+    }
+    if root.licenses-open : Rectangle {
+        Rectangle { background: #000000b0; TouchArea { clicked => { root.licenses-open = false; } } }
+        Rectangle {
+            width: min(parent.width - 40px, 640px); height: min(parent.height - 80px, 560px);
+            x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+            border-radius: Theme.r-xl; background: Theme.glass-solid-strong; border-width: 1px; border-color: Theme.line-strong;
+            accessible-role: groupbox; accessible-label: "Licenças";
+            VerticalLayout {
+                padding: 24px; spacing: 12px;
+                HorizontalLayout {
+                    Text { text: "Licenças"; font-size: Theme.fs-title-2; font-weight: Theme.fw-title-2; color: Theme.ink; vertical-alignment: center; }
+                    Rectangle { horizontal-stretch: 1; }
+                    IconButton { icon: Icons.close; label: "Fechar licenças"; clicked => { root.licenses-open = false; } }
+                }
+                Flickable {
+                    Text { width: parent.width; text: AppState.licenses-text; font-size: Theme.fs-subhead; color: Theme.ink-2; wrap: word-wrap; }
+                }
+            }
+        }
+    }
+}

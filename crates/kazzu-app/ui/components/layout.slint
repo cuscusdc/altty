@@ -1,0 +1,107 @@
+// Esqueleto das telas: rolagem com gutter e largura máxima, cabeçalho de página, carrossel e banner de scan.
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { Tab, AppState } from "../theme/app-contract.slint";
+import { IconButton } from "../theme/atoms.slint";
+import { Logo, Avatar, TextButton } from "basics.slint";
+
+// Rolagem vertical. O conteúdo vai numa coluna de largura `min(max-w, largura - 2*gutter)`, centralizada.
+// A tela entra com opacidade 0 -> 1 (dur-short); corte seco com movimento reduzido.
+export component ScreenScroll inherits Flickable {
+    in property <length> bottom-pad: Theme.compact ? 196px : 140px;
+    in property <length> max-w: Theme.content-max;
+    out property <length> gutter: Theme.compact ? Theme.gutter-mobile : Theme.gutter-desktop;
+    out property <length> col-w: min(root.max-w, root.width - 2 * root.gutter);
+    property <float> appear: 0.0;
+    init => { root.appear = 1.0; }
+    opacity: appear;
+    animate appear { duration: Theme.dur-short; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
+    content-width: root.width;
+    content-height: max(root.height, col.preferred-height);
+    col := VerticalLayout {
+        x: (root.width - self.width) / 2; y: 0px;
+        width: root.col-w;
+        alignment: start;
+        @children
+        Rectangle { height: root.bottom-pad; }
+    }
+}
+
+// Topo da página. Compact: logo + avatar, depois título. Desktop: título + avatar. `@children` vai à direita do título.
+export component PageTop inherits VerticalLayout {
+    in property <string> title;
+    in property <bool> show-title-compact: true;
+    property <bool> title-visible: root.title != "" && (!Theme.compact || root.show-title-compact);
+    spacing: 0px;
+    if Theme.compact : HorizontalLayout {
+        height: 56px;
+        Logo { y: (parent.height - self.height) / 2; clicked => { AppState.navigate(Tab.home); } }
+        Rectangle { horizontal-stretch: 1; }
+        Avatar { y: (parent.height - self.height) / 2; clicked => { AppState.navigate(Tab.settings); } }
+    }
+    HorizontalLayout {
+        height: Theme.compact ? (root.title-visible ? 52px : 0px) : 72px;
+        spacing: 12px; padding-top: Theme.compact ? 0px : 16px;
+        Text {
+            visible: root.title-visible;
+            text: root.title; vertical-alignment: center; color: Theme.ink; overflow: elide; wrap: no-wrap;
+            font-size: Theme.compact ? Theme.fs-large-title : 40px; font-weight: Theme.fw-large-title;
+            letter-spacing: Theme.ls-large-title; accessible-role: text;
+        }
+        Rectangle { horizontal-stretch: 1; }
+        VerticalLayout { alignment: center; @children }
+        if !Theme.compact : VerticalLayout { alignment: center; Avatar { clicked => { AppState.navigate(Tab.settings); } } }
+    }
+}
+
+// Seção com cabeçalho (título, setas no desktop, "Ver tudo") e carrossel horizontal.
+export component Rail inherits VerticalLayout {
+    in property <string> title;
+    in property <string> action-label;
+    in property <length> rail-h: 200px;
+    in property <length> item-spacing: 12px;
+    callback action();
+    property <length> gutter: Theme.compact ? Theme.gutter-mobile : Theme.gutter-desktop;
+    padding-top: 32px; spacing: 12px;
+    HorizontalLayout {
+        height: 44px;
+        Text { text: root.title; font-size: Theme.fs-title-2; font-weight: Theme.fw-title-2; letter-spacing: Theme.ls-title-2; color: Theme.ink; vertical-alignment: center; accessible-role: text; }
+        Rectangle { horizontal-stretch: 1; }
+        if !Theme.compact : IconButton { icon: Icons.chevron-left; label: "Rolar para a esquerda"; clicked => { fl.content-x = min(0px, fl.content-x + fl.width * 0.8); } }
+        if !Theme.compact : IconButton { icon: Icons.chevron-right; label: "Rolar para a direita"; clicked => { fl.content-x = max(min(0px, fl.width - fl.content-width), fl.content-x - fl.width * 0.8); } }
+        if root.action-label != "" : TextButton { label: root.action-label; clicked => { root.action(); } }
+    }
+    // compact: o carrossel sangra até a borda da janela
+    fl := Flickable {
+        height: root.rail-h;
+        x: Theme.compact ? -root.gutter : 0px;
+        width: Theme.compact ? parent.width + 2 * root.gutter : parent.width;
+        content-width: hl.preferred-width + (Theme.compact ? 2 * root.gutter : 0px);
+        content-height: self.height;
+        animate content-x { duration: Theme.dur-medium; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
+        hl := HorizontalLayout {
+            x: Theme.compact ? root.gutter : 0px; y: 0px; height: root.rail-h;
+            spacing: root.item-spacing; alignment: start;
+            @children
+        }
+    }
+}
+
+// Banner de scan da biblioteca (progresso e texto).
+export component ScanBanner inherits Rectangle {
+    visible: AppState.scanning;
+    height: AppState.scanning ? 72px : 0px;
+    border-radius: Theme.r-lg; background: Theme.surface;
+    accessible-role: text; accessible-label: AppState.scan-label;
+    VerticalLayout {
+        padding: 16px; spacing: 10px; alignment: center;
+        Text { text: AppState.scan-label; font-size: Theme.fs-callout; font-weight: 600; color: Theme.ink; overflow: elide; wrap: no-wrap; }
+        Rectangle {
+            height: 6px; border-radius: 3px; background: Theme.surface-3;
+            Rectangle {
+                x: 0px; height: 100%; border-radius: 3px; background: Theme.accent;
+                width: AppState.scan-progress < 0 ? parent.width * 0.3 : parent.width * clamp(AppState.scan-progress, 0.0, 1.0);
+            }
+        }
+    }
+}

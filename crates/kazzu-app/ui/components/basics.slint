@@ -1,0 +1,247 @@
+// Componentes pequenos e compartilhados (SLINT_SPEC §3.8). Nada de literais de cor: sempre Theme.*.
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { IconButton, FormatBadge } from "../theme/atoms.slint";
+
+// Anel de foco: 2 px na cor de destaque, SEM animação. Desenhado por dentro da borda do elemento (preenche o pai),
+// para não ser cortado por `clip` de cartões nem por layouts.
+export component FocusRing inherits Rectangle {
+    in property <bool> active: false;
+    in property <length> radius: 12px;
+    visible: active;
+    border-radius: radius;
+    border-width: Theme.focus-ring-w; border-color: Theme.focus-ring;
+}
+
+// Barras "tocando" (3 barras estáticas, SLINT_SPEC §1.7).
+export component NowBars inherits Rectangle {
+    width: 20px; height: 18px;
+    accessible-role: text;
+    accessible-label: "Tocando agora";
+    Rectangle { x: 0px;  y: 18px - 10px; width: 4px; height: 10px; border-radius: 2px; background: Theme.accent; }
+    Rectangle { x: 7px;  y: 0px;         width: 4px; height: 18px; border-radius: 2px; background: Theme.accent; }
+    Rectangle { x: 14px; y: 18px - 13px; width: 4px; height: 13px; border-radius: 2px; background: Theme.accent; }
+}
+
+export component TextButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> enabled: true;
+    callback clicked();
+    height: 44px;
+    width: max(44px, lbl.preferred-width + 24px);
+    border-radius: 12px;
+    background: !enabled ? transparent : ta.pressed ? Theme.accent-soft : ta.has-hover ? Theme.accent-soft : transparent;
+    opacity: enabled ? 1.0 : 0.5;
+    accessible-role: button; accessible-label: label; accessible-enabled: enabled;
+    accessible-action-default => { if (enabled) { root.clicked(); } }
+    animate background { duration: Theme.dur-micro; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
+    lbl := Text {
+        text: root.label; color: Theme.accent; font-size: Theme.fs-callout; font-weight: 600;
+        horizontal-alignment: center; vertical-alignment: center; width: parent.width; height: parent.height;
+    }
+    ta := TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false;
+        enabled: root.enabled;
+        key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; }
+    }
+    FocusRing { active: fs.has-focus; radius: 12px; }
+}
+
+export enum PillKind { primary, quiet }
+
+export component PillButton inherits Rectangle {
+    in property <string> label;
+    in property <image> icon;
+    in property <PillKind> kind: PillKind.primary;
+    in property <bool> enabled: true;
+    callback clicked();
+    height: 44px; border-radius: 22px;
+    width: row.preferred-width + 32px;
+    property <color> base: kind == PillKind.primary ? Theme.accent : Theme.surface-2;
+    background: ta.pressed ? base.mix(Theme.bg, 0.76) : ta.has-hover ? base.mix(Theme.ink, 0.88) : base;
+    opacity: enabled ? 1.0 : 0.5;
+    accessible-role: button; accessible-label: label; accessible-enabled: enabled;
+    accessible-action-default => { if (enabled) { root.clicked(); } }
+    animate background { duration: Theme.dur-micro; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
+    row := HorizontalLayout {
+        padding-left: 16px; padding-right: 16px; spacing: 8px; alignment: center;
+        if root.icon.width > 0 : Image {
+            source: root.icon; width: 20px; height: 20px; y: (root.height - 20px) / 2;
+            colorize: root.kind == PillKind.primary ? Theme.accent-ink : Theme.ink;
+        }
+        Text {
+            text: root.label; font-size: Theme.fs-callout; font-weight: 600; vertical-alignment: center;
+            color: root.kind == PillKind.primary ? Theme.accent-ink : Theme.ink;
+        }
+    }
+    ta := TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false;
+        enabled: root.enabled;
+        key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; }
+    }
+    FocusRing { active: fs.has-focus; radius: 22px; }
+}
+
+export component Chip inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected: false;
+    callback clicked();
+    height: 40px; border-radius: 20px;
+    width: lbl.preferred-width + 32px;
+    background: selected ? Theme.accent : ta.pressed || ta.has-hover ? Theme.surface-3 : Theme.surface-2;
+    accessible-role: button; accessible-label: label; accessible-checked: selected;
+    accessible-action-default => { root.clicked(); }
+    animate background { duration: Theme.dur-micro; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
+    lbl := Text {
+        text: root.label; font-size: Theme.fs-callout; font-weight: 600; width: parent.width; height: parent.height;
+        horizontal-alignment: center; vertical-alignment: center;
+        color: root.selected ? Theme.accent-ink : Theme.ink-2;
+    }
+    ta := TouchArea { y: -2px; height: parent.height + 4px; mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
+    FocusRing { active: fs.has-focus; radius: 20px; }
+}
+
+// Pílula com opções (Tema, Cor de destaque).
+export component Segmented inherits Rectangle {
+    in property <[string]> options;
+    in-out property <int> selected: 0;
+    in property <string> label;
+    callback changed(int);
+    height: 44px; border-radius: 22px; background: Theme.surface-2;
+    accessible-role: tab; accessible-label: label;
+    HorizontalLayout {
+        padding: 4px; spacing: 0px;
+        for opt[i] in root.options : Rectangle {
+            border-radius: 18px;
+            background: i == root.selected ? Theme.bg : transparent;
+            drop-shadow-blur: i == root.selected ? Theme.e1-blur : 0px;
+            drop-shadow-offset-y: Theme.e1-y; drop-shadow-color: Theme.e1-color;
+            accessible-role: tab; accessible-label: opt; accessible-checked: i == root.selected;
+            accessible-action-default => { root.selected = i; root.changed(i); }
+            animate background { duration: Theme.dur-short; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
+            Text {
+                text: opt; font-size: Theme.fs-subhead; font-weight: 600; horizontal-alignment: center; vertical-alignment: center;
+                color: i == root.selected ? Theme.ink : Theme.ink-2;
+            }
+            TouchArea { mouse-cursor: pointer; clicked => { root.selected = i; root.changed(i); } }
+        }
+    }
+}
+
+// Selo textual ("Ativa", "Em breve", "Sempre").
+export component Tag inherits Rectangle {
+    in property <string> label;
+    height: 26px; border-radius: 8px; background: Theme.surface-3;
+    width: t.preferred-width + 20px;
+    accessible-role: text; accessible-label: label;
+    t := Text { text: root.label; font-size: Theme.fs-caption; font-weight: 600; color: Theme.ink-2; horizontal-alignment: center; vertical-alignment: center; width: parent.width; height: parent.height; }
+}
+
+export component Avatar inherits Rectangle {
+    in property <string> initial: "K";
+    callback clicked();
+    width: 44px; height: 44px; border-radius: 22px; background: Theme.surface-3;
+    accessible-role: button; accessible-label: "Configurações";
+    accessible-action-default => { root.clicked(); }
+    Text { text: root.initial; font-size: Theme.fs-headline; font-weight: 700; color: Theme.ink; horizontal-alignment: center; vertical-alignment: center; }
+    TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
+    FocusRing { active: fs.has-focus; radius: 22px; }
+}
+
+// Wordmark (largo) ou marca (estreita) conforme o tema. Clicável: leva ao Início.
+export component Logo inherits Rectangle {
+    in property <bool> mark-only: false;
+    in property <length> logo-height: 28px;
+    callback clicked();
+    height: max(Theme.hit, logo-height);
+    width: mark-only ? logo-height + 8px : logo-height * 152 / 40 + 8px;
+    accessible-role: button; accessible-label: "Kazzu, ir para o Início";
+    accessible-action-default => { root.clicked(); }
+    property <length> lw: mark-only ? logo-height : logo-height * 152 / 40;
+    Image { visible: !root.mark-only && Theme.dark;  source: @image-url("../assets/logo/kazzu-wordmark-dark.svg");  x: 4px; y: (parent.height - self.height) / 2; width: root.lw; height: root.logo-height; }
+    Image { visible: !root.mark-only && !Theme.dark; source: @image-url("../assets/logo/kazzu-wordmark-light.svg"); x: 4px; y: (parent.height - self.height) / 2; width: root.lw; height: root.logo-height; }
+    Image { visible: root.mark-only && Theme.dark;  source: @image-url("../assets/logo/kazzu-mark-dark.svg");  x: 4px; y: (parent.height - self.height) / 2; width: root.lw; height: root.logo-height; }
+    Image { visible: root.mark-only && !Theme.dark; source: @image-url("../assets/logo/kazzu-mark-light.svg"); x: 4px; y: (parent.height - self.height) / 2; width: root.lw; height: root.logo-height; }
+    TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
+    FocusRing { active: fs.has-focus; radius: 10px; }
+}
+
+// Estado vazio: ícone num quadrado, título, texto, uma ação (SLINT_SPEC §3.8).
+export component EmptyState inherits Rectangle {
+    in property <image> icon;
+    in property <string> title;
+    in property <string> message;
+    in property <string> action-label;
+    callback action();
+    VerticalLayout {
+        alignment: center;
+        padding-top: 56px; padding-bottom: 56px; padding-left: 20px; padding-right: 20px;
+        spacing: 12px;
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 96px; height: 96px; border-radius: 28px; background: Theme.surface-2;
+                Image { source: root.icon; width: 28px; height: 28px; x: 34px; y: 34px; colorize: Theme.ink-3; }
+            }
+        }
+        Text { text: root.title; font-size: Theme.fs-title-2; font-weight: Theme.fw-title-2; letter-spacing: Theme.ls-title-2; color: Theme.ink; horizontal-alignment: center; wrap: word-wrap; }
+        HorizontalLayout {
+            alignment: center;
+            Text { text: root.message; font-size: Theme.fs-body; color: Theme.ink-3; horizontal-alignment: center; wrap: word-wrap; width: min(380px, root.width - 40px); }
+        }
+        if root.action-label != "" : HorizontalLayout {
+            alignment: center; padding-top: 8px;
+            PillButton { label: root.action-label; clicked => { root.action(); } }
+        }
+    }
+}
+
+// Linha-esqueleto estática, mesma geometria da TrackRow (SLINT_SPEC §4.9).
+export component SkeletonRow inherits Rectangle {
+    height: Theme.row-h;
+    Rectangle { x: 8px; y: 8px; width: 48px; height: 48px; border-radius: Theme.thumb-radius; background: Theme.surface-3; }
+    Rectangle { x: 68px; y: 16px; width: (parent.width - 140px) * 0.55; height: 14px; border-radius: 7px; background: Theme.surface-3; }
+    Rectangle { x: 68px; y: 38px; width: (parent.width - 140px) * 0.34; height: 12px; border-radius: 6px; background: Theme.surface-2; }
+}
+
+export component SectionHeader inherits Rectangle {
+    in property <string> title;
+    in property <string> action-label;
+    callback action();
+    height: 44px;
+    HorizontalLayout {
+        Text { text: root.title; font-size: Theme.fs-title-2; font-weight: Theme.fw-title-2; letter-spacing: Theme.ls-title-2; color: Theme.ink; vertical-alignment: center; accessible-role: text; }
+        Rectangle { horizontal-stretch: 1; }
+        if root.action-label != "" : TextButton { label: root.action-label; clicked => { root.action(); } }
+    }
+}
+
+// Aviso temporário. O Rust incrementa `toast-seq` a cada aviso; o Timer o esconde após 4 s.
+export component Toast inherits Rectangle {
+    in property <string> message;
+    in property <bool> error: false;
+    in property <int> seq: 0;
+    callback dismissed();
+    property <bool> shown: false;
+    changed seq => { root.shown = root.message != ""; if (root.shown) { hide.restart(); } }
+    visible: shown || self.opacity > 0.01;
+    opacity: shown ? 1.0 : 0.0;
+    animate opacity { duration: Theme.dur-short; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
+    height: 48px;
+    in property <length> avail: 360px;
+    width: min(avail - 2 * Theme.sp-5, msg.preferred-width + 56px);
+    border-radius: 24px;
+    background: Theme.glass-solid-strong;
+    border-width: 1px; border-color: error ? Theme.danger : Theme.line-strong;
+    drop-shadow-blur: Theme.e2-blur; drop-shadow-offset-y: Theme.e2-y; drop-shadow-color: Theme.e2-color;
+    accessible-role: text; accessible-label: message;
+    hide := Timer { interval: 4s; running: false; triggered => { root.shown = false; self.running = false; root.dismissed(); } }
+    HorizontalLayout {
+        padding-left: 20px; padding-right: 20px; spacing: 10px; alignment: center;
+        if root.error : Image { source: Icons.info; width: 20px; height: 20px; y: (root.height - 20px) / 2; colorize: Theme.danger; }
+        msg := Text { text: root.message; font-size: Theme.fs-callout; font-weight: 600; color: Theme.ink; vertical-alignment: center; overflow: elide; }
+    }
+}

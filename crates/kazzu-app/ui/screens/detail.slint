@@ -1,0 +1,58 @@
+// Detalhe de coleção, álbum, playlist ou gênero: lista de faixas (virtualizada) ou grade de álbuns.
+import { ListView } from "std-widgets.slint";
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { Tab, AppState, DetailKind } from "../theme/app-contract.slint";
+import { IconButton } from "../theme/atoms.slint";
+import { EmptyState, PillButton, PillKind } from "../components/basics.slint";
+import { TrackRow, AlbumTile } from "../components/media.slint";
+import { ScreenScroll } from "../components/layout.slint";
+
+export component DetailScreen inherits Rectangle {
+    property <length> gutter: Theme.compact ? Theme.gutter-mobile : Theme.gutter-desktop;
+    property <length> col-w: min(Theme.content-max, root.width - 2 * gutter);
+    property <float> appear: 0.0;
+    init => { root.appear = 1.0; }
+    opacity: appear;
+    animate appear { duration: Theme.dur-short; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
+    property <bool> empty: AppState.detail-kind == DetailKind.tracks ? AppState.detail-tracks.length == 0 : AppState.detail-albums.length == 0;
+    property <length> tile: Theme.compact ? 148px : 176px;
+    property <int> cols: max(1, floor((col-w + 16px) / (tile + 16px)));
+    property <length> cell-h: tile + 46px + 16px;
+    VerticalLayout {
+        x: (root.width - self.width) / 2; width: root.col-w; height: parent.height;
+        padding-bottom: Theme.compact ? 196px : 140px;
+        VerticalLayout {
+            padding-top: Theme.compact ? 12px : 16px; spacing: 4px;
+            HorizontalLayout {
+                height: 64px; spacing: 8px;
+                VerticalLayout { alignment: center; IconButton { icon: Icons.back; label: "Voltar"; clicked => { AppState.close-detail(); } } }
+                VerticalLayout {
+                    horizontal-stretch: 1; alignment: center;
+                    Text { text: AppState.detail-title; font-size: Theme.compact ? Theme.fs-title-1 : Theme.fs-large-title; font-weight: Theme.fw-large-title; letter-spacing: Theme.ls-large-title; color: Theme.ink; overflow: elide; wrap: no-wrap; accessible-role: text; }
+                }
+            }
+            if AppState.detail-subtitle != "" : Text { text: AppState.detail-subtitle; font-size: Theme.fs-callout; color: Theme.ink-3; overflow: elide; wrap: no-wrap; }
+            if !root.empty && AppState.detail-kind == DetailKind.tracks : HorizontalLayout {
+                padding-top: 12px; padding-bottom: 12px; spacing: 8px; alignment: start; height: 68px;
+                PillButton { icon: Icons.play; label: "Tocar"; clicked => { AppState.play-all(); } }
+                PillButton { kind: PillKind.quiet; icon: Icons.shuffle; label: "Aleatório"; clicked => { AppState.shuffle-all(); } }
+            }
+        }
+        if root.empty : EmptyState {
+            vertical-stretch: 1; icon: Icons.library; title: "Nada por aqui ainda"; message: AppState.detail-empty-text;
+        }
+        if !root.empty && AppState.detail-kind == DetailKind.tracks : ListView {
+            vertical-stretch: 1; x: Theme.compact ? -8px : 0px; width: parent.width + (Theme.compact ? 16px : 0px); vertical-scrollbar-policy: always-off;
+            for t[i] in AppState.detail-tracks : TrackRow { track: t; show-album: true; index: i; clicked => { AppState.play-track(t.id); } }
+        }
+        if !root.empty && AppState.detail-kind == DetailKind.albums : Flickable {
+            vertical-stretch: 1;
+            content-height: ceil(AppState.detail-albums.length / cols) * cell-h + 16px;
+            for a[i] in AppState.detail-albums : AlbumTile {
+                x: mod(i, cols) * (tile + 16px); y: 8px + floor(i / cols) * cell-h;
+                item: a; clicked => { AppState.open-album(a.id); }
+            }
+        }
+    }
+}

@@ -1,0 +1,47 @@
+// Fundos derivados da capa (SLINT_SPEC §3.1). As imagens chegam pré-desfocadas (96x96) do Rust: sem blur no Slint.
+import { Theme } from "../theme/tokens.slint";
+
+// Cross-fade de 480 ms entre duas Image ao mudar `source` (corte seco com movimento reduzido).
+component CrossFadeImage inherits Rectangle {
+    in property <image> source;
+    in property <float> peak: 1.0;
+    property <image> img-a;
+    property <image> img-b;
+    property <bool> show-b: false;
+    init => { root.img-a = root.source; }
+    changed source => {
+        if (root.show-b) { root.img-a = root.source; } else { root.img-b = root.source; }
+        root.show-b = !root.show-b;
+    }
+    Image {
+        source: root.img-a; width: 100%; height: 100%; image-fit: cover;
+        opacity: root.show-b ? 0.0 : root.peak;
+        animate opacity { duration: Theme.dur-long; easing: cubic-bezier(0.45, 0, 0.2, 1); }
+    }
+    Image {
+        source: root.img-b; width: 100%; height: 100%; image-fit: cover;
+        opacity: root.show-b ? root.peak : 0.0;
+        animate opacity { duration: Theme.dur-long; easing: cubic-bezier(0.45, 0, 0.2, 1); }
+    }
+}
+
+// Ambiente das demais telas: bg + capa esticada (opacidade do tema) + véu que dissolve para bg.
+export component AmbientBackdrop inherits Rectangle {
+    in property <image> source;
+    background: Theme.bg;
+    clip: true;
+    CrossFadeImage {
+        x: -root.width * 0.25; y: 0px; width: root.width * 1.5; height: root.height * 0.9;
+        source: root.source; peak: Theme.ambient-opacity;
+    }
+    Rectangle { background: @linear-gradient(180deg, transparent 0%, Theme.bg.with-alpha(0.7) 40%, Theme.bg 78%); }
+}
+
+// Fundo do player: capa já desfocada e escurecida (96x96) cobrindo a janela + véu para o contraste do texto.
+export component PlayerBackdrop inherits Rectangle {
+    in property <image> source;
+    background: #0c0806;
+    clip: true;
+    CrossFadeImage { width: 100%; height: 100%; source: root.source; }
+    Rectangle { background: @linear-gradient(180deg, Theme.im-scrim-top 0%, Theme.im-scrim-mid 30%, Theme.im-scrim-bottom 100%); }
+}

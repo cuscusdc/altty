@@ -1,0 +1,166 @@
+// Navegação: dock (compact), sidebar (regular/wide), mini player e NowBar (SLINT_SPEC §3.3 a §3.6).
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { Tab, AppState } from "../theme/app-contract.slint";
+import { GlassPanel, CoverImage, IconButton, KSlider } from "../theme/atoms.slint";
+import { FocusRing, Logo } from "basics.slint";
+
+component NavTab inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    in property <bool> active: false;
+    callback clicked();
+    height: 52px; border-radius: 26px;
+    background: active ? Theme.accent-soft : transparent;
+    accessible-role: tab; accessible-label: label; accessible-checked: active;
+    accessible-action-default => { root.clicked(); }
+    animate background { duration: Theme.dur-short; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
+    VerticalLayout {
+        alignment: center; spacing: 0px;
+        Image { source: root.icon; width: 24px; height: 24px; colorize: root.active ? Theme.accent : Theme.ink-3; }
+        Text { text: root.label; font-size: Theme.fs-caption; font-weight: Theme.fw-caption; letter-spacing: Theme.ls-caption; horizontal-alignment: center; color: root.active || ta.has-hover ? Theme.ink : Theme.ink-3; }
+    }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
+    FocusRing { active: fs.has-focus; radius: 26px; }
+}
+
+// Botão de busca: a ÚNICA entrada da busca (não há campo de busca no topo).
+component SearchButton inherits Rectangle {
+    in property <bool> active: false;
+    callback clicked();
+    width: Theme.dock-search; height: Theme.dock-search; border-radius: Theme.dock-search / 2;
+    background: active ? Theme.accent-soft : ta.pressed ? Theme.accent.mix(Theme.bg, 0.76) : ta.has-hover ? Theme.accent.mix(Theme.ink, 0.88) : Theme.accent;
+    border-width: active ? 1px : 0px; border-color: Theme.accent;
+    accessible-role: button; accessible-label: "Buscar";
+    accessible-action-default => { root.clicked(); }
+    animate background { duration: Theme.dur-micro; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
+    Image { source: Icons.search; width: 28px; height: 28px; x: (parent.width - 28px) / 2; y: (parent.height - 28px) / 2; colorize: root.active ? Theme.accent : Theme.accent-ink; }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
+    FocusRing { active: fs.has-focus; radius: Theme.dock-search / 2; }
+}
+
+// Barra principal flutuante (mobile / janela estreita). Geometria explícita: 3 abas iguais + divisor + botão de busca.
+export component NavDock inherits GlassPanel {
+    strong: true; radius: Theme.dock-radius;
+    height: Theme.dock-h;
+    property <length> search-x: root.width - 6px - Theme.dock-search;
+    property <length> tabs-w: root.search-x - 9px - 6px;
+    property <length> tab-w: (tabs-w - 4px) / 3;
+    NavTab { x: 6px; y: 6px; width: root.tab-w; icon: Icons.home; label: "Início"; active: AppState.tab == Tab.home && !AppState.detail-open; clicked => { AppState.navigate(Tab.home); } }
+    NavTab { x: 6px + root.tab-w + 2px; y: 6px; width: root.tab-w; icon: Icons.explore; label: "Explorar"; active: AppState.tab == Tab.explore; clicked => { AppState.navigate(Tab.explore); } }
+    NavTab { x: 6px + 2 * (root.tab-w + 2px); y: 6px; width: root.tab-w; icon: Icons.library; label: "Biblioteca"; active: AppState.tab == Tab.library; clicked => { AppState.navigate(Tab.library); } }
+    Rectangle { x: root.search-x - 5px; y: (root.height - 28px) / 2; width: 1px; height: 28px; background: Theme.line-strong; }
+    SearchButton { x: root.search-x; y: 6px; active: AppState.tab == Tab.search; clicked => { AppState.navigate(Tab.search); } }
+}
+
+component NavItem inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    in property <bool> active: false;
+    in property <bool> search: false;     // item destacado de busca
+    in property <bool> expanded: true;    // wide: ícone + texto; senão só ícone
+    callback clicked();
+    height: 48px; border-radius: 16px;
+    background: search ? (active ? Theme.accent : Theme.accent-soft) : active ? Theme.accent-soft : ta.has-hover ? Theme.surface-2 : transparent;
+    border-width: search && !active ? 1px : 0px; border-color: Theme.accent.with-alpha(0.45);
+    accessible-role: tab; accessible-label: label; accessible-checked: active;
+    accessible-action-default => { root.clicked(); }
+    animate background { duration: Theme.dur-short; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
+    property <color> ink: search ? (active ? Theme.accent-ink : Theme.accent) : active ? Theme.accent : Theme.ink-2;
+    HorizontalLayout {
+        padding-left: expanded ? 16px : 0px; padding-right: expanded ? 16px : 0px; spacing: 12px;
+        alignment: expanded ? start : center;
+        Image { source: root.icon; width: 24px; height: 24px; y: (parent.height - 24px) / 2; colorize: root.ink; }
+        if root.expanded : Text {
+            text: root.label; font-size: Theme.fs-callout; font-weight: 600; vertical-alignment: center;
+            color: root.search ? (root.active ? Theme.accent-ink : Theme.ink) : root.active ? Theme.ink : Theme.ink-2;
+        }
+    }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
+    FocusRing { active: fs.has-focus; radius: 16px; }
+}
+
+export component Sidebar inherits GlassPanel {
+    radius: 24px;
+    width: Theme.wide ? Theme.sidebar-w : Theme.sidebar-w-compact;
+    VerticalLayout {
+        padding-top: 12px; padding-bottom: 12px; padding-left: Theme.wide ? 16px : 12px; padding-right: Theme.wide ? 16px : 12px;
+        spacing: 4px;
+        Rectangle {
+            height: 56px;
+            Logo {
+                mark-only: !Theme.wide; logo-height: Theme.wide ? 26px : 36px;
+                x: Theme.wide ? 4px : (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+                clicked => { AppState.navigate(Tab.home); }
+            }
+        }
+        NavItem { icon: Icons.home; label: "Início"; expanded: Theme.wide; active: AppState.tab == Tab.home; clicked => { AppState.navigate(Tab.home); } }
+        NavItem { icon: Icons.explore; label: "Explorar"; expanded: Theme.wide; active: AppState.tab == Tab.explore; clicked => { AppState.navigate(Tab.explore); } }
+        NavItem { icon: Icons.library; label: "Biblioteca"; expanded: Theme.wide; active: AppState.tab == Tab.library; clicked => { AppState.navigate(Tab.library); } }
+        Rectangle { height: 1px; background: Theme.line; }
+        NavItem { search: true; icon: Icons.search; label: "Buscar"; expanded: Theme.wide; active: AppState.tab == Tab.search; clicked => { AppState.navigate(Tab.search); } }
+        Rectangle { vertical-stretch: 1; }
+        NavItem { icon: Icons.sliders; label: "Configurações"; expanded: Theme.wide; active: AppState.tab == Tab.settings; clicked => { AppState.navigate(Tab.settings); } }
+    }
+}
+
+export component MiniPlayer inherits GlassPanel {
+    strong: true; radius: Theme.mini-radius;
+    height: Theme.mini-h;
+    accessible-role: button; accessible-label: "Abrir o player, " + AppState.now.title;
+    accessible-action-default => { AppState.open-player(); }
+    open-ta := TouchArea { mouse-cursor: pointer; clicked => { AppState.open-player(); } }
+    CoverImage { x: 8px; y: 8px; width: 48px; height: 48px; source: AppState.now.cover; radius: 12px; }
+    VerticalLayout {
+        x: 68px; y: 0px; width: parent.width - 68px - 96px; height: parent.height; alignment: center;
+        Text { text: AppState.now.title; font-size: Theme.fs-callout; font-weight: 600; color: Theme.ink; overflow: elide; wrap: no-wrap; }
+        Text { text: AppState.now.artist; font-size: Theme.fs-subhead; color: Theme.ink-3; overflow: elide; wrap: no-wrap; }
+    }
+    IconButton {
+        x: parent.width - 96px; y: 10px; icon: AppState.playing ? Icons.pause : Icons.play; glyph: 28px;
+        label: AppState.playing ? "Pausar" : "Tocar"; tint: Theme.ink; clicked => { AppState.toggle-play(); }
+    }
+    IconButton { x: parent.width - 52px; y: 10px; icon: Icons.next; label: "Próxima faixa"; tint: Theme.ink; clicked => { AppState.next(); } }
+    Rectangle { x: 14px; y: parent.height - 2px - 1px; width: parent.width - 28px; height: 2px; background: Theme.line;
+        Rectangle { width: parent.width * clamp(AppState.progress, 0.0, 1.0); height: 100%; background: Theme.accent; }
+    }
+}
+
+export component NowBar inherits GlassPanel {
+    radius: 22px;
+    height: 72px;
+    accessible-role: groupbox; accessible-label: "Tocando agora";
+    HorizontalLayout {
+        padding-left: 8px; padding-right: 12px; padding-top: 8px; padding-bottom: 8px; spacing: 16px;
+        CoverImage { width: 56px; height: 56px; source: AppState.now.cover; radius: 14px; }
+        VerticalLayout {
+            horizontal-stretch: Theme.wide ? 0 : 1; preferred-width: 220px; min-width: Theme.wide ? 220px : 120px; max-width: Theme.wide ? 220px : 10000px; alignment: center;
+            Text { text: AppState.now.title; font-size: Theme.fs-callout; font-weight: 600; color: Theme.ink; overflow: elide; wrap: no-wrap; }
+            Text { text: AppState.now.artist; font-size: Theme.fs-subhead; color: Theme.ink-3; overflow: elide; wrap: no-wrap; }
+        }
+        if Theme.wide : VerticalLayout {
+            horizontal-stretch: 1.4; alignment: center; spacing: 0px;
+            KSlider {
+                height: 28px; immersive: false; value: AppState.progress; label: "Progresso da faixa";
+                value-text: AppState.position-label + " de " + AppState.now.duration-label;
+                released(v) => { AppState.seek(v); }
+            }
+            HorizontalLayout {
+                Text { text: AppState.position-label; font-family: Theme.font-mono; font-size: Theme.fs-timecode - 1px; color: Theme.ink-3; }
+                Rectangle { horizontal-stretch: 1; }
+                Text { text: AppState.remaining-label; font-family: Theme.font-mono; font-size: Theme.fs-timecode - 1px; color: Theme.ink-3; }
+            }
+        }
+        HorizontalLayout {
+            alignment: end; spacing: 0px;
+            IconButton { icon: Icons.prev; label: "Faixa anterior"; tint: Theme.ink; y: (parent.height - self.height) / 2; clicked => { AppState.previous(); } }
+            IconButton { icon: AppState.playing ? Icons.pause : Icons.play; glyph: 28px; label: AppState.playing ? "Pausar" : "Tocar"; tint: Theme.ink; y: (parent.height - self.height) / 2; clicked => { AppState.toggle-play(); } }
+            IconButton { icon: Icons.next; label: "Próxima faixa"; tint: Theme.ink; y: (parent.height - self.height) / 2; clicked => { AppState.next(); } }
+            IconButton { icon: Icons.queue; label: "Abrir a fila"; active: AppState.queue-open; y: (parent.height - self.height) / 2; clicked => { AppState.queue-open = !AppState.queue-open; AppState.detail-open = false; } }
+            IconButton { icon: Icons.chevron-down; label: "Abrir o player"; y: (parent.height - self.height) / 2; clicked => { AppState.open-player(); } }
+        }
+    }
+}

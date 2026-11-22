@@ -1,0 +1,108 @@
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { Tab, AppState, SearchState } from "../theme/app-contract.slint";
+import { IconButton } from "../theme/atoms.slint";
+import { ScreenScroll, PageTop, Rail } from "../components/layout.slint";
+import { SectionHeader, EmptyState, Chip, TextButton, FocusRing } from "../components/basics.slint";
+import { TrackRow, AlbumTile } from "../components/media.slint";
+
+export component SearchScreen inherits Rectangle {
+    property <int> kind: 0;                   // 0 Tudo, 1 Músicas, 2 Álbuns, 3 Artistas, 4 Playlists
+    property <[bool]> sources: [true, false, false];
+    init => { if (!Theme.compact) { field.focus(); } }
+    ScreenScroll {
+        width: parent.width; height: parent.height;
+        PageTop { title: "Buscar"; }
+        Rectangle {
+            height: 52px + 16px;
+            Rectangle {
+                y: 8px; height: 52px; border-radius: 26px; background: Theme.surface-2;
+                border-width: 1px; border-color: field.has-focus ? Theme.accent : transparent;
+                accessible-role: groupbox; accessible-label: "Campo de busca";
+                Image { source: Icons.search; x: 16px; y: (parent.height - 24px) / 2; width: 24px; height: 24px; colorize: Theme.ink-3; }
+                field := TextInput {
+                    text <=> AppState.search-text;
+                    x: 52px; width: parent.width - 52px - 52px - 56px; height: parent.height;
+                    font-size: 17px; color: Theme.ink; vertical-alignment: center; single-line: true; input-type: text;
+                    accessible-role: text-input; accessible-label: "Buscar músicas, álbuns e artistas"; accessible-placeholder-text: "Músicas, álbuns, artistas";
+                    edited => { AppState.search(self.text); }
+                    key-pressed(e) => { if (e.text == Key.Escape && self.text != "") { self.text = ""; AppState.search(""); return accept; } return reject; }
+                }
+                if field.text == "" : Text { x: 52px; height: parent.height; text: "Músicas, álbuns, artistas"; font-size: 17px; color: Theme.ink-3; vertical-alignment: center; }
+                if field.text != "" : IconButton {
+                    x: parent.width - 52px - 44px - 4px + 4px; y: 4px; icon: Icons.close; glyph: 20px; label: "Limpar busca"; tint: Theme.ink-3;
+                    clicked => { field.text = ""; AppState.search(""); field.focus(); }
+                }
+                Rectangle {
+                    x: parent.width - 44px - 4px; y: 4px; width: 44px; height: 44px; border-radius: 22px; background: Theme.accent-soft;
+                    accessible-role: button; accessible-label: "Reconhecer música pelo som ambiente";
+                    accessible-action-default => { AppState.recognize-ambient(); }
+                    Image { source: Icons.wave; width: 24px; height: 24px; x: 10px; y: 10px; colorize: Theme.accent; }
+                    TouchArea { mouse-cursor: pointer; clicked => { AppState.recognize-ambient(); } }
+                }
+            }
+        }
+        HorizontalLayout {
+            height: 44px; spacing: 8px; alignment: start;
+            for name[i] in ["Tudo", "Músicas", "Álbuns", "Artistas", "Playlists"] : Chip {
+                label: name; selected: root.kind == i;
+                clicked => { root.kind = i; AppState.search-filter-changed(root.kind, root.sources); }
+            }
+        }
+        HorizontalLayout {
+            height: 44px; spacing: 8px; alignment: start;
+            for name[i] in ["Local", "YT Music", "Spotify"] : Chip {
+                label: name; selected: root.sources[i];
+                clicked => { root.sources[i] = !root.sources[i]; AppState.search-filter-changed(root.kind, root.sources); }
+            }
+        }
+        if AppState.search-state == SearchState.idle : VerticalLayout {
+            padding-top: 24px; spacing: 8px;
+            if AppState.recent-searches.length > 0 : HorizontalLayout {
+                height: 44px;
+                Text { text: "Buscas recentes"; font-size: Theme.fs-title-2; font-weight: Theme.fw-title-2; letter-spacing: Theme.ls-title-2; color: Theme.ink; vertical-alignment: center; }
+                Rectangle { horizontal-stretch: 1; }
+                TextButton { label: "Limpar"; clicked => { AppState.clear-recent-searches(); } }
+            }
+            for q in AppState.recent-searches : Rectangle {
+                height: 52px; border-radius: 14px; background: qta.has-hover ? Theme.surface : transparent;
+                accessible-role: button; accessible-label: "Buscar de novo: " + q;
+                accessible-action-default => { field.text = q; AppState.search(q); }
+                HorizontalLayout {
+                    padding-left: 12px; spacing: 14px;
+                    Image { source: Icons.clock; width: 20px; height: 20px; y: (parent.height - 20px) / 2; colorize: Theme.ink-3; }
+                    Text { text: q; font-size: Theme.fs-body; color: Theme.ink; vertical-alignment: center; overflow: elide; wrap: no-wrap; }
+                }
+                qta := TouchArea { mouse-cursor: pointer; clicked => { field.text = q; AppState.search(q); } }
+            }
+            if AppState.recent-searches.length == 0 : Text {
+                text: "Digite o nome de uma música, álbum ou artista da sua biblioteca."; font-size: Theme.fs-body; color: Theme.ink-3; wrap: word-wrap;
+            }
+        }
+        if AppState.search-state == SearchState.results : VerticalLayout {
+            if AppState.search-songs.length > 0 && root.kind <= 1 : VerticalLayout {
+                padding-top: 24px; spacing: 8px;
+                SectionHeader { title: "Músicas"; }
+                VerticalLayout {
+                    x: Theme.compact ? -8px : 0px; width: parent.width + (Theme.compact ? 16px : 0px);
+                    for t[i] in AppState.search-songs : TrackRow { track: t; show-album: true; index: i; clicked => { AppState.play-track(t.id); } }
+                }
+            }
+            if AppState.search-albums.length > 0 && (root.kind == 0 || root.kind == 2) : Rail {
+                title: "Álbuns"; rail-h: (Theme.compact ? 148px : 176px) + 46px; item-spacing: 16px;
+                for a in AppState.search-albums : AlbumTile { item: a; clicked => { AppState.open-album(a.id); } }
+            }
+        }
+        if AppState.search-state == SearchState.results && (root.kind == 3 || root.kind == 4) : EmptyState {
+            icon: Icons.search; title: "Em breve";
+            message: "Busca por artistas e playlists chega junto com os provedores. Por enquanto, veja Músicas e Álbuns.";
+            action-label: "Ver tudo"; action => { root.kind = 0; AppState.search-filter-changed(0, root.sources); }
+        }
+        if AppState.search-state == SearchState.empty : EmptyState {
+            icon: Icons.search; title: "Nada para “" + field.text + "”";
+            message: "Confira a grafia ou busque só o nome do artista.";
+            action-label: "Limpar filtros";
+            action => { root.kind = 0; root.sources = [true, false, false]; field.text = ""; AppState.search(""); }
+        }
+    }
+}

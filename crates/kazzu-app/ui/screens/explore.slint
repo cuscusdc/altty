@@ -1,0 +1,46 @@
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { Tab, AppState } from "../theme/app-contract.slint";
+import { ScreenScroll, PageTop } from "../components/layout.slint";
+import { SectionHeader, EmptyState, Chip } from "../components/basics.slint";
+import { TrackRow, MoodTile } from "../components/media.slint";
+
+export component ExploreScreen inherits Rectangle {
+    property <int> source: 0;   // 0 Todos, 1 Local, 2 YT Music, 3 Spotify
+    ScreenScroll {
+        width: parent.width; height: parent.height;
+        PageTop { title: "Explorar"; }
+        if AppState.moods.length > 0 : VerticalLayout {
+            padding-top: 16px; spacing: 12px;
+            SectionHeader { title: "Gêneros do seu acervo"; }
+            GridLayout {
+                spacing: 12px;
+                for m[i] in AppState.moods : MoodTile {
+                    row: floor(i / 2); col: mod(i, 2);
+                    item: m; clicked => { AppState.open-genre(m.id); }
+                }
+            }
+        }
+        VerticalLayout {
+            padding-top: 32px; spacing: 12px;
+            SectionHeader { title: "Novidades dos seus provedores"; }
+            HorizontalLayout {
+                spacing: 8px; alignment: start;
+                for name[i] in ["Todos", "Local", "YT Music", "Spotify"] : Chip { label: name; selected: root.source == i; clicked => { root.source = i; } }
+            }
+            if root.source <= 1 : VerticalLayout {
+                padding-top: 4px; x: Theme.compact ? -8px : 0px; width: parent.width + (Theme.compact ? 16px : 0px);
+                for t[i] in AppState.recents : TrackRow { track: t; show-album: true; index: i; clicked => { AppState.play-track(t.id); } }
+            }
+            if root.source > 1 : EmptyState {
+                icon: Icons.cloud-off; title: "Provedor ainda não conectado";
+                message: "YT Music e Spotify chegam na próxima etapa. Por enquanto, o Kazzu toca a sua biblioteca local.";
+            }
+            if root.source <= 1 && AppState.recents.length == 0 : EmptyState {
+                icon: Icons.library; title: "Sua biblioteca está vazia";
+                message: "Adicione uma pasta de músicas e as novidades aparecem aqui.";
+                action-label: "Adicionar pasta"; action => { AppState.add-folder(); }
+            }
+        }
+    }
+}

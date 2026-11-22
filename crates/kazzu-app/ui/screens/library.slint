@@ -1,0 +1,154 @@
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { Tab, AppState, Collection, Playlist } from "../theme/app-contract.slint";
+import { GlassPanel, CoverImage, IconButton } from "../theme/atoms.slint";
+import { ScreenScroll, PageTop, ScanBanner } from "../components/layout.slint";
+import { SectionHeader, EmptyState, PillButton, PillKind, FocusRing } from "../components/basics.slint";
+
+// Mosaico 2x2 (Playlists e PlaylistCard): menos de 4 capas deixa células vazias.
+component Mosaic inherits Rectangle {
+    in property <[image]> covers;
+    in property <length> radius: Theme.r-md;
+    border-radius: radius; clip: true; background: Theme.surface-3;
+    for i in 4 : Rectangle {
+        x: mod(i, 2) * (parent.width / 2 + 1px); y: floor(i / 2) * (parent.height / 2 + 1px);
+        width: parent.width / 2 - 1px; height: parent.height / 2 - 1px;
+        background: Theme.surface-3;
+        if root.covers.length > i : Image { source: root.covers[i]; width: 100%; height: 100%; image-fit: cover; }
+    }
+}
+
+component CollectionCard inherits GlassPanel {
+    in property <Collection> item;
+    in property <length> side: 160px;
+    callback clicked();
+    radius: 22px;
+    width: side; height: side + 12px + 22px + 18px + 12px + 12px;
+    accessible-role: button; accessible-label: item.title + ", " + item.count-label;
+    accessible-action-default => { root.clicked(); }
+    // cartão sobe 2px no hover
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
+    art := Rectangle {
+        x: 12px; y: 12px; width: root.side - 24px; height: root.side - 24px; border-radius: Theme.r-md; clip: true;
+        background: Theme.surface-3;
+        if root.item.id == "downloads" : Image { source: Icons.download; width: 56px; height: 56px; x: (parent.width - 56px) / 2; y: (parent.height - 56px) / 2; colorize: Theme.ink-2; }
+        if root.item.id == "liked" : Rectangle {
+            background: @linear-gradient(160deg, Theme.accent 0%, Theme.accent.darker(0.4) 100%);
+            Image { source: Icons.heart-fill; width: 56px; height: 56px; x: (parent.width - 56px) / 2; y: (parent.height - 56px) / 2; colorize: Theme.accent-ink; }
+        }
+        if root.item.id == "albums" : Rectangle {
+            for k in 3 : CoverImage {
+                width: parent.width * 0.56; height: self.width; radius: 10px;
+                x: parent.width * (k == 0 ? 0.08 : k == 1 ? 0.22 : 0.36); y: parent.height * (k == 0 ? 0.16 : k == 1 ? 0.20 : 0.24);
+                source: root.item.covers[k];
+                transform-rotation: k == 0 ? -8deg : k == 1 ? 0deg : 7deg;
+                drop-shadow-blur: Theme.e1-blur; drop-shadow-offset-y: Theme.e1-y; drop-shadow-color: Theme.e1-color;
+            }
+        }
+        if root.item.id == "playlists" : Mosaic { covers: root.item.covers; radius: Theme.r-md; }
+    }
+    Text { x: 12px; y: root.side - 12px + 12px; width: root.side - 24px; height: 22px; text: root.item.title; font-size: Theme.fs-body; font-weight: 600; color: Theme.ink; overflow: elide; wrap: no-wrap; }
+    Text { x: 12px; y: root.side + 22px; width: root.side - 24px; height: 18px; text: root.item.count-label; font-size: Theme.fs-subhead; color: Theme.ink-3; overflow: elide; wrap: no-wrap; }
+    FocusRing { active: fs.has-focus; radius: 22px; }
+}
+
+component PlaylistCard inherits Rectangle {
+    in property <Playlist> item;
+    in property <length> side: 160px;
+    callback clicked();
+    width: side; height: side + 8px + 22px + 18px;
+    accessible-role: button; accessible-label: item.name + ", " + item.count-label;
+    accessible-action-default => { root.clicked(); }
+    Rectangle {
+        y: ta.has-hover ? -2px : 0px;
+        animate y { duration: Theme.dur-short; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
+        Mosaic { width: root.side; height: root.side; covers: root.item.covers; }
+        Text { y: root.side + 8px; width: root.side; height: 22px; text: root.item.name; font-size: Theme.fs-body; font-weight: 600; color: Theme.ink; overflow: elide; wrap: no-wrap; }
+        Text { y: root.side + 30px; width: root.side; height: 18px; text: root.item.count-label; font-size: Theme.fs-subhead; color: Theme.ink-3; overflow: elide; wrap: no-wrap; }
+    }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
+    FocusRing { active: fs.has-focus; radius: Theme.r-md; width: root.side; height: root.side; }
+}
+
+// Diálogo para dar nome à nova playlist.
+component NameDialog inherits Rectangle {
+    callback confirmed(string);
+    callback cancelled();
+    public function open() { field.text = ""; root.visible = true; field.focus(); }
+    visible: false;
+    // véu
+    Rectangle { background: #000000a0; TouchArea { clicked => { root.visible = false; root.cancelled(); } } }
+    Rectangle {
+        width: min(parent.width - 40px, 420px); height: 220px; x: (parent.width - self.width) / 2; y: max(40px, parent.height * 0.25);
+        border-radius: Theme.r-xl; background: Theme.glass-solid-strong; border-width: 1px; border-color: Theme.line-strong;
+        drop-shadow-blur: Theme.e3-blur; drop-shadow-offset-y: Theme.e3-y; drop-shadow-color: Theme.e3-color;
+        accessible-role: groupbox; accessible-label: "Criar playlist";
+        VerticalLayout {
+            padding: 24px; spacing: 16px;
+            Text { text: "Criar playlist"; font-size: Theme.fs-title-2; font-weight: Theme.fw-title-2; color: Theme.ink; }
+            Rectangle {
+                height: 52px; border-radius: 26px; background: Theme.surface-2;
+                border-width: 1px; border-color: field.has-focus ? Theme.accent : transparent;
+                field := TextInput {
+                    x: 20px; width: parent.width - 40px; height: parent.height;
+                    font-size: Theme.fs-headline; color: Theme.ink; vertical-alignment: center; single-line: true;
+                    accessible-role: text-input; accessible-label: "Nome da playlist"; accessible-placeholder-text: "Nome da playlist";
+                    accepted => { if (self.text != "") { root.visible = false; root.confirmed(self.text); } }
+                    key-pressed(e) => { if (e.text == Key.Escape) { root.visible = false; root.cancelled(); return accept; } return reject; }
+                }
+                if field.text == "" : Text { x: 20px; text: "Nome da playlist"; font-size: Theme.fs-headline; color: Theme.ink-3; vertical-alignment: center; height: parent.height; }
+            }
+            HorizontalLayout {
+                spacing: 8px; alignment: end;
+                PillButton { kind: PillKind.quiet; label: "Cancelar"; clicked => { root.visible = false; root.cancelled(); } }
+                PillButton { label: "Criar"; enabled: field.text != ""; clicked => { root.visible = false; root.confirmed(field.text); } }
+            }
+        }
+    }
+}
+
+export component LibraryScreen inherits Rectangle {
+    sc := ScreenScroll {
+        width: parent.width; height: parent.height;
+        property <int> cc: Theme.compact ? 2 : 4;
+        property <length> cgap: Theme.compact ? 12px : 16px;
+        property <length> cw: (sc.col-w - (cc - 1) * cgap) / cc;
+        property <int> pc: Theme.compact ? 2 : max(2, floor((sc.col-w + 24px) / 224px));
+        property <length> pgap-x: Theme.compact ? 16px : 24px;
+        property <length> pw: (sc.col-w - (pc - 1) * pgap-x) / pc;
+        property <length> ph: pw + 8px + 22px + 18px + 16px;
+        PageTop {
+            title: "Biblioteca";
+            PillButton { icon: Icons.playlist-add; label: "Criar playlist"; clicked => { dialog.open(); } }
+        }
+        ScanBanner { }
+        if AppState.collections.length > 0 && (AppState.loading || AppState.has-library || AppState.scanning) : Rectangle {
+            height: ceil(AppState.collections.length / cc) * (cw + 12px + 22px + 18px + 12px + 12px) + (ceil(AppState.collections.length / cc) - 1) * cgap + 16px;
+            for c[i] in AppState.collections : CollectionCard {
+                x: mod(i, cc) * (cw + cgap); y: 16px + floor(i / cc) * (self.height + cgap);
+                side: cw; item: c;
+                clicked => { AppState.open-collection(c.id); }
+            }
+        }
+        if !AppState.loading && !AppState.has-library && !AppState.scanning : EmptyState {
+            icon: Icons.library; title: "Sua biblioteca está vazia";
+            message: "Adicione uma pasta de músicas ou conecte um provedor. O Kazzu encontra capas e tags sozinho.";
+            action-label: "Adicionar pasta"; action => { AppState.add-folder(); }
+        }
+        if AppState.playlists.length > 0 : VerticalLayout {
+            padding-top: 32px; spacing: 12px;
+            SectionHeader { title: "Suas playlists"; }
+            Rectangle {
+                height: ceil(AppState.playlists.length / pc) * ph;
+                for p[i] in AppState.playlists : PlaylistCard {
+                    x: mod(i, pc) * (pw + pgap-x); y: floor(i / pc) * ph;
+                    side: pw; item: p;
+                    clicked => { AppState.open-playlist(p.id); }
+                }
+            }
+        }
+    }
+    dialog := NameDialog { width: 100%; height: 100%; confirmed(name) => { AppState.create-playlist-named(name); } }
+}

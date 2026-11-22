@@ -1,0 +1,45 @@
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { Tab, AppState } from "../theme/app-contract.slint";
+import { ScreenScroll, PageTop, Rail, ScanBanner } from "../components/layout.slint";
+import { SectionHeader, EmptyState, SkeletonRow } from "../components/basics.slint";
+import { TrackRow, AlbumTile, HeroCard } from "../components/media.slint";
+
+export component HomeScreen inherits Rectangle {
+    ScreenScroll {
+        width: parent.width; height: parent.height;
+        PageTop { title: "Início"; show-title-compact: false; }
+        ScanBanner { }
+        if AppState.loading : VerticalLayout {
+            padding-top: 16px;
+            SkeletonRow { } SkeletonRow { } SkeletonRow { }
+        }
+        if !AppState.loading && !AppState.has-library && !AppState.scanning : EmptyState {
+            icon: Icons.library; title: "Sua biblioteca está vazia";
+            message: "Adicione uma pasta de músicas ou conecte um provedor. O Kazzu encontra capas e tags sozinho.";
+            action-label: "Adicionar pasta"; action => { AppState.add-folder(); }
+        }
+        if !AppState.loading && AppState.has-library : VerticalLayout {
+            if AppState.highlights.length > 0 : Rail {
+                padding-top: 16px;
+                title: "Destaques"; rail-h: Theme.compact ? Theme.hero-card-h-mobile : Theme.hero-card-h-desktop;
+                for h in AppState.highlights : HeroCard { item: h; clicked => { AppState.play-track(h.id); } }
+            }
+            if AppState.recents.length > 0 : VerticalLayout {
+                padding-top: 32px; spacing: 12px;
+                SectionHeader { title: "Recentes"; action-label: "Ver tudo"; action => { AppState.navigate(Tab.library); } }
+                VerticalLayout {
+                    x: Theme.compact ? -8px : 0px; width: parent.width + (Theme.compact ? 16px : 0px);
+                    for t[i] in AppState.recents : TrackRow {
+                        track: t; show-album: true; index: i;
+                        clicked => { AppState.play-track(t.id); }
+                    }
+                }
+            }
+            if AppState.albums.length > 0 : Rail {
+                title: "Álbuns que você ouve"; rail-h: (Theme.compact ? 148px : 176px) + 46px; item-spacing: 16px;
+                for a in AppState.albums : AlbumTile { item: a; clicked => { AppState.open-album(a.id); } }
+            }
+        }
+    }
+}

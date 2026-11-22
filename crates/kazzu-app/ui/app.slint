@@ -1,0 +1,125 @@
+// Janela raiz do Kazzu. Uma única árvore: `Theme.compact` decide dock (estreito) ou sidebar (largo).
+import "assets/fonts/HankenGrotesk-Regular.ttf";
+import "assets/fonts/HankenGrotesk-SemiBold.ttf";
+import "assets/fonts/HankenGrotesk-Bold.ttf";
+import "assets/fonts/GeistMono-Regular.ttf";
+import "assets/fonts/GeistMono-Medium.ttf";
+
+import { Palette } from "std-widgets.slint";
+import { Theme } from "theme/tokens.slint";
+import { AppState, Tab, RepeatMode, SearchState, ThemeMode, AccentMode, DetailKind, Track, Album, Highlight, Playlist, Collection, OutputDevice, ProviderRow } from "theme/app-contract.slint";
+import { AmbientBackdrop } from "components/backdrop.slint";
+import { NavDock, Sidebar, MiniPlayer, NowBar } from "components/nav.slint";
+import { Toast } from "components/basics.slint";
+import { HomeScreen } from "screens/home.slint";
+import { ExploreScreen } from "screens/explore.slint";
+import { LibraryScreen } from "screens/library.slint";
+import { SearchScreen } from "screens/search.slint";
+import { SettingsScreen } from "screens/settings.slint";
+import { QueueScreen } from "screens/queue.slint";
+import { DetailScreen } from "screens/detail.slint";
+import { PlayerScreen } from "screens/player.slint";
+
+export { Theme, AppState, Tab, RepeatMode, SearchState, ThemeMode, AccentMode, DetailKind, Track, Album, Highlight, Playlist, Collection, OutputDevice, ProviderRow }
+
+export component AppWindow inherits Window {
+    title: "Kazzu";
+    icon: @image-url("assets/icon-256.png");
+    default-font-family: Theme.font-sans;
+    background: Theme.bg;
+    min-width: 360px; min-height: 560px;
+    preferred-width: 1280px; preferred-height: 800px;
+
+    init => { Theme.window-w = self.width; apply-theme(); apply-accent(); keys.focus(); }
+    changed width => { Theme.window-w = self.width; }
+
+    // Tema: "Auto" segue o sistema (Palette do Slint); Claro/Escuro são fixos. O Rust chama apply-theme ao mudar a preferência.
+    property <bool> sys-dark: Palette.color-scheme != ColorScheme.light;
+    changed sys-dark => { root.apply-theme(); }
+    public function apply-theme() {
+        Theme.dark = AppState.theme-mode == ThemeMode.dark || (AppState.theme-mode == ThemeMode.auto && root.sys-dark);
+        root.apply-accent();
+    }
+    // Acento da capa: o AppWindow escolhe a variante do tema vigente (globais não têm bindings cruzados).
+    property <bool> dark-now: Theme.dark;
+    changed dark-now => { root.apply-accent(); }
+    public function apply-accent() {
+        Theme.dynamic-accent = Theme.dark ? AppState.accent-dark : AppState.accent-light;
+        Theme.dynamic-accent-ink = Theme.dark ? AppState.accent-dark-ink : AppState.accent-light-ink;
+    }
+
+    // O foco volta ao atalho global quando a tela troca (uma tela que fecha leva o foco embora, e sem isso Espaço/setas
+    // deixariam de funcionar). A Busca pede o foco para o próprio campo ao abrir.
+    property <Tab> cur-tab: AppState.tab;
+    property <bool> cur-player: AppState.player-open;
+    property <bool> cur-queue: AppState.queue-open;
+    property <bool> cur-detail: AppState.detail-open;
+    changed cur-tab => { if (AppState.tab != Tab.search) { keys.focus(); } }
+    changed cur-player => { keys.focus(); }
+    changed cur-queue => { keys.focus(); }
+    changed cur-detail => { keys.focus(); }
+
+    // geometria derivada
+    property <length> side-w: Theme.wide ? Theme.sidebar-w : Theme.sidebar-w-compact;
+    property <length> content-x: Theme.compact ? 0px : 12px + side-w + 12px;
+    property <length> content-w: root.width - content-x;
+    property <length> dock-y: root.height - 12px - Theme.dock-h;
+    property <length> bars-top: Theme.compact ? (AppState.has-now ? dock-y - 8px - Theme.mini-h : dock-y) : (AppState.has-now ? root.height - 16px - 72px : root.height);
+
+    keys := FocusScope {
+        width: 100%; height: 100%;
+        key-pressed(e) => {
+            if (e.text == " ") { AppState.toggle-play(); return accept; }
+            if (e.text == Key.Escape) {
+                if (AppState.player-open) { AppState.close-player(); }
+                else if (AppState.detail-open) { AppState.close-detail(); }
+                else if (AppState.queue-open) { AppState.queue-open = false; }
+                return accept;
+            }
+            if (e.text == Key.LeftArrow) { AppState.seek-relative(-5); return accept; }
+            if (e.text == Key.RightArrow) { AppState.seek-relative(5); return accept; }
+            if (e.text == Key.UpArrow) { AppState.volume-step(1); return accept; }
+            if (e.text == Key.DownArrow) { AppState.volume-step(-1); return accept; }
+            return reject;
+        }
+
+        AmbientBackdrop { source: AppState.ambient; }
+
+        // área de telas
+        Rectangle {
+            x: root.content-x; y: 0px; width: root.content-w; height: root.height;
+            if AppState.detail-open : DetailScreen { }
+            if !AppState.detail-open && AppState.queue-open : QueueScreen { }
+            if !AppState.detail-open && !AppState.queue-open && AppState.tab == Tab.home : HomeScreen { }
+            if !AppState.detail-open && !AppState.queue-open && AppState.tab == Tab.explore : ExploreScreen { }
+            if !AppState.detail-open && !AppState.queue-open && AppState.tab == Tab.library : LibraryScreen { }
+            if !AppState.detail-open && !AppState.queue-open && AppState.tab == Tab.search : SearchScreen { }
+            if !AppState.detail-open && !AppState.queue-open && AppState.tab == Tab.settings : SettingsScreen { }
+        }
+
+        // estreito: esvaecimento + mini player + dock
+        if Theme.compact : Rectangle {
+            y: root.height - 190px; height: 190px; width: 100%;
+            background: @linear-gradient(180deg, transparent 0%, Theme.bg 70%);
+            // não bloqueia cliques: sem TouchArea
+        }
+        if Theme.compact && AppState.has-now : MiniPlayer { x: 12px; y: root.dock-y - 8px - Theme.mini-h; width: root.width - 24px; }
+        if Theme.compact : NavDock { x: 12px; y: root.dock-y; width: root.width - 24px; }
+
+        // largo: sidebar + NowBar
+        if !Theme.compact : Sidebar { x: 12px; y: 12px; height: root.height - 24px; }
+        if !Theme.compact && AppState.has-now : NowBar {
+            width: min(760px, root.content-w - 48px);
+            x: root.content-x + (root.content-w - self.width) / 2; y: root.height - 16px - 72px;
+        }
+
+        toast := Toast {
+            message: AppState.toast-text; error: AppState.toast-error; seq: AppState.toast-seq;
+            avail: root.width; x: (root.width - self.width) / 2;
+            y: root.bars-top - 12px - self.height;
+            dismissed => { AppState.dismiss-toast(); }
+        }
+
+        if AppState.player-open : PlayerScreen { width: 100%; height: 100%; }
+    }
+}

@@ -1,0 +1,200 @@
+// Player em tela cheia (SLINT_SPEC §4.3). Sempre escuro: usa Theme.im-*.
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { AppState, RepeatMode } from "../theme/app-contract.slint";
+import { GlassPanel, CoverImage, IconButton, FormatBadge, KSlider } from "../theme/atoms.slint";
+import { FocusRing, PillButton, PillKind } from "../components/basics.slint";
+import { PlayerBackdrop } from "../components/backdrop.slint";
+import { RowMenu } from "../components/media.slint";
+
+// Botão redondo de vidro leve (curtir, mais) sobre o fundo escuro do player.
+component RoundGlass inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    in property <bool> active: false;
+    callback clicked();
+    width: 44px; height: 44px; border-radius: 22px;
+    background: Theme.im-control-fill; border-width: 1px; border-color: Theme.im-control-edge;
+    IconButton { icon: root.icon; label: root.label; glyph: 20px; tint: Theme.im-ink; active: root.active; clicked => { root.clicked(); } }
+}
+
+component PlayerPill inherits GlassPanel {
+    in property <image> icon;
+    in property <string> label;
+    callback clicked();
+    light-blur: true; elevated: false; radius: 24px; height: 48px;
+    background: Theme.im-control-fill; border-color: Theme.im-control-edge;
+    accessible-role: button; accessible-label: label;
+    accessible-action-default => { root.clicked(); }
+    HorizontalLayout {
+        padding-left: 16px; padding-right: 16px; spacing: 8px; alignment: center;
+        Image { source: root.icon; width: 20px; height: 20px; y: (parent.height - 20px) / 2; colorize: Theme.im-ink; }
+        Text { text: root.label; font-size: Theme.fs-subhead; font-weight: 600; color: Theme.im-ink; vertical-alignment: center; overflow: elide; wrap: no-wrap; }
+    }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
+    FocusRing { active: fs.has-focus; radius: 24px; }
+}
+
+component PlayButton inherits Rectangle {
+    in property <bool> playing: false;
+    in property <length> size: 84px;
+    callback clicked();
+    width: size; height: size; border-radius: size / 2;
+    background: ta.has-hover ? #ffffff : Theme.im-ink;
+    drop-shadow-blur: Theme.e2-blur; drop-shadow-offset-y: Theme.e2-y; drop-shadow-color: Theme.e2-color;
+    accessible-role: button; accessible-label: playing ? "Pausar" : "Tocar";
+    accessible-action-default => { root.clicked(); }
+    animate background { duration: Theme.dur-micro; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
+    Image {
+        source: root.playing ? Icons.pause : Icons.play; width: root.size * 0.48; height: self.width;
+        x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; colorize: #15110d;
+    }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
+    FocusRing { active: fs.has-focus; radius: root.size / 2; }
+}
+
+component PlayerControls inherits VerticalLayout {
+    in property <length> play-size: 84px;
+    in property <bool> big-title: false;
+    property <bool> narrow: root.width < 340px;
+    spacing: 12px;
+
+    // título, artista, curtir e mais
+    HorizontalLayout {
+        spacing: 8px;
+        VerticalLayout {
+            horizontal-stretch: 1; alignment: center;
+            Text {
+                text: AppState.now.title; overflow: elide; wrap: no-wrap; letter-spacing: root.big-title ? Theme.ls-player-title-desktop : Theme.ls-player-title;
+                font-size: root.big-title ? Theme.fs-player-title-desktop : Theme.fs-player-title; font-weight: Theme.fw-player-title;
+                color: AppState.player-loading ? Theme.im-ink-3 : Theme.im-ink;
+            }
+            Text { text: AppState.now.artist; font-size: 18px; color: Theme.im-ink-2; overflow: elide; wrap: no-wrap; }
+        }
+        VerticalLayout { alignment: center;
+            RoundGlass { icon: AppState.now.liked ? Icons.heart-fill : Icons.heart; label: AppState.now.liked ? "Remover dos curtidos" : "Curtir"; active: AppState.now.liked; clicked => { AppState.toggle-like(AppState.now.id); } }
+        }
+        VerticalLayout { alignment: center;
+            RoundGlass { icon: Icons.more; label: "Mais ações"; clicked => { more-menu.open(); } }
+            more-menu := RowMenu { track-id: AppState.now.id; liked: AppState.now.liked; menu-x: -190px; menu-y: 48px; }
+        }
+    }
+    // progresso
+    KSlider {
+        immersive: true; accent-fill: true; value: AppState.progress; enabled: AppState.has-now && !AppState.player-loading;
+        label: "Progresso da faixa"; value-text: AppState.position-label + " de " + AppState.now.duration-label;
+        released(v) => { AppState.seek(v); }
+    }
+    // tempos e selo de formato
+    HorizontalLayout {
+        height: 24px; spacing: 8px;
+        Text { text: AppState.position-label; font-family: Theme.font-mono; font-size: Theme.fs-timecode; font-weight: Theme.fw-timecode; color: Theme.im-ink-2; width: 52px; vertical-alignment: center; }
+        Rectangle {
+            horizontal-stretch: 1;
+            if AppState.now.codec != "" : FormatBadge {
+                x: max(0px, (parent.width - self.width) / 2);
+                codec: AppState.now.codec; detail: root.narrow ? AppState.now.detail : AppState.now.detail-long; hires: AppState.now.hires;
+                ink: Theme.im-ink-2; strong-ink: Theme.im-ink;
+            }
+        }
+        Text { text: AppState.remaining-label; font-family: Theme.font-mono; font-size: Theme.fs-timecode; font-weight: Theme.fw-timecode; color: Theme.im-ink-2; width: 52px; horizontal-alignment: right; vertical-alignment: center; }
+    }
+    // transporte
+    HorizontalLayout {
+        padding-left: 4px; padding-right: 4px; alignment: space-between; height: root.play-size + 8px;
+        VerticalLayout { alignment: center; IconButton { icon: Icons.shuffle; glyph: 24px; label: AppState.shuffle ? "Desativar aleatório" : "Ativar aleatório"; tint: Theme.im-ink-3; active: AppState.shuffle; clicked => { AppState.toggle-shuffle(); } } }
+        VerticalLayout { alignment: center; IconButton { icon: Icons.prev; glyph: 32px; size: 56px; label: "Faixa anterior"; tint: Theme.im-ink; clicked => { AppState.previous(); } } }
+        VerticalLayout { alignment: center; PlayButton { size: root.play-size; playing: AppState.playing; clicked => { AppState.toggle-play(); } } }
+        VerticalLayout { alignment: center; IconButton { icon: Icons.next; glyph: 32px; size: 56px; label: "Próxima faixa"; tint: Theme.im-ink; clicked => { AppState.next(); } } }
+        VerticalLayout { alignment: center;
+            Rectangle {
+                width: 44px; height: 44px;
+                IconButton {
+                    icon: Icons.repeat; glyph: 24px; tint: Theme.im-ink-3; active: AppState.repeat != RepeatMode.off;
+                    label: AppState.repeat == RepeatMode.off ? "Repetir: desligado" : AppState.repeat == RepeatMode.all ? "Repetir tudo" : "Repetir uma faixa";
+                    clicked => { AppState.cycle-repeat(); }
+                }
+                if AppState.repeat == RepeatMode.one : Text { x: 28px; y: 26px; text: "1"; font-family: Theme.font-mono; font-size: 11px; font-weight: 500; color: Theme.accent; }
+            }
+        }
+    }
+    // volume
+    HorizontalLayout {
+        spacing: 12px;
+        Image { source: Icons.vol-low; width: 24px; height: 24px; y: (parent.height - 24px) / 2; colorize: Theme.im-ink-3; }
+        KSlider { immersive: true; value: AppState.volume; label: "Volume"; value-text: round(AppState.volume * 100) + " por cento"; changed(v) => { AppState.set-volume(v); } horizontal-stretch: 1; }
+        Image { source: Icons.vol-high; width: 24px; height: 24px; y: (parent.height - 24px) / 2; colorize: Theme.im-ink-3; }
+    }
+    // ações
+    HorizontalLayout {
+        spacing: 8px;
+        PlayerPill { icon: Icons.lyrics; label: "Letra"; clicked => { AppState.open-lyrics(); } }
+        PlayerPill { icon: Icons.output; label: AppState.output-name; horizontal-stretch: 1; clicked => { AppState.open-output-picker(); } }
+        PlayerPill { icon: Icons.queue; label: "Fila"; clicked => { AppState.queue-open = true; AppState.close-player(); } }
+    }
+    // nota de qualidade ou erro
+    if AppState.player-error == "" && AppState.output-note != "" : HorizontalLayout {
+        alignment: center; spacing: 6px; height: 24px;
+        Image { source: Icons.check; width: 20px; height: 20px; y: (parent.height - 20px) / 2; colorize: Theme.im-ink-3; visible: AppState.bit-perfect; }
+        Text { text: AppState.output-note; font-size: 13px; color: Theme.im-ink-3; vertical-alignment: center; overflow: elide; wrap: no-wrap; }
+    }
+    if AppState.player-error != "" : GlassPanel {
+        light-blur: true; elevated: false; radius: 20px; height: 76px;
+        background: Theme.im-control-fill; border-color: Theme.im-control-edge;
+        accessible-role: text; accessible-label: AppState.player-error;
+        HorizontalLayout {
+            padding: 12px; spacing: 12px;
+            Text { text: AppState.player-error; font-size: Theme.fs-subhead; color: Theme.im-ink; wrap: word-wrap; vertical-alignment: center; horizontal-stretch: 1; }
+            VerticalLayout { alignment: center; PillButton { label: "Tentar de novo"; clicked => { AppState.retry-track(); } } }
+        }
+    }
+}
+
+export component PlayerScreen inherits Rectangle {
+    property <length> pad: Theme.compact ? 20px : 40px;
+    PlayerBackdrop { source: AppState.backdrop; }
+    // barra superior
+    HorizontalLayout {
+        x: 16px; y: 8px; width: parent.width - 32px; height: 56px; spacing: 8px;
+        IconButton { icon: Icons.chevron-down; glyph: 28px; label: "Minimizar player"; tint: Theme.im-ink; clicked => { AppState.close-player(); } }
+        VerticalLayout {
+            horizontal-stretch: 1; alignment: center;
+            Text { text: AppState.source-label; font-size: Theme.fs-subhead; font-weight: 600; color: Theme.im-ink-2; horizontal-alignment: center; overflow: elide; wrap: no-wrap; }
+            Text { text: AppState.output-name; font-size: 13px; color: Theme.im-ink-3; horizontal-alignment: center; overflow: elide; wrap: no-wrap; }
+        }
+        Rectangle { width: 44px; }
+    }
+    if Theme.compact : Rectangle {
+        x: 0px; y: 64px; width: parent.width; height: parent.height - 64px;
+        // controles ancorados embaixo; a capa ocupa o espaço que sobra (até 340 px)
+        controls := PlayerControls {
+            x: root.pad; width: parent.width - 2 * root.pad; height: self.preferred-height; y: parent.height - self.preferred-height - 12px;
+            play-size: Theme.play-main;
+        }
+        property <length> art-area: controls.y - 20px;
+        CoverImage {
+            property <length> side: max(96px, min(Theme.player-cover-mobile, min(parent.width - 2 * root.pad, art-area)));
+            width: side; height: side; x: (parent.width - side) / 2; y: max(0px, (art-area - side) / 2);
+            source: AppState.now-art; radius: Theme.player-cover-radius;
+            drop-shadow-blur: Theme.e3-blur; drop-shadow-offset-y: Theme.e3-y; drop-shadow-color: Theme.e3-color;
+        }
+    }
+    if !Theme.compact : HorizontalLayout {
+        x: 0px; y: 64px; width: parent.width; height: parent.height - 64px - 24px;
+        alignment: center; padding-left: root.pad; padding-right: root.pad; spacing: 56px;
+        VerticalLayout {
+            alignment: center; horizontal-stretch: 0;
+            CoverImage {
+                width: min(Theme.player-cover-desktop, max(160px, parent.height * 0.80)); height: self.width;
+                source: AppState.now-art; radius: Theme.player-cover-radius;
+                drop-shadow-blur: Theme.e3-blur; drop-shadow-offset-y: Theme.e3-y; drop-shadow-color: Theme.e3-color;
+            }
+        }
+        VerticalLayout {
+            alignment: center; horizontal-stretch: 0; width: min(460px, parent.width - 2 * root.pad - 56px - 200px);
+            PlayerControls { play-size: Theme.play-main-desktop; big-title: true; }
+        }
+    }
+}
