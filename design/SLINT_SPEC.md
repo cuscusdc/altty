@@ -7,7 +7,7 @@ Para o implementador de UI do `kazzu-app`. **Siga à risca**: nomes, medidas e e
 | Arquivo | O que é | Regra |
 |---|---|---|
 | `design/slint/tokens.slint` | `export global Theme` (cores claro/escuro, tipografia, espaços, raios, tamanhos, durações, vidro) | **Gerado** por `tools/gen_tokens.py`. Não editar à mão; mude `tokens.json` e regenere. |
-| `design/slint/atoms.slint` | `GlassPanel`, `CoverImage`, `IconButton`, `FormatBadge`, `KSwitch`, `KSlider` | Usar como estão. Evoluir aqui, não duplicar. |
+| `design/slint/atoms.slint` | `GlassPanel`, `CoverImage`, `IconButton`, `FormatBadge`, `KSwitch`, `KSlider` | Usar como estão. Evoluir aqui, não duplicar. Correções feitas na implementação (já aplicadas no arquivo): `FocusScope` com `focus-on-click: false` (senão engole o clique do `TouchArea` irmão) e `KSlider.value` como `in` (senão o arraste quebra a ligação com o progresso); ver `docs/UI_NOTES.md`. |
 | `design/slint/app-contract.slint` | enums, structs (`Track`, `Album`…) e `global AppState` (propriedades e callbacks) | É a fronteira Rust ↔ UI. A UI só lê/chama isto. |
 | `design/slint/preview.slint` | janela que mostra os átomos | Só para `slint-viewer`. |
 | `design/fonts/*.ttf` | Hanken Grotesk 400/600/700, Geist Mono 400/500 | `import "…ttf";` no `.slint` raiz e `default-font-family: Theme.font-sans`. |

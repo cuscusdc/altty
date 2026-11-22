@@ -80,7 +80,7 @@ export component IconButton inherits Rectangle {
         colorize: root.active ? Theme.accent : root.tint;
     }
     ta := TouchArea { enabled: root.enabled; clicked => { root.clicked(); } }
-    fs := FocusScope {
+    fs := FocusScope { focus-on-click: false;
         enabled: root.enabled;
         key-pressed(e) => {
             if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; }
@@ -144,7 +144,7 @@ export component KSwitch inherits Rectangle {
         animate x { duration: Theme.dur-short; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
     }
     TouchArea { x: -6px; y: -6px; width: parent.width + 12px; height: parent.height + 12px; enabled: !root.locked; clicked => { root.flip(); } }
-    fs := FocusScope {
+    fs := FocusScope { focus-on-click: false;
         enabled: !root.locked;
         key-pressed(e) => { if (e.text == " " || e.text == Key.Return) { root.flip(); return accept; } return reject; }
     }
@@ -160,7 +160,9 @@ export component KSwitch inherits Rectangle {
 // `immersive`: cores do player (trilho branco 24%, preenchimento branco ou acento).
 // ---------------------------------------------------------------------------------------------
 export component KSlider inherits Rectangle {
-    in-out property <float> value: 0.0;
+    // ALTERAÇÃO do kazzu-app (ver docs/UI_NOTES.md): `value` é `in`, para a ligação com AppState.progress não ser
+    // quebrada pelo arraste; o valor mostrado durante o arraste (e por 300 ms depois, até o motor confirmar) é interno.
+    in property <float> value: 0.0;
     in property <bool> immersive: true;
     in property <bool> accent-fill: false;
     in property <string> label;
@@ -179,39 +181,64 @@ export component KSlider inherits Rectangle {
     accessible-enabled: enabled;
     opacity: enabled ? 1.0 : 0.45;
 
+    property <bool> dragging: false;
+    property <bool> pending: false;
+    property <float> held: 0.0;
+    property <float> shown: (dragging || pending) ? held : value;
+    changed value => { root.pending = false; }
     property <bool> engaged: ta.has-hover || fs.has-focus || ta.pressed;
     property <length> track-h: engaged ? Theme.progress-h-active : Theme.progress-h;
     animate track-h { duration: Theme.dur-short; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
+    function nudge(delta: float) {
+        root.held = clamp(root.shown + delta, 0.0, 1.0);
+        root.pending = true; hold.running = true;
+        root.changed(root.held); root.released(root.held);
+    }
+    hold := Timer { interval: 300ms; running: false; triggered => { root.pending = false; self.running = false; } }
 
     Rectangle { // trilho
         y: (parent.height - self.height) / 2; height: root.track-h; border-radius: self.height / 2;
         background: root.immersive ? Theme.im-track : Theme.surface-3;
         Rectangle { // preenchimento
-            x: 0px; width: parent.width * clamp(root.value, 0.0, 1.0); height: parent.height; border-radius: parent.border-radius;
+            x: 0px; width: parent.width * clamp(root.shown, 0.0, 1.0); height: parent.height; border-radius: parent.border-radius;
             background: root.accent-fill ? Theme.accent : (root.immersive ? Theme.im-ink : Theme.accent);
         }
     }
     Rectangle { // polegar
         visible: root.engaged;
         width: Theme.slider-thumb; height: Theme.slider-thumb; border-radius: Theme.slider-thumb / 2;
-        x: parent.width * clamp(root.value, 0.0, 1.0) - self.width / 2; y: (parent.height - self.height) / 2;
+        x: parent.width * clamp(root.shown, 0.0, 1.0) - self.width / 2; y: (parent.height - self.height) / 2;
         background: root.immersive ? Theme.im-ink : Theme.ink;
         drop-shadow-blur: Theme.e1-blur; drop-shadow-offset-y: Theme.e1-y; drop-shadow-color: Theme.e1-color;
     }
     ta := TouchArea {
         enabled: root.enabled;
+        mouse-cursor: pointer;
         pointer-event(e) => {
-            if (e.kind == PointerEventKind.down) { root.value = clamp(self.mouse-x / root.width, 0.0, 1.0); root.changed(root.value); }
-            if (e.kind == PointerEventKind.up) { root.released(root.value); }
+            if (e.kind == PointerEventKind.down) {
+                root.dragging = true; root.held = clamp(self.mouse-x / root.width, 0.0, 1.0); root.changed(root.held);
+            }
+            if (e.kind == PointerEventKind.up || e.kind == PointerEventKind.cancel) {
+                if (root.dragging) {
+                    root.dragging = false; root.pending = true; hold.running = true;
+                    root.released(root.held);
+                }
+            }
         }
-        moved => { if (self.pressed) { root.value = clamp(self.mouse-x / root.width, 0.0, 1.0); root.changed(root.value); } }
+        moved => { if (self.pressed) { root.held = clamp(self.mouse-x / root.width, 0.0, 1.0); root.changed(root.held); } }
     }
-    fs := FocusScope {
+    fs := FocusScope { focus-on-click: false;
         enabled: root.enabled;
         key-pressed(e) => {
-            if (e.text == Key.RightArrow || e.text == Key.UpArrow) { root.value = clamp(root.value + 0.05, 0.0, 1.0); root.changed(root.value); root.released(root.value); return accept; }
-            if (e.text == Key.LeftArrow || e.text == Key.DownArrow) { root.value = clamp(root.value - 0.05, 0.0, 1.0); root.changed(root.value); root.released(root.value); return accept; }
+            if (e.text == Key.RightArrow || e.text == Key.UpArrow) { root.nudge(0.05); return accept; }
+            if (e.text == Key.LeftArrow || e.text == Key.DownArrow) { root.nudge(-0.05); return accept; }
             return reject;
         }
+    }
+    Rectangle {
+        visible: fs.has-focus;
+        x: -Theme.focus-offset; y: (parent.height - Theme.progress-h-active) / 2 - Theme.focus-offset - 4px;
+        width: parent.width + 2 * Theme.focus-offset; height: Theme.progress-h-active + 2 * Theme.focus-offset + 8px;
+        border-radius: 12px; border-width: Theme.focus-ring-w; border-color: Theme.focus-ring;
     }
 }
