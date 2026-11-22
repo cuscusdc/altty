@@ -51,6 +51,14 @@ Kazzu é um player/cliente de música multiplataforma, **Rust + Slint**, com vis
 8. Documente decisões em `docs/` em português do Brasil. Código e identificadores em inglês.
 9. Não faça `git commit`/`push`: o orquestrador integra. Edite apenas os diretórios designados para você.
 
+## Direção v2 (decidida pelo autor em 2026-11-22)
+
+1. **Mobile-first.** O alvo principal é o celular (Android primeiro, depois desktop e iOS). Projetar e construir a partir de 360–412 px de largura, com o polegar como referência; tablet/desktop são expansões do mesmo design, não o contrário.
+2. **Glassmorphism de verdade.** Painéis translúcidos com desfoque real sobre fundos vivos e coloridos (malha de gradiente e capa desfocada), com borda de luz, brilho especular e sombra suave. Se o painel parecer um cartão escuro opaco, está errado. Sempre com alternativa acessível (reduzir transparência).
+3. **UX planejada com convenções e boas práticas** (heurísticas de Nielsen, WCAG 2.2 AA, Material 3/HIG para gestos e alvos, lei de Fitts/zona do polegar, divulgação progressiva, estados vazios/carregando/erro/offline).
+4. **YouTube Music é o provedor padrão, já ativo, sem login nem configuração** (início, busca, reprodução funcionam no primeiro uso). Outros provedores entram depois como opt-in. O autor aceitou o risco de termos de uso do YT Music.
+5. **Licença do app: GPL-3.0** (hipótese de trabalho, já que permite as crates GPL necessárias e é gratuita; reversível enquanto o repositório for privado).
+
 ## Regra de custo: 100% grátis
 
 O Kazzu, tudo o que ele usa e tudo o que é preciso para publicá-lo devem ser gratuitos para o autor e para quem usa.
