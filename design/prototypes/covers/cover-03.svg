@@ -1,0 +1,3 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640"><defs><filter id="b" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="46"/></filter></defs>
+<rect width="640" height="640" fill="#cfd6df"/>
+<g filter="url(#b)"><circle cx="200" cy="220" r="190" fill="#9db4cf"/><circle cx="470" cy="300" r="170" fill="#f3c5ad"/><circle cx="300" cy="500" r="190" fill="#b9c6d6"/><circle cx="520" cy="540" r="110" fill="#f0a98b"/></g></svg>

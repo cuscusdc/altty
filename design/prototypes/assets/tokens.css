@@ -1,0 +1,186 @@
+/* GERADO por design/tools/gen_tokens.py. NÃO edite à mão. */
+
+:root {
+  --bg: #0c0806;
+  --surface: #17110e;
+  --surface-2: #211a16;
+  --surface-3: #2c2520;
+  --ink: #f3efec;
+  --ink-2: #bcb6b1;
+  --ink-3: #98918b;
+  --ink-disabled: #625c58;
+  --line: #ffffff17;
+  --line-strong: #ffffff2b;
+  --success: #61da92;
+  --warning: #edc14d;
+  --danger: #fd736d;
+  --glass-fill: #251e198c;
+  --glass-fill-strong: #1d1713cc;
+  --glass-solid: #221b17;
+  --glass-solid-strong: #1d1713;
+  --glass-edge: #ffffff29;
+  --glass-edge-low: #ffffff0f;
+  --glass-sheen: #ffffff1a;
+  --shadow: #00000080;
+  --ambient-scrim: #0c08069e;
+  --accent: #ffa154;
+  --accent-ink: #190c04;
+  --accent-soft-alpha: 0.16;
+  --ambient-opacity: 0.55;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f6f3ed;
+  --surface: #ece9e2;
+  --surface-2: #e3dfd8;
+  --surface-3: #d8d4cc;
+  --ink: #1a1511;
+  --ink-2: #47413c;
+  --ink-3: #635c57;
+  --ink-disabled: #97918c;
+  --line: #1a15111a;
+  --line-strong: #1a151133;
+  --success: #027e47;
+  --warning: #8d5e05;
+  --danger: #ba2b2e;
+  --glass-fill: #fcfaf694;
+  --glass-fill-strong: #fcfaf6d1;
+  --glass-solid: #f7f5f1;
+  --glass-solid-strong: #fcfaf6;
+  --glass-edge: #ffffffd9;
+  --glass-edge-low: #1a151114;
+  --glass-sheen: #ffffff8c;
+  --shadow: #362c2438;
+  --ambient-scrim: #f6f3edb2;
+  --accent: #ab4b01;
+  --accent-ink: #fefbf8;
+  --accent-soft-alpha: 0.14;
+  --ambient-opacity: 0.3;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f6f3ed;
+    --surface: #ece9e2;
+    --surface-2: #e3dfd8;
+    --surface-3: #d8d4cc;
+    --ink: #1a1511;
+    --ink-2: #47413c;
+    --ink-3: #635c57;
+    --ink-disabled: #97918c;
+    --line: #1a15111a;
+    --line-strong: #1a151133;
+    --success: #027e47;
+    --warning: #8d5e05;
+    --danger: #ba2b2e;
+    --glass-fill: #fcfaf694;
+    --glass-fill-strong: #fcfaf6d1;
+    --glass-solid: #f7f5f1;
+    --glass-solid-strong: #fcfaf6;
+    --glass-edge: #ffffffd9;
+    --glass-edge-low: #1a151114;
+    --glass-sheen: #ffffff8c;
+    --shadow: #362c2438;
+    --ambient-scrim: #f6f3edb2;
+    --accent: #ab4b01;
+    --accent-ink: #fefbf8;
+    --accent-soft-alpha: 0.14;
+    --ambient-opacity: 0.3;
+    color-scheme: light;
+  }
+}
+
+/* imersivo */
+:root {
+  --im-ink: #faf8f5;
+  --im-ink-2: #ffffffdb;
+  --im-ink-3: #ffffffbd;
+  --im-track: #ffffff3d;
+  --im-control-fill: #00000042;
+  --im-control-fill-active: #ffffff33;
+  --im-control-edge: #ffffff2e;
+  --im-scrim-top: #0000001a;
+  --im-scrim-mid: #00000000;
+  --im-scrim-bottom: #000000b8;
+  --im-base-darken: 0.46;
+}
+
+:root {
+  --font-sans: "Hanken Grotesk", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --fs-large-title: 34px; --lh-large-title: 40px; --fw-large-title: 700; --ls-large-title: -0.6px;
+  --fs-title-1: 28px; --lh-title-1: 34px; --fw-title-1: 700; --ls-title-1: -0.4px;
+  --fs-title-2: 22px; --lh-title-2: 28px; --fw-title-2: 600; --ls-title-2: -0.2px;
+  --fs-headline: 17px; --lh-headline: 22px; --fw-headline: 600; --ls-headline: 0px;
+  --fs-body: 16px; --lh-body: 22px; --fw-body: 400; --ls-body: 0px;
+  --fs-callout: 15px; --lh-callout: 20px; --fw-callout: 400; --ls-callout: 0px;
+  --fs-subhead: 14px; --lh-subhead: 18px; --fw-subhead: 400; --ls-subhead: 0px;
+  --fs-caption: 12px; --lh-caption: 16px; --fw-caption: 600; --ls-caption: 0.1px;
+  --fs-player-title: 28px; --lh-player-title: 34px; --fw-player-title: 700; --ls-player-title: -0.4px;
+  --fs-player-title-desktop: 36px; --lh-player-title-desktop: 42px; --fw-player-title-desktop: 700; --ls-player-title-desktop: -0.6px;
+  --fs-timecode: 13px; --lh-timecode: 16px; --fw-timecode: 500; --ls-timecode: 0px;
+  --fs-badge: 12px; --lh-badge: 14px; --fw-badge: 500; --ls-badge: 0px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-7: 32px;
+  --sp-8: 40px;
+  --sp-9: 56px;
+  --sp-10: 80px;
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --r-full: 999px;
+  --hit: 44px;
+  --hit-comfortable: 48px;
+  --icon: 24px;
+  --icon-sm: 20px;
+  --icon-lg: 28px;
+  --row-h: 64px;
+  --row-cover: 48px;
+  --thumb-radius: 10px;
+  --card-radius: 18px;
+  --hero-card-w-mobile: 300px;
+  --hero-card-h-mobile: 400px;
+  --hero-card-w-desktop: 380px;
+  --hero-card-h-desktop: 460px;
+  --dock-h: 64px;
+  --dock-radius: 32px;
+  --dock-search: 52px;
+  --mini-h: 64px;
+  --mini-radius: 22px;
+  --sidebar-w: 248px;
+  --sidebar-w-compact: 80px;
+  --gutter-mobile: 20px;
+  --gutter-desktop: 32px;
+  --content-max: 1180px;
+  --player-cover-mobile: 340px;
+  --player-cover-desktop: 440px;
+  --player-cover-radius: 28px;
+  --play-main: 84px;
+  --play-main-desktop: 72px;
+  --progress-h: 6px;
+  --progress-h-active: 10px;
+  --slider-thumb: 20px;
+  --focus-ring-w: 2px;
+  --focus-offset: 2px;
+  --dur-micro: 120ms;
+  --dur-short: 200ms;
+  --dur-medium: 320ms;
+  --dur-long: 480ms;
+  --ease-out: cubic-bezier(0.22, 0.9, 0.28, 1.0);
+  --ease-in: cubic-bezier(0.5, 0.0, 0.9, 0.4);
+  --ease-in-out: cubic-bezier(0.45, 0.0, 0.2, 1.0);
+  --e1: 0 2px 8px var(--shadow);
+  --e2: 0 8px 24px var(--shadow);
+  --e3: 0 20px 48px var(--shadow);
+  --glass-blur: 28px; --glass-blur-strong: 40px; --glass-blur-light: 16px;
+}
+@media (prefers-reduce-motion: reduce) { :root { --dur-micro: 0ms; --dur-short: 0ms; --dur-medium: 0ms; --dur-long: 0ms; } }

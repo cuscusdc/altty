@@ -1,0 +1,158 @@
+[
+ {
+  "id": "01",
+  "title": "Cidade Submersa",
+  "artist": "Aurora Vento",
+  "file": "covers/cover-01.svg",
+  "accent_dark": "#50bdc9",
+  "accent_dark_ink": "#120f0d",
+  "accent_light": "#016b74",
+  "accent_light_ink": "#fcfbf7",
+  "avg": "#2b5d5e",
+  "derived": {
+   "L": 0.481,
+   "C": 0.075,
+   "h": 205.4
+  }
+ },
+ {
+  "id": "02",
+  "title": "Nove Horas",
+  "artist": "Doma",
+  "file": "covers/cover-02.svg",
+  "accent_dark": "#fa8281",
+  "accent_dark_ink": "#120f0d",
+  "accent_light": "#a9393d",
+  "accent_light_ink": "#fcfbf7",
+  "avg": "#683126",
+  "derived": {
+   "L": 0.506,
+   "C": 0.146,
+   "h": 21.9
+  }
+ },
+ {
+  "id": "03",
+  "title": "Bruma",
+  "artist": "Lia Cantos",
+  "file": "covers/cover-03.svg",
+  "accent_dark": "#ffb494",
+  "accent_dark_ink": "#120f0d",
+  "accent_light": "#985436",
+  "accent_light_ink": "#fcfbf7",
+  "avg": "#c9c5cb",
+  "derived": {
+   "L": 0.833,
+   "C": 0.062,
+   "h": 44.2
+  }
+ },
+ {
+  "id": "04",
+  "title": "Quadra 7",
+  "artist": "Os Faróis",
+  "file": "covers/cover-04.svg",
+  "accent_dark": "#e8b92f",
+  "accent_dark_ink": "#120f0d",
+  "accent_light": "#816505",
+  "accent_light_ink": "#fcfbf7",
+  "avg": "#9b8347",
+  "derived": {
+   "L": 0.807,
+   "C": 0.153,
+   "h": 88.6
+  }
+ },
+ {
+  "id": "05",
+  "title": "Sal e Cinza",
+  "artist": "Tomás Reis",
+  "file": "covers/cover-05.svg",
+  "accent_dark": "#ffa154",
+  "accent_dark_ink": "#190c04",
+  "accent_light": "#ab4b01",
+  "accent_light_ink": "#fefbf8",
+  "avg": "#d7d3cc",
+  "derived": null
+ },
+ {
+  "id": "06",
+  "title": "Linha de Fuga",
+  "artist": "Meridiano",
+  "file": "covers/cover-06.svg",
+  "accent_dark": "#73be91",
+  "accent_dark_ink": "#120f0d",
+  "accent_light": "#0f623b",
+  "accent_light_ink": "#fcfbf7",
+  "avg": "#0f1e16",
+  "derived": {
+   "L": 0.371,
+   "C": 0.054,
+   "h": 156.3
+  }
+ },
+ {
+  "id": "07",
+  "title": "Calor de Março",
+  "artist": "Nina Sabiá",
+  "file": "covers/cover-07.svg",
+  "accent_dark": "#fc8457",
+  "accent_dark_ink": "#120f0d",
+  "accent_light": "#b03f04",
+  "accent_light_ink": "#fcfbf7",
+  "avg": "#ef935a",
+  "derived": {
+   "L": 0.7,
+   "C": 0.158,
+   "h": 41.0
+  }
+ },
+ {
+  "id": "08",
+  "title": "Vidro Líquido",
+  "artist": "Kaito e Vê",
+  "file": "covers/cover-08.svg",
+  "accent_dark": "#74aef6",
+  "accent_dark_ink": "#120f0d",
+  "accent_light": "#2c64a6",
+  "accent_light_ink": "#fcfbf7",
+  "avg": "#2f65a5",
+  "derived": {
+   "L": 0.5,
+   "C": 0.122,
+   "h": 254.4
+  }
+ },
+ {
+  "id": "09",
+  "title": "Papel de Seda",
+  "artist": "Ilha Branca",
+  "file": "covers/cover-09.svg",
+  "accent_dark": "#e59680",
+  "accent_dark_ink": "#120f0d",
+  "accent_light": "#9a523e",
+  "accent_light_ink": "#fcfbf7",
+  "avg": "#edbeae",
+  "derived": {
+   "L": 0.747,
+   "C": 0.101,
+   "h": 36.4
+  }
+ },
+ {
+  "id": "10",
+  "title": "Fita Magnética",
+  "artist": "Rádio Cobre",
+  "file": "covers/cover-10.svg",
+  "accent_dark": "#d2a15d",
+  "accent_dark_ink": "#120f0d",
+  "accent_light": "#8c5e12",
+  "accent_light_ink": "#fcfbf7",
+  "avg": "#513c22",
+  "derived": {
+   "L": 0.627,
+   "C": 0.104,
+   "h": 74.0
+  }
+ }
+]
