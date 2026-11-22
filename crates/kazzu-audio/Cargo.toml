@@ -5,3 +5,23 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+kazzu-core = { path = "../kazzu-core" }
+symphonia = { version = "0.6", features = ["all"] }
+symphonia-adapter-libopus = { version = "0.3", default-features = false, optional = true }
+cpal = "0.18"
+rubato = { version = "5", default-features = false }
+ringbuf = "0.6"
+crossbeam-channel = "0.5"
+log = "0.4"
+
+[features]
+default = ["opus"]
+# Opus via libopus linked from the system (pkg-config / OPUS_LIB_DIR).
+opus = ["dep:symphonia-adapter-libopus"]
+# Builds and statically links libopus from source (needs cmake); for Windows/macOS releases.
+opus-bundled = ["opus", "symphonia-adapter-libopus/bundled"]
+
+[dev-dependencies]
+hound = "3.5"
+flacenc = "0.5"
+crossbeam-channel = "0.5"
