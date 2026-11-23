@@ -219,12 +219,18 @@ impl RemoteWorker {
             }
             RemoteJob::NowArt { seq, url } => {
                 let art = match self.covers.image(&url, PLAYER_SIDE) {
-                    Some(img) => NowArtVm {
-                        accent: accent::derive(&img),
-                        backdrop: Some(art::to_pixels(&art::backdrop(&img))),
-                        thumb: Some(art::to_pixels(&art::fit_within(img.clone(), 192))),
-                        cover: Some(art::to_pixels(&img)),
-                    },
+                    Some(img) => {
+                        let (player_dim, mini_dim) = art::glass_dims(&img);
+                        NowArtVm {
+                            accent: accent::derive(&img),
+                            backdrop: Some(art::to_pixels(&art::backdrop(&img))),
+                            backdrop_wide: Some(art::to_pixels(&art::backdrop_wide(&img))),
+                            player_dim,
+                            mini_dim,
+                            thumb: Some(art::to_pixels(&art::fit_within(img.clone(), 192))),
+                            cover: Some(art::to_pixels(&img)),
+                        }
+                    }
                     None => NowArtVm::default(),
                 };
                 emit(JobResult::NowArt { seq, art: Box::new(art) });

@@ -17,8 +17,8 @@ type BestGlass = Rc<RefCell<Option<(f32, u32, SharedPixelBuffer<Rgba8Pixel>)>>>;
 
 const W: u32 = 390;
 const H_DEFAULT: u32 = 520; // altura inicial da janela baixa; a prova a ajusta para a barra cair sobre a região de maior contraste
-const X0: u32 = 56; // longe dos cantos arredondados da barra (raio 32)
-const X1: u32 = W - 76 - 44;
+const X0: u32 = 150; // fora da bolha da aba ativa (Início, à esquerda) e longe dos cantos da cápsula
+const X1: u32 = 268; // antes da curva do canto direito da cápsula (ela termina em 302 e tem raio 32)
 const TALL: u32 = 760; // referência sem barra sobre a mesma região
 
 /// Perfil horizontal (média de linhas) da luminância de uma faixa.
@@ -117,8 +117,8 @@ pub fn run(win: AppWindow, world: Rc<World>) -> i32 {
         steps.push(shots::step(450, move |w| p(w, h, true, false)));
         steps.push(capture_step(500, |_| {}, move |buf| {
             // pontua só alturas em que o vidro realmente acompanha o conteúdo desfocado (ignora artefatos da própria barra)
-            let p = profile(&buf, X0, X1, h - 17, h - 14);
-            let reference = sh.borrow().first().map(|(_, sharp)| box_blur(&profile(sharp, X0, X1, h - 17, h - 14), 10));
+            let p = profile(&buf, X0, X1, h - 21, h - 18);
+            let reference = sh.borrow().first().map(|(_, sharp)| box_blur(&profile(sharp, X0, X1, h - 21, h - 18), 10));
             let sd = match reference {
                 Some(r) if corr(&p, &r) > 0.8 => std(&p),
                 _ => 0.0,
@@ -167,7 +167,7 @@ fn analyse(shots: &[(&'static str, SharedPixelBuffer<Rgba8Pixel>)], h: u32) -> i
     };
     // faixa interna da barra inferior (compact: x 12..(w-76), y h-76..h-12), só vidro
     let (x0, x1) = (X0, X1);
-    let (ya, yb) = (h - 17, h - 14); // margem inferior da barra: abaixo das abas e longe do brilho do topo
+    let (ya, yb) = (h - 21, h - 18); // margem inferior da barra: abaixo das abas e longe do brilho do topo
     // a faixa da referência nítida é a mesma região absoluta da janela alta (lá não há barra nem esvaecimento sobre ela)
     let p_sharp = profile(sharp, x0, x1, ya, yb);
     let p_glass = profile(glass, x0, x1, ya, yb);

@@ -10,7 +10,7 @@ use kazzu_core::PlaybackEvent;
 use slint::ComponentHandle;
 
 use crate::catalog::{Providers, YtmCatalog};
-use crate::config::{AccentPref, Config, StreamQualityPref, ThemePref};
+use crate::config::{Config, StreamQualityPref, ThemePref};
 use crate::controller::{Controller, Msg, MsgSink, NavTab};
 use crate::covers::CoverFetcher;
 use crate::remote::RemoteWorker;
@@ -193,7 +193,7 @@ const STREAM_CACHE_BYTES: u64 = 256 * 1024 * 1024;
 fn licenses_text() -> String {
     "Kazzu é software livre, licenciado sob GPL-3.0.\n\n\
      Slint, usado sob GPL-3.0: interface gráfica.\n\
-     Hanken Grotesk e Geist Mono (SIL OFL 1.1): fontes, incluídas com o app.\n\
+     Inter (SIL OFL 1.1): fonte, incluída com o app.\n\
      Symphonia (MPL-2.0): decodificação de áudio. libopus (BSD-3-Clause): decodificador Opus.\n\
      cpal, rusqlite, lofty, image, ureq, rustls, rfd e demais bibliotecas: MIT ou Apache-2.0.\n\
      O YouTube Music é um serviço de terceiros; o Kazzu o acessa sem conta e não tem vínculo com ele.\n\n\
@@ -403,7 +403,6 @@ fn wire(window: &ui::AppWindow, ctrl: &Rc<RefCell<Controller<SlintView>>>) {
     s.on_download_track(cb!(ctrl, |c, _id| c.coming_soon("Baixar músicas")));
 
     // Início e Explorar
-    s.on_home_section_changed(cb!(ctrl, |c, section| c.home_section_changed(crate::slint_view::home_section(section))));
     s.on_dismiss_first_run_banner(cb!(ctrl, |c| c.dismiss_first_run_banner()));
     s.on_retry_home(cb!(ctrl, |c| c.retry_home()));
     s.on_retry_explore(cb!(ctrl, |c| c.retry_explore()));
@@ -443,10 +442,6 @@ fn wire(window: &ui::AppWindow, ctrl: &Rc<RefCell<Controller<SlintView>>>) {
         ui::ThemeMode::Auto => ThemePref::Auto,
         ui::ThemeMode::Light => ThemePref::Light,
         ui::ThemeMode::Dark => ThemePref::Dark,
-    })));
-    s.on_accent_mode_changed(cb!(ctrl, |c, mode| c.set_accent_pref(match mode {
-        ui::AccentMode::FromCover => AccentPref::Cover,
-        ui::AccentMode::Brand => AccentPref::Brand,
     })));
     s.on_stream_quality_changed(cb!(ctrl, |c, i| c.set_stream_quality(StreamQualityPref::from_index(i))));
     s.on_autoplay_radio_changed(cb!(ctrl, |c, on| c.set_autoplay_radio(on)));

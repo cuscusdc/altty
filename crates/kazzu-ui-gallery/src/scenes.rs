@@ -4,7 +4,7 @@ use slint::{ComponentHandle, Image, Model, ModelRc};
 
 use crate::art::{self, Kind};
 use crate::data::{model, ss, strings, World};
-use crate::{AppState, AppWindow, DetailKind, HomeSection, LoadState, Metrics, RepeatMode, SearchState, Tab, Theme, ThemeMode, Track};
+use crate::{AppState, AppWindow, DetailKind, LoadState, Metrics, RepeatMode, SearchState, Tab, Theme, ThemeMode, Track};
 
 /// Cenas com a tela já rolada (testam o conteúdo passando sob a barra de status e os botões do sistema).
 pub const SCROLL_SCENES: &[&str] = &["home-scrolled", "library-scrolled"];
@@ -26,33 +26,20 @@ const NOW_KINDS: [(usize, Kind); 3] = [(0, Kind::Sunset), (2, Kind::Pale), (5, K
 /// Faixa atual: capa grande, backdrop, palco, vidro e acento derivados do matiz da capa (a receita do Rust do app).
 pub fn set_now(win: &AppWindow, world: &World, idx: usize, playing: bool) {
     let s = win.global::<AppState>();
-    let th = win.global::<Theme>();
     let d = &crate::data::TRACKS[idx];
     s.set_now(Track { playing, liked: idx.is_multiple_of(5), ..world.track(idx) });
     s.set_has_now(true);
     s.set_playing(playing);
     s.set_now_art(art::image(d.kind, 512));
     s.set_backdrop(art::backdrop(d.kind));
-    let c = art::stage_colors(art::cover_hue(d.kind));
-    th.set_stage_a_dark(c.dark[0]);
-    th.set_stage_b_dark(c.dark[1]);
-    th.set_stage_c_dark(c.dark[2]);
-    th.set_stage_d_dark(c.dark[3]);
-    th.set_stage_a_light(c.light[0]);
-    th.set_stage_b_light(c.light[1]);
-    th.set_stage_c_light(c.light[2]);
-    th.set_stage_d_light(c.light[3]);
-    th.set_glass_tint_dark(c.tint_dark);
-    th.set_glass_tint_light(c.tint_light);
-    s.set_accent_dark(c.accent_dark);
-    s.set_accent_dark_ink(c.accent_dark_ink);
-    s.set_accent_light(c.accent_light);
-    s.set_accent_light_ink(c.accent_light_ink);
-    th.set_use_dynamic_accent(true);
-    win.invoke_apply_accent();
+    s.set_backdrop_wide(art::backdrop_wide(d.kind));
+    let (player_dim, mini_dim) = art::glass_dims(d.kind);
+    s.set_player_dim(player_dim);
+    s.set_mini_dim(mini_dim);
     s.set_now_origin(ss("Mix Foco"));
     s.set_now_source(ss("Do YouTube Music"));
     s.set_quality_label(ss(&format!("{} {}", d.codec, d.detail_long)));
+    s.set_now_source_line(ss(&format!("YouTube Music, {} {}", d.codec, d.detail_long)));
     s.set_output_note(ss("Original, sem equalizador"));
     s.set_position_label(ss("1:02"));
     s.set_remaining_label(ss("−2:19"));
@@ -64,8 +51,9 @@ pub fn clear_now(win: &AppWindow) {
     s.set_has_now(false);
     s.set_playing(false);
     s.set_backdrop(Image::default());
-    let th = win.global::<Theme>();
-    th.set_use_dynamic_accent(false);
+    s.set_backdrop_wide(Image::default());
+    s.set_player_dim(0.64);
+    s.set_mini_dim(0.70);
 }
 
 fn blank_tracks(m: ModelRc<Track>) -> ModelRc<Track> {
@@ -93,6 +81,7 @@ fn strip_covers(win: &AppWindow, world: &World, only_some: bool) {
     s.set_menu_track(Track { cover: Image::default(), ..s.get_menu_track() });
     s.set_now_art(Image::default());
     s.set_backdrop(Image::default());
+    s.set_backdrop_wide(Image::default());
     // coleções e playlists: Álbuns com 1 de 4 capas, Playlists e "Para correr" sem nenhuma (e uma com 2)
     let mut cols = world.collections(10);
     if let Some(c) = cols.row_data(2) {
@@ -123,6 +112,7 @@ pub fn reset(win: &AppWindow, world: &World) {
     m.set_scroll_library(0.0);
     m.set_scroll_search(0.0);
     m.set_scroll_settings(0.0);
+    m.set_scroll_detail(0.0);
     s.set_tab(Tab::Home);
     s.set_player_open(false);
     s.set_queue_open(false);
@@ -145,7 +135,6 @@ pub fn reset(win: &AppWindow, world: &World) {
     s.set_home_state(LoadState::Ready);
     s.set_home_stale(false);
     s.set_first_run_banner(false);
-    s.set_home_section(HomeSection::ForYou);
     s.set_source_label(ss("Do YouTube Music"));
     s.set_highlights(world.highlights());
     s.set_quick_picks(world.quick_picks());
@@ -154,7 +143,6 @@ pub fn reset(win: &AppWindow, world: &World) {
     s.set_recents(world.tracks(&[0, 3, 8, 12, 16, 20]));
     s.set_home_error_title(ss(""));
     s.set_home_error_text(ss(""));
-    s.set_home_error_code(ss(""));
 
     s.set_explore_state(LoadState::Ready);
     s.set_new_releases(world.new_releases());
@@ -205,7 +193,7 @@ pub fn reset(win: &AppWindow, world: &World) {
     s.set_stream_quality(0);
     s.set_autoplay_radio(true);
     s.set_version_label(ss("Kazzu 0.1.0"));
-    s.set_licenses_text(ss("Kazzu: GPL-3.0-or-later\nSlint: GPL-3.0-only\nHanken Grotesk, Geist Mono: SIL OFL 1.1\nsymphonia, cpal, rusqlite: MIT/Apache-2.0"));
+    s.set_licenses_text(ss("Kazzu: GPL-3.0-or-later\nSlint: GPL-3.0-only\nInter: SIL OFL 1.1\nsymphonia, cpal, rusqlite: MIT/Apache-2.0"));
 
     set_now(win, world, 0, true);
 }
@@ -234,7 +222,6 @@ pub fn apply(win: &AppWindow, world: &World, name: &str) {
         }
         "home-error" => {
             s.set_home_state(LoadState::Error);
-            s.set_home_error_code(ss("YTM-5xx · 2026-11-22T10:41"));
         }
         "home-stale" => {
             s.set_home_state(LoadState::Error);

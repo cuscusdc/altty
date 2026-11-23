@@ -85,6 +85,16 @@ fn plan(label: &'static str, w: f32, h: f32, theme: ThemePref, full: bool) -> Ve
         step(None, 500, move |app| app.window.window().set_size(slint::LogicalSize::new(w, 1900.0))),
         step(Some(&n("settings-tall")), 500, move |app| app.window.window().set_size(slint::LogicalSize::new(w, 1900.0))),
         step(None, 500, move |app| app.window.window().set_size(slint::LogicalSize::new(w, h))),
+        // Início rolado: o cabeçalho recolhido (vidro) aparece. A rolagem de cada aba fica em `Metrics`; a tela a lê ao abrir.
+        step(None, 300, |app| {
+            go(ui::Tab::Explore)(app);
+            app.window.global::<ui::Metrics>().set_scroll_home(-440.0);
+        }),
+        step(Some(&n("home-scrolled")), 600, |app| go(ui::Tab::Home)(app)),
+        step(None, 300, |app| {
+            go(ui::Tab::Explore)(app);
+            app.window.global::<ui::Metrics>().set_scroll_home(0.0);
+        }),
         // foco por teclado
         step(None, 300, |app| go(ui::Tab::Home)(app)),
         step(Some(&n("home-focus")), 400, |app| {

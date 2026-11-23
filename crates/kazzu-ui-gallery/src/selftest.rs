@@ -183,15 +183,15 @@ pub fn run(win: AppWindow, world: Rc<World>) -> i32 {
     }));
     let r = results.clone();
     steps.push(step(300, move |w| rec(&r, "Ajustes: tocar 22 px acima e 29 px à direita do centro do interruptor (52×32) o aciona", !w.global::<AppState>().get_autoplay_radio())));
-    steps.push(step(600, setup("search-idle")));
+    steps.push(step(600, setup("search-results")));
     steps.push(step(300, |w| {
-        if let Some(e) = ElementHandle::find_by_accessible_label(w, "Álbuns").find(|e| e.accessible_role() == Some(AccessibleRole::Button)) {
+        if let Some(e) = ElementHandle::find_by_accessible_label(w, "Álbuns").find(|e| e.accessible_role() == Some(AccessibleRole::Tab)) {
             let (p, s) = (e.absolute_position(), e.size());
             tap(w, p.x + s.width / 2.0, p.y + s.height / 2.0 - 22.0);
         }
     }));
     let r = results.clone();
-    steps.push(step(300, move |w| rec(&r, "Busca: tocar 22 px acima do centro do chip 'Álbuns' (chip de 40) o seleciona", w.global::<AppState>().get_search_kind() == 2)));
+    steps.push(step(300, move |w| rec(&r, "Busca: tocar 22 px acima do centro do item 'Álbuns' do segmento (bolha de 40, toque de 48) o seleciona", w.global::<AppState>().get_search_kind() == 2)));
     let res = results.clone();
     steps.push(step(100, move |_| {}));
     run_steps(win, steps);

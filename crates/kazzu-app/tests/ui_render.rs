@@ -113,8 +113,10 @@ fn fill(view: &SlintView) {
 fn render(win: &MinimalSoftwareWindow, w: u32, h: u32) -> image::RgbaImage {
     win.set_size(PhysicalSize::new(w, h));
     let mut buf = vec![PremultipliedRgbaColor::default(); (w * h) as usize];
-    // dois quadros: o primeiro aplica layout/animações iniciais
+    // dois quadros: o primeiro aplica layout/animações iniciais; a pausa deixa terminar a entrada do player e das folhas
+    // (esmaecer de 120 ms com Reduzir movimento), que usam o relógio de verdade
     for _ in 0..2 {
+        std::thread::sleep(std::time::Duration::from_millis(140));
         slint::platform::update_timers_and_animations();
         win.draw_if_needed(|r| {
             r.render(&mut buf, w as usize);
@@ -172,12 +174,13 @@ fn every_screen_renders_at_mobile_tablet_and_desktop_sizes_in_both_themes_and_in
                 img.save(dir.join(format!("{theme}-{size_name}-{name}.png"))).expect("salvar png");
                 // há conteúdo de verdade: texto, capas e painéis (não só o fundo)
                 assert!(distinct(&img, 0, 0, w, h) > 200, "{theme} {size_name} {name} parece em branco");
-                if w < 600 {
-                    // celular: a barra flutuante fica embaixo
-                    assert!(distinct(&img, 12, h - 80, w - 24, 64) > 20, "{theme} {size_name} {name}: sem a barra inferior");
+                if w < 1100 {
+                    // celular e tablet: a cápsula de abas (doca de vidro) fica embaixo
+                    let left = (w.saturating_sub(520)) / 2;
+                    assert!(distinct(&img, left + 12, h - 80, w.min(520) - 24, 64) > 20, "{theme} {size_name} {name}: sem a barra inferior");
                 } else {
-                    // tablet/desktop: trilho ou barra lateral à esquerda
-                    assert!(distinct(&img, 12, 60, 80, 300) > 20, "{theme} {size_name} {name}: sem trilho");
+                    // desktop: barra lateral sólida à esquerda, com os destinos
+                    assert!(distinct(&img, 12, 60, 240, 300) > 20, "{theme} {size_name} {name}: sem barra lateral");
                 }
             }
             for (name, set) in [("player", 0), ("queue", 1), ("detail", 2)] {

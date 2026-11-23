@@ -214,6 +214,12 @@ impl Store {
         self.thumbs.get(&path)
     }
 
+    /// Capa grande (até 640 px) do álbum, para o topo do detalhe.
+    fn detail_cover(&self, album: Option<AlbumId>) -> Option<Pixels> {
+        let path = self.artwork(album)?.cover.clone();
+        art::load(&path).map(|img| art::to_pixels(&art::fit_within(img, 640)))
+    }
+
     fn track_vm(&mut self, t: &Track) -> TrackVm {
         let b = format::badge(&t.codec, format::is_lossless_name(&t.codec), t.bit_depth, t.sample_rate, t.bitrate);
         TrackVm {
@@ -343,12 +349,18 @@ impl Store {
             }
             Job::NowArt { seq, cover } => {
                 let art = match cover.as_deref().and_then(art::load) {
-                    Some(img) => NowArtVm {
-                        accent: accent::derive(&img),
-                        backdrop: Some(art::to_pixels(&art::backdrop(&img))),
-                        thumb: Some(art::to_pixels(&art::fit_within(img.clone(), 192))),
-                        cover: Some(art::to_pixels(&art::fit_within(img, 640))),
-                    },
+                    Some(img) => {
+                        let (player_dim, mini_dim) = art::glass_dims(&img);
+                        NowArtVm {
+                            accent: accent::derive(&img),
+                            backdrop: Some(art::to_pixels(&art::backdrop(&img))),
+                            backdrop_wide: Some(art::to_pixels(&art::backdrop_wide(&img))),
+                            player_dim,
+                            mini_dim,
+                            thumb: Some(art::to_pixels(&art::fit_within(img.clone(), 192))),
+                            cover: Some(art::to_pixels(&art::fit_within(img, 640))),
+                        }
+                    }
                     None => NowArtVm::default(),
                 };
                 emit(JobResult::NowArt { seq, art: Box::new(art) });
@@ -511,7 +523,7 @@ impl Store {
             .first()
             .and_then(|a| a.artwork.as_ref())
             .and_then(|w| art::load(&w.cover))
-            .map(|img| art::to_pixels(&art::backdrop(&img)));
+            .map(|img| art::to_pixels(&art::backdrop_wide(&img)));
 
         Ok(Snapshot {
             home: HomeVm { recents, albums, ..Default::default() },
@@ -616,7 +628,8 @@ impl Store {
             subtitle
         };
         let state = if vms.is_empty() { LoadStateVm::Empty } else { LoadStateVm::Ready };
-        Ok((DetailVm { kind: DetailKindVm::Tracks, state, title, subtitle, empty_text: empty, tracks: vms, ..Default::default() }, ids, vec![]))
+        let cover = tracks.iter().find_map(|t| t.album_id.filter(|a| self.artwork(Some(*a)).is_some())).and_then(|a| self.detail_cover(Some(a)));
+        Ok((DetailVm { kind: DetailKindVm::Tracks, state, title, subtitle, empty_text: empty, tracks: vms, cover, ..Default::default() }, ids, vec![]))
     }
 
     /// Detalhe de uma lista que mistura faixas locais e remotas (playlists, curtidas), na ordem dada.
@@ -624,10 +637,14 @@ impl Store {
         let mut vms = Vec::with_capacity(entries.len());
         let mut remote = Vec::new();
         let mut total_ms = 0u64;
+        let mut first_local_album: Option<AlbumId> = None;
         for e in entries {
             match e {
                 PlaylistEntry::Local(t) => {
                     total_ms += t.duration_ms;
+                    if first_local_album.is_none() && t.album_id.is_some_and(|a| self.artwork(Some(a)).is_some()) {
+                        first_local_album = t.album_id;
+                    }
                     vms.push(self.track_vm(&t));
                 }
                 PlaylistEntry::Remote(t) => {
@@ -640,7 +657,7 @@ impl Store {
         let ids = vms.iter().map(|t| t.id.clone()).collect();
         let subtitle = if vms.is_empty() { String::new() } else { format!("{}, {} min", format::songs_label(vms.len() as u64), format::thousands(total_ms.div_ceil(60_000))) };
         let state = if vms.is_empty() { LoadStateVm::Empty } else { LoadStateVm::Ready };
-        Ok((DetailVm { kind: DetailKindVm::Tracks, state, title, subtitle, empty_text: empty.to_owned(), tracks: vms, ..Default::default() }, ids, remote))
+        Ok((DetailVm { kind: DetailKindVm::Tracks, state, title, subtitle, empty_text: empty.to_owned(), tracks: vms, cover: first_local_album.and_then(|a| self.detail_cover(Some(a))), ..Default::default() }, ids, remote))
     }
 }
 
