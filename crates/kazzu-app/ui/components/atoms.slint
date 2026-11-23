@@ -1,0 +1,669 @@
+// Átomos do Kazzu v4 (Slint 1.19). Compilam e são renderizados em design/v4/tools/slint-shot (FemtoVG, desfoque real).
+// O kazzu-app deve ADAPTAR estes componentes; nada aqui chama Rust além de callbacks.
+//
+// A v4 em uma frase: interface neutra, toda a cor vem das capas, e tudo o que flutua é VIDRO com as capas passando por trás.
+// Receita do vidro (DESIGN.md, seção 5), de baixo para cima:
+//   1. backdrop-blur real (32 px no cromo, 40 px em folhas e no console do player)
+//   2. tinta que garante AA no pior caso (branco puro atrás no escuro, preto puro atrás no claro)
+//   3. brilho: degradê branco que some antes do meio do painel
+//   4. fio de luz de 1 px, forte em cima e fraco embaixo (borda em degradê)
+//   5. sombra do painel
+// Sem desfoque (renderer software) ou com Theme.reduce-transparency: sólido da paleta, mesma borda, mesmo contraste.
+// Regras: no máximo 4 painéis com desfoque ao vivo por tela no celular; nunca vidro dentro de vidro; nunca dentro de ListView.
+
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { Track } from "../theme/app-contract.slint";
+
+// ------------------------------------------------------------------------------------------------ ícone
+// SVG de traço uniforme (1,75), tingido por `colorize`. Largura fixa; na vertical ocupa a célula e centraliza o desenho.
+export component Icon inherits Rectangle {
+    in property <image> source;
+    in property <color> tint: Theme.ink;
+    in property <length> size: 24px;
+    width: size;
+    min-height: size;
+    Image { source: root.source; colorize: root.tint; width: root.size; height: root.size; image-fit: ImageFit.contain; }
+}
+
+// ------------------------------------------------------------------------------------------------ vidro
+export component Glass inherits Rectangle {
+    in property <length> radius: Theme.r-sheet;
+    in property <bool> sheet: false;       // folhas: tinta e desfoque um degrau acima
+    in property <bool> shadow: true;
+    in property <bool> flat-bottom: false; // folhas presas à borda de baixo
+    border-top-left-radius: radius;
+    border-top-right-radius: radius;
+    border-bottom-left-radius: flat-bottom ? 0px : radius;
+    border-bottom-right-radius: flat-bottom ? 0px : radius;
+    clip: true;
+    background: !Theme.glass-on ? Theme.glass-solid : sheet ? Theme.glass-tint-sheet : Theme.glass-tint;
+    backdrop-blur: !Theme.glass-on ? 0px : sheet ? Theme.glass-blur-sheet : Theme.glass-blur;
+    border-width: 1px;
+    border-color: Theme.glass-on ? @linear-gradient(180deg, Theme.glass-edge-hi 0%, Theme.glass-edge-lo 42%, Theme.glass-edge-lo 100%) : @linear-gradient(180deg, Theme.rule 0%, Theme.rule 100%);
+    drop-shadow-blur: shadow ? 32px : 0px;
+    drop-shadow-offset-y: 12px;
+    drop-shadow-color: Theme.glass-shadow;
+    if Theme.glass-on : Rectangle {
+        y: 0;
+        height: min(parent.height * 0.46, 120px);
+        background: @linear-gradient(180deg, Theme.glass-sheen 0%, Theme.glass-sheen.with-alpha(0) 100%);
+    }
+    @children
+}
+
+// Vidro sobre capa (placa do cartão, selos, botões sobre a arte). Igual nos dois temas: tinta escura, conteúdo branco.
+export component MediaGlass inherits Rectangle {
+    in property <length> radius: Theme.r-plate;
+    border-radius: radius;
+    clip: true;
+    background: Theme.glass-on ? Theme.media-plate : Theme.media-console;
+    backdrop-blur: Theme.glass-on ? Theme.glass-blur : 0px;
+    border-width: 1px;
+    border-color: @linear-gradient(180deg, Theme.media-edge-hi 0%, Theme.media-edge-lo 50%, Theme.media-edge-lo 100%);
+    @children
+}
+
+// ------------------------------------------------------------------------------------------------ base de controle
+// Todo controle herda daqui: papel e rótulo acessíveis, foco visível instantâneo, estado pressionado.
+// A área de toque é o próprio retângulo: quem herda garante 48 x 48 ou mais, mesmo com desenho menor.
+export component Pressable inherits Rectangle {
+    in property <string> label;
+    in property <bool> enabled: true;
+    in property <length> ring-radius: self.height / 2;
+    in property <color> ring-color: Theme.focus;
+    out property <bool> pressed: ta.pressed;
+    out property <bool> hovered: ta.has-hover;
+    callback clicked();
+    accessible-role: button;
+    accessible-label: label;
+    accessible-enabled: enabled;
+    accessible-action-default => { root.clicked(); }
+    fs := FocusScope {
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (e.text == " " || e.text == Key.Return) { root.clicked(); return accept; }
+            return reject;
+        }
+    }
+    ta := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.not-allowed;
+        clicked => { root.clicked(); }
+    }
+    @children
+    if fs.has-focus : Rectangle { border-radius: root.ring-radius; border-width: 2px; border-color: root.ring-color; }
+}
+
+export component IconButton inherits Pressable {
+    in property <image> icon;
+    in property <color> tint: Theme.ink;
+    in property <length> icon-size: 24px;
+    in property <bool> tonal: false;     // círculo preenchido, para botões sobre o fundo liso
+    in property <bool> media: false;     // sobre capa, console ou mini-player: realce claro translúcido em vez do sólido
+    in property <length> visual: 48px;   // diâmetro do desenho (a área de toque continua 48)
+    in property <bool> on: false;        // ligado (aleatório, repetir): fundo mais forte, além da tinta (nunca só cor)
+    in property <string> badge;          // selo curto no canto (o "1" do repetir uma)
+    width: 48px;
+    height: 48px;
+    Rectangle {
+        width: root.visual;
+        height: root.visual;
+        border-radius: self.height / 2;
+        background: root.media ? (root.on ? Theme.media-ink.with-alpha(0.24) : root.pressed || root.hovered ? Theme.media-ink.with-alpha(0.16) : transparent) : root.on ? Theme.paper-3 : root.pressed ? Theme.paper-3 : root.tonal ? Theme.paper-2 : root.hovered ? Theme.paper-3 : transparent;
+        animate background { duration: Theme.dur-micro; }
+    }
+    Icon { source: root.icon; tint: root.tint; size: root.icon-size; opacity: root.enabled ? 1 : 0.55; }
+    if root.badge != "" : Text { x: parent.width / 2 + 4px; y: parent.height / 2 + 2px; text: root.badge; color: root.tint; font-size: Theme.text-xs; font-weight: 700; accessible-role: none; }
+}
+
+// Botão redondo de vidro sobre capa (Voltar, Mais, Curtir no detalhe e no player): desenho de 44, toque de 48.
+export component MediaIconButton inherits Pressable {
+    in property <image> icon;
+    in property <color> tint: Theme.media-ink;
+    width: 48px;
+    height: 48px;
+    ring-color: Theme.media-ink;
+    MediaGlass { width: 44px; height: 44px; radius: 22px; opacity: root.pressed ? 0.8 : 1; }
+    Icon { source: root.icon; tint: root.tint; size: 24px; }
+}
+
+export component Button inherits Pressable {
+    in property <string> text;
+    in property <image> icon;
+    in property <bool> has-icon: false;
+    in property <bool> primary: false;
+    height: Theme.control-h;
+    min-width: 48px;
+    label: text;
+    Rectangle {
+        border-radius: root.height / 2;
+        background: primary ? Theme.primary : Theme.paper-3;
+        opacity: !root.enabled ? 0.55 : root.pressed ? 0.82 : 1;
+        animate opacity { duration: Theme.dur-micro; }
+    }
+    HorizontalLayout {
+        padding-left: Theme.s-lg;
+        padding-right: Theme.s-lg;
+        spacing: Theme.s-xs;
+        alignment: center;
+        if root.has-icon : Icon { source: root.icon; tint: root.primary ? Theme.primary-ink : Theme.ink; size: 20px; }
+        Text {
+            text: root.text;
+            color: root.primary ? Theme.primary-ink : Theme.ink;
+            font-size: Theme.text-md;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// Botão de texto (links: "Ver tudo", "Limpar", "Tentar de novo").
+export component TextButton inherits Pressable {
+    in property <string> text;
+    in property <color> ink: Theme.accent;
+    height: 48px;
+    ring-radius: Theme.r-thumb;
+    label: text;
+    HorizontalLayout {
+        alignment: center;
+        Text { text: root.text; color: root.ink; font-size: Theme.text-md; font-weight: 600; vertical-alignment: center; opacity: root.pressed ? 0.6 : 1; }
+    }
+}
+
+export component Switch inherits Pressable {
+    in-out property <bool> checked;
+    callback toggled(bool);
+    width: 64px;
+    height: 48px;
+    ring-radius: 24px;
+    accessible-role: switch;
+    accessible-checked: checked;
+    clicked => { root.checked = !root.checked; root.toggled(root.checked); }
+    track := Rectangle {
+        width: 52px;
+        height: 32px;
+        border-radius: 16px;
+        background: root.checked ? Theme.accent : Theme.muted;
+        animate background { duration: Theme.dur-short; easing: ease-in-out; }
+        Rectangle {
+            x: root.checked ? 22px : 2px;
+            y: 2px;
+            width: 28px;
+            height: 28px;
+            border-radius: 14px;
+            background: Theme.media-ink;   // polegar sempre claro, nos dois temas
+            drop-shadow-blur: 3px;
+            drop-shadow-offset-y: 1px;
+            drop-shadow-color: Theme.glass-shadow;
+            animate x { duration: Theme.dur-short; easing: ease-in-out; }
+        }
+    }
+}
+
+// Controle segmentado: o item ativo é uma bolha OPACA (contraste garantido sem depender do que está atrás).
+export component Segmented inherits Rectangle {
+    in property <[string]> options;
+    in-out property <int> current: 0;
+    callback changed(int);
+    height: 48px;
+    border-radius: 24px;
+    background: Theme.paper-3;
+    // itens de largura igual, posicionados à mão (num layout, a largura de cada um seguiria o tamanho do texto)
+    property <length> item-w: (root.width - 8px) / max(1, root.options.length);
+    for o[i] in root.options : Pressable {
+            x: 4px + i * root.item-w;
+            width: root.item-w;
+            label: o;
+            accessible-role: tab;
+            accessible-item-selected: i == root.current;
+            ring-radius: 20px;
+            clicked => { root.current = i; root.changed(i); }
+            // a área de toque tem os 48 da barra; a bolha desenhada tem 40 (4 de folga em cima e embaixo)
+            Rectangle {
+                y: 4px;
+                height: parent.height - 8px;
+                border-radius: 20px;
+                background: i == root.current ? Theme.bubble : transparent;
+                drop-shadow-blur: i == root.current ? 3px : 0px;
+                drop-shadow-offset-y: 1px;
+                drop-shadow-color: Theme.glass-shadow;
+            }
+            Text {
+                text: o;
+                color: Theme.ink;
+                font-size: root.options.length > 4 ? Theme.text-sm : Theme.text-md;
+                font-weight: i == root.current ? 600 : 400;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                overflow: elide;
+                accessible-role: none;
+            }
+    }
+}
+
+export component Tag inherits Rectangle {
+    in property <string> text;
+    height: 24px;
+    width: t.preferred-width + 16px;
+    border-radius: Theme.r-thumb;
+    background: Theme.paper-3;
+    t := Text { text: root.text; color: Theme.ink-2; font-size: Theme.text-xs; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+}
+
+// ------------------------------------------------------------------------------------------------ capa
+export component Cover inherits Rectangle {
+    in property <image> source;
+    in property <length> size: 48px;
+    in property <length> radius: Theme.r-thumb;
+    width: size;
+    height: size;
+    border-radius: radius;
+    clip: true;
+    background: Theme.paper-3;
+    // capa ausente é caso normal (permissão só de áudio no Android): mostra o disco
+    if root.source.width == 0 : Icon { source: Icons.disc; tint: Theme.muted; size: min(root.size * 0.5, 40px); }
+    Image { source: root.source; width: 100%; height: 100%; image-fit: ImageFit.cover; }
+}
+
+export component Mosaic inherits Rectangle {
+    in property <[image]> sources;   // até 4
+    in property <length> radius: Theme.r-card;
+    border-radius: radius;
+    clip: true;
+    background: Theme.paper-3;
+    for s[i] in root.sources : Image {
+        source: s;
+        x: mod(i, 2) * parent.width / 2;
+        y: floor(i / 2) * parent.height / 2;
+        width: parent.width / 2;
+        height: parent.height / 2;
+        image-fit: ImageFit.cover;
+    }
+}
+
+// Barras da faixa atual. Única animação infinita da UI; para com reduce-motion e quando a música está pausada.
+export component EqBars inherits Rectangle {
+    in property <bool> running: true;
+    in property <color> ink: Theme.accent;
+    property <float> t: 0;
+    width: 20px;
+    height: 16px;
+    for h[i] in [0.6, 1.0, 0.4] : Rectangle {
+        x: i * 7px;
+        width: 5px;
+        height: root.height * (root.running && !Theme.reduce-motion ? (0.35 + 0.65 * abs(sin((root.t * 360deg) + i * 120deg))) : h);
+        y: root.height - self.height;
+        border-radius: 1px;
+        background: root.ink;
+    }
+    animate t { duration: 1100ms; iteration-count: root.running && !Theme.reduce-motion ? -1 : 0; }
+    init => { root.t = 1; }
+}
+
+// ------------------------------------------------------------------------------------------------ linha de lista
+export component TrackRow inherits Pressable {
+    in property <Track> t;
+    in property <int> number: 0;          // > 0: mostra o número no lugar da capa (faixas de um álbum)
+    in property <bool> ranked: false;     // número + capa (paradas)
+    in property <bool> separator: true;
+    in property <bool> more: true;
+    in property <bool> on-glass: false;   // dentro de folha de vidro: todo texto na tinta principal (acento e cinza dependeriam do que passa atrás)
+    in property <color> line: Theme.rule;
+    callback more-clicked();
+    height: Theme.row-h;
+    ring-radius: Theme.r-thumb;
+    label: t.title + ", " + t.artist + (t.duration-label != "" ? ", " + t.duration-label : "");
+    HorizontalLayout {
+        spacing: Theme.s-sm;
+        if root.number > 0 && (root.ranked || !root.t.playing) : Text {
+            width: 24px;
+            text: root.number;
+            color: Theme.ink-2;
+            font-size: Theme.text-md;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+        if root.number > 0 && !root.ranked && root.t.playing : Rectangle { width: 24px; EqBars { } }
+        if root.number == 0 || root.ranked : VerticalLayout { alignment: center; Cover { source: root.t.cover; } }
+        Rectangle {
+            if root.separator : Rectangle { x: 0; y: 0; width: parent.width - 12px; height: 1px; background: root.line; }
+            HorizontalLayout {
+                spacing: Theme.s-xxs;
+                VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 1;
+                    Text { text: root.t.title; color: root.t.playing && !root.on-glass ? Theme.accent : Theme.ink; font-size: Theme.text-lg; font-weight: root.t.playing ? 600 : 400; overflow: elide; }
+                    Text { text: root.t.artist; color: root.on-glass ? Theme.ink : Theme.ink-2; font-size: Theme.text-md; overflow: elide; }
+                }
+                if root.number == 0 && root.t.playing : VerticalLayout { alignment: center; EqBars { ink: root.on-glass ? Theme.ink : Theme.accent; } }
+                if root.t.duration-label != "" : Text { text: root.t.duration-label; color: Theme.ink-2; font-size: Theme.text-sm; vertical-alignment: center; }
+                @children
+                if root.more : IconButton { icon: Icons.more; label: "Mais ações para " + root.t.title; clicked => { root.more-clicked(); } }
+            }
+        }
+    }
+}
+
+// Linha de grupo (Ajustes, folhas): ícone opcional, título, linha de apoio, e o que vier à direita.
+export component GroupItem inherits Rectangle {
+    in property <image> icon;
+    in property <bool> has-icon: false;
+    in property <string> title;
+    in property <string> note;
+    in property <string> value;
+    in property <bool> chevron: false;
+    in property <bool> separator: true;
+    in property <bool> dimmed: false;
+    if root.separator : Rectangle { y: 0; height: 1px; background: Theme.rule; }
+    HorizontalLayout {
+        padding-left: Theme.s-md - Theme.s-sm;   // o espaçador de largura 0 abaixo consome um vão de 12: o conteúdo começa em 16
+        padding-right: Theme.s-md;
+        padding-top: Theme.s-xs;
+        padding-bottom: Theme.s-xs;
+        spacing: Theme.s-sm;
+        Rectangle { width: 0px; min-height: 40px; }   // altura mínima de 56 sem travar a linha: ela cresce com o texto
+        if root.has-icon : Icon { source: root.icon; tint: Theme.ink-2; opacity: root.dimmed ? 0.6 : 1; }
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            spacing: Theme.s-xxxs;
+            Text { text: root.title; color: Theme.ink; font-size: Theme.text-lg; wrap: word-wrap; opacity: root.dimmed ? 0.6 : 1; }
+            if root.note != "" : Text { text: root.note; color: Theme.ink-2; font-size: Theme.text-sm; wrap: word-wrap; }
+        }
+        if root.value != "" : Text { text: root.value; color: Theme.ink-2; font-size: Theme.text-md; vertical-alignment: center; }
+        @children
+        if root.chevron : Icon { source: Icons.chevron-right; tint: Theme.muted; size: 20px; }
+    }
+}
+
+export component Group inherits Rectangle {
+    border-radius: Theme.r-group;
+    background: Theme.paper-2;
+    clip: true;
+    VerticalLayout { @children }
+}
+
+// ------------------------------------------------------------------------------------------------ cartões
+// Cartão grande do Início: a capa inteira e, por cima dela, uma placa de vidro com o título e o botão de tocar.
+export component PickCard inherits Pressable {
+    in property <image> cover;
+    in property <string> title;
+    in property <string> subtitle;
+    callback play();
+    width: Theme.compact ? 264px : 300px;
+    height: self.width * 340 / 264;
+    ring-radius: Theme.r-card;
+    label: title + ", " + subtitle;
+    Rectangle {
+        border-radius: Theme.r-card;
+        clip: true;
+        background: Theme.paper-2;
+        opacity: root.pressed ? 0.9 : 1;
+        if root.cover.width == 0 : Icon { source: Icons.disc; tint: Theme.muted; size: 56px; }
+        Image { source: root.cover; width: 100%; height: 100%; image-fit: ImageFit.cover; accessible-role: none; }
+        MediaGlass {
+            x: Theme.s-xs;
+            y: parent.height - self.height - Theme.s-xs;
+            width: parent.width - 2 * Theme.s-xs;
+            height: 68px;
+            HorizontalLayout {
+                padding-left: Theme.s-md;
+                padding-right: Theme.s-sm;
+                spacing: Theme.s-sm;
+                VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 1;
+                    Text { text: root.title; color: Theme.media-ink; font-size: Theme.text-lg; font-weight: 600; overflow: elide; }
+                    Text { text: root.subtitle; color: Theme.media-ink; font-size: Theme.text-sm; overflow: elide; }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    Pressable {
+                        width: 48px;
+                        height: 48px;
+                        label: "Tocar " + root.title;
+                        ring-color: Theme.media-ink;
+                        clicked => { root.play(); }
+                        Rectangle { width: 44px; height: 44px; border-radius: 22px; background: Theme.media-ink; }
+                        Icon { source: Icons.play; tint: Theme.media-console; size: 22px; }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component Tile inherits Pressable {
+    in property <image> cover;
+    in property <string> title;
+    in property <string> subtitle;
+    in property <bool> round: false;
+    in property <length> size: Theme.compact ? 148px : 172px;
+    width: size;
+    height: size + 52px;
+    ring-radius: Theme.r-cover;
+    label: title + ", " + subtitle;
+    VerticalLayout {
+        spacing: Theme.s-xs;
+        Cover { source: root.cover; size: root.size; radius: root.round ? root.size / 2 : Theme.r-cover; opacity: root.pressed ? 0.85 : 1; }
+        VerticalLayout {
+            Text { text: root.title; color: Theme.ink; font-size: Theme.text-md; font-weight: 600; overflow: elide; }
+            Text { text: root.subtitle; color: Theme.ink-2; font-size: Theme.text-sm; overflow: elide; }
+        }
+    }
+}
+
+// Ladrilho da Biblioteca: a arte é o ladrilho (sem moldura); título e contagem ficam embaixo. Selo de vidro no canto.
+export component LibraryTile inherits Pressable {
+    in property <[image]> covers;          // 0 = vazio (ícone), 1 = capa única, 4 = mosaico
+    in property <image> icon;
+    in property <string> title;
+    in property <string> count;
+    in property <bool> soon: false;        // recurso que ainda não existe: esmaecido, sem ação
+    in property <bool> liked: false;
+    enabled: !soon;
+    ring-radius: Theme.r-card;
+    label: title + ", " + count;
+    height: self.width + 56px;
+    VerticalLayout {
+        spacing: Theme.s-xs;
+        Rectangle {
+            height: root.width;
+            opacity: root.soon ? 0.62 : root.pressed ? 0.85 : 1;
+            if root.covers.length == 0 : Rectangle {
+                border-radius: Theme.r-card;
+                background: Theme.paper-2;
+                border-width: 1px;
+                border-color: Theme.rule;
+                Icon { source: root.icon; tint: Theme.muted; size: 40px; }
+            }
+            if root.covers.length == 1 : Cover { source: root.covers[0]; size: root.width; radius: Theme.r-card; }
+            if root.covers.length > 1 : Mosaic { sources: root.covers; }
+            if root.covers.length > 0 : MediaGlass {
+                x: Theme.s-xs;
+                y: parent.height - 40px - Theme.s-xs;
+                width: 40px;
+                height: 40px;
+                radius: 20px;
+                Icon { source: root.icon; tint: root.liked ? Theme.media-accent : Theme.media-ink; size: 20px; }
+            }
+        }
+        VerticalLayout {
+            opacity: root.soon ? 0.62 : 1;
+            Text { text: root.title; color: Theme.ink; font-size: Theme.text-lg; font-weight: 600; overflow: elide; }
+            Text { text: root.count; color: Theme.ink-2; font-size: Theme.text-sm; overflow: elide; }
+        }
+    }
+}
+
+// Momento ou gênero: ladrilho NEUTRO (a regra é: cor só de capa). Vira capa quando o provedor mandar uma imagem.
+export component MoodTile inherits Pressable {
+    in property <string> title;
+    height: 56px;
+    ring-radius: Theme.r-group;
+    label: title;
+    Rectangle { border-radius: Theme.r-group; background: root.pressed || root.hovered ? Theme.paper-3 : Theme.paper-2; animate background { duration: Theme.dur-micro; } }
+    HorizontalLayout {
+        padding-left: Theme.s-md;
+        padding-right: Theme.s-sm;
+        Text { text: root.title; color: Theme.ink; font-size: Theme.text-lg; font-weight: 600; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+        Icon { source: Icons.chevron-right; tint: Theme.muted; size: 20px; }
+    }
+}
+
+export component SectionHeader inherits Rectangle {
+    in property <string> title;
+    in property <string> action;
+    callback action-clicked();
+    height: 48px;
+    HorizontalLayout {
+        padding-left: Theme.gutter;
+        padding-right: Theme.gutter;
+        Text { text: root.title; color: Theme.ink; font-family: Theme.font-display; font-size: Theme.text-xl; font-weight: 700; letter-spacing: -0.44px; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+        if root.action != "" : TextButton { text: root.action; label: root.action + ": " + root.title; clicked => { root.action-clicked(); } }
+    }
+}
+
+// Barra de progresso e de volume. Desenho de 6 px, toque de 48. `media`: sobre o console do player (branco).
+export component Scrubber inherits Rectangle {
+    in property <float> value: 0;        // 0..1
+    in property <string> label;
+    in property <string> value-text;
+    in property <bool> media: true;
+    callback seek(float);
+    height: 48px;
+    accessible-role: slider;
+    accessible-label: label;
+    accessible-value: value-text;
+    accessible-value-minimum: 0;
+    accessible-value-maximum: 1;
+    accessible-value-step: 0.05;
+    accessible-action-increment => { root.seek(min(1, root.value + 0.05)); }
+    accessible-action-decrement => { root.seek(max(0, root.value - 0.05)); }
+    fs := FocusScope {
+        key-pressed(e) => {
+            if (e.text == Key.RightArrow) { root.seek(min(1, root.value + 0.05)); return accept; }
+            if (e.text == Key.LeftArrow) { root.seek(max(0, root.value - 0.05)); return accept; }
+            return reject;
+        }
+    }
+    ta := TouchArea {
+        clicked => { root.seek(max(0, min(1, self.mouse-x / self.width))); }
+        moved => { if (self.pressed) { root.seek(max(0, min(1, self.mouse-x / self.width))); } }
+    }
+    Rectangle { height: ta.pressed ? 10px : 6px; border-radius: self.height / 2; background: root.media ? Theme.media-track : Theme.paper-3; animate height { duration: Theme.dur-micro; } }
+    Rectangle { x: 0; width: parent.width * root.value; height: ta.pressed ? 10px : 6px; border-radius: self.height / 2; background: root.media ? Theme.media-ink : Theme.ink; animate height { duration: Theme.dur-micro; } }
+    if fs.has-focus : Rectangle { height: 20px; border-radius: 10px; border-width: 2px; border-color: root.media ? Theme.media-ink : Theme.focus; }
+}
+
+export component Skeleton inherits Rectangle {
+    border-radius: Theme.r-thumb;
+    background: Theme.paper-3;
+}
+
+// Estado vazio, de erro ou sem conexão: ícone, o que houve, o que fazer, e até duas ações.
+export component StateCard inherits Rectangle {
+    in property <image> icon;
+    in property <string> title;
+    in property <string> text;
+    in property <string> primary;
+    in property <string> secondary;
+    in property <string> code;      // código técnico pequeno, só para quem vai relatar
+    callback primary-clicked();
+    callback secondary-clicked();
+    border-radius: Theme.r-card;
+    background: Theme.paper-2;
+    VerticalLayout {
+        padding: Theme.s-lg;
+        padding-top: Theme.s-xl;
+        padding-bottom: Theme.s-xl;
+        spacing: Theme.s-sm;
+        HorizontalLayout { alignment: start; Icon { source: root.icon; tint: Theme.ink-2; size: 32px; } }
+        Text { text: root.title; color: Theme.ink; font-family: Theme.font-display; font-size: Theme.text-xl; font-weight: 700; letter-spacing: -0.44px; wrap: word-wrap; }
+        Text { text: root.text; color: Theme.ink-2; font-size: Theme.text-lg; wrap: word-wrap; }
+        if root.primary != "" : HorizontalLayout {
+            alignment: start;
+            spacing: Theme.s-xs;
+            Button { text: root.primary; primary: true; clicked => { root.primary-clicked(); } }
+            if root.secondary != "" : Button { text: root.secondary; clicked => { root.secondary-clicked(); } }
+        }
+        if root.code != "" : Text { text: root.code; color: Theme.ink-2; font-size: Theme.text-sm; }
+    }
+}
+
+// Faixa de aviso dentro do conteúdo (primeiro uso, sem conexão, conteúdo do cache): o que houve, em negrito, e o que isso muda.
+export component Banner inherits Rectangle {
+    in property <image> icon;
+    in property <string> title;
+    in property <string> text;
+    in property <string> action;
+    callback action-clicked();
+    border-radius: Theme.r-group;
+    background: Theme.paper-2;
+    HorizontalLayout {
+        padding-left: Theme.s-md;
+        padding-right: Theme.s-sm;
+        spacing: Theme.s-sm;
+        padding-top: Theme.s-sm;
+        padding-bottom: Theme.s-sm;
+        Icon { source: root.icon; tint: Theme.ink-2; }
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            Text { text: root.title; color: Theme.ink; font-size: Theme.text-md; font-weight: 600; wrap: word-wrap; }
+            Text { text: root.text; color: Theme.ink; font-size: Theme.text-md; wrap: word-wrap; }
+        }
+        if root.action != "" : VerticalLayout { alignment: center; TextButton { text: root.action; clicked => { root.action-clicked(); } } }
+    }
+}
+
+// Campo de texto (Buscar, nome da playlist). Borda a 3:1; o anel de foco fica por dentro para a borda nunca mudar de largura.
+export component SearchField inherits Rectangle {
+    in-out property <string> text;
+    in property <string> placeholder: "Músicas, artistas, álbuns";
+    in property <bool> plain: false;       // sem lupa (campo de nome)
+    in property <color> fill: Theme.paper-3;
+    out property <bool> has-focus: input.has-focus;
+    callback edited(string);
+    callback accepted(string);
+    callback escaped();
+    public function focus-input() { input.focus(); }
+    public function select-input() { input.select-all(); }
+    height: Theme.control-h;
+    border-radius: Theme.r-group;
+    background: fill;
+    border-width: 1px;
+    border-color: Theme.muted;
+    if !root.plain : Icon { x: Theme.s-sm; source: Icons.search; tint: Theme.ink-2; }
+    input := TextInput {
+        x: root.plain ? Theme.s-md : 48px;
+        width: parent.width - self.x - (root.plain ? Theme.s-md : 48px);
+        text <=> root.text;
+        color: Theme.ink;
+        font-size: Theme.text-lg;
+        vertical-alignment: center;
+        single-line: true;
+        accessible-role: text-input;
+        accessible-label: root.placeholder;
+        accessible-placeholder-text: root.placeholder;
+        edited => { root.edited(self.text); }
+        accepted => { root.accepted(self.text); }
+        key-pressed(e) => { if (e.text == Key.Escape && self.text != "") { root.escaped(); return accept; } return reject; }
+    }
+    if root.text == "" : Text { x: input.x; width: input.width; text: root.placeholder; color: Theme.ink-2; font-size: Theme.text-lg; vertical-alignment: center; overflow: elide; accessible-role: none; }
+    if root.text != "" && !root.plain : IconButton { x: parent.width - 48px; icon: Icons.close; label: "Limpar a busca"; clicked => { root.text = ""; root.edited(""); root.escaped(); } }
+    if input.has-focus : Rectangle { x: 1px; y: 1px; width: parent.width - 2px; height: parent.height - 2px; border-radius: Theme.r-group - 1px; border-width: 2px; border-color: Theme.focus; }
+}
+
+// Indicador de espera: um ícone que gira. Com Reduzir movimento fica parado e pulsa de leve (nunca some o sinal).
+export component Spinner inherits Rectangle {
+    in property <color> tint: Theme.ink;
+    in property <length> size: 24px;
+    property <float> t: 0;
+    width: size;
+    height: size;
+    animate t { duration: 1000ms; iteration-count: -1; }
+    init => { root.t = 1; }
+    Image { source: Icons.refresh; colorize: root.tint; width: root.size; height: root.size; transform-rotation: Theme.reduce-motion ? 0deg : root.t * 360deg; accessible-role: none; }
+}

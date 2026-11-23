@@ -1,69 +1,86 @@
-// Explorar (SLINT_SPEC §4.2): novos lançamentos, humores e gêneros, "Em alta" numerada.
+// Explorar (v4): lançamentos em cartões grandes, momentos e gêneros em ladrilhos neutros, "Em alta" numerada.
 import { Theme } from "../theme/tokens.slint";
 import { Icons } from "../theme/icons.slint";
 import { Metrics } from "../theme/metrics.slint";
 import { AppState, Tab, LoadState } from "../theme/app-contract.slint";
-import { ScreenScroll, Gutter, PageTitle, HRail } from "../components/layout.slint";
-import { SectionHeader, EmptyState, SkeletonRow, SkeletonTile, OfflineBar } from "../components/basics.slint";
-import { TrackRow, MediaTile, MoodTile } from "../components/media.slint";
-import { TopBar } from "../components/nav.slint";
+import { Nav } from "../theme/nav-state.slint";
+import { PickCard, TrackRow, MoodTile, SectionHeader, Skeleton, StateCard, Banner } from "../components/atoms.slint";
+import { Screen, Rail, RootHeader, LargeTitle, Rows, Gutters, SkeletonRows } from "../components/shared.slint";
 
 export component ExploreScreen inherits Rectangle {
-    property <length> mood-gap: 12px;
-    property <int> mood-cols: Theme.compact ? 2 : 3;
-    property <length> mood-w: (Metrics.content-w - Metrics.side-l - Metrics.side-r - (mood-cols - 1) * mood-gap) / mood-cols;
-    property <length> tile: Theme.expanded ? 168px : 148px;
-
-    ScreenScroll {
-        tab: Tab.explore; width: parent.width; height: parent.height;
-        Gutter { TopBar { horizontal-stretch: 1; } }
-        PageTitle { text: "Explorar"; }
-        if !AppState.online || AppState.explore-state == LoadState.offline : Gutter { padding-bottom: 12px; OfflineBar { } }
-
-        if AppState.explore-state == LoadState.loading : VerticalLayout {
-            Rectangle { height: 8px; }
-            Gutter { SectionHeader { horizontal-stretch: 1; title: "Novos lançamentos"; } }
-            HRail { rail-h: root.tile + 64px; SkeletonTile { side: root.tile; } SkeletonTile { side: root.tile; } SkeletonTile { side: root.tile; } }
-            Rectangle { height: 28px; }
-            Gutter { VerticalLayout { SkeletonRow { } SkeletonRow { } SkeletonRow { } SkeletonRow { } } }
-        }
-        if AppState.explore-state == LoadState.error : Gutter { padding-top: 16px;
-            EmptyState { icon: Icons.cloud-off; title: "O YouTube Music não respondeu";
-                message: AppState.explore-error-text != "" ? AppState.explore-error-text : "Sua conexão parece ok. O serviço pode estar fora do ar. Tente de novo em instantes.";
-                action-label: "Tentar de novo"; action => { AppState.retry-explore(); } }
-        }
-        if AppState.explore-state == LoadState.offline : Gutter { padding-top: 4px;
-            EmptyState { icon: Icons.cloud-off; title: "Explorar precisa de internet"; message: "Suas músicas baixadas e locais continuam tocando."; action-label: "Tentar de novo"; action => { AppState.retry-explore(); } }
-        }
-        if AppState.explore-state == LoadState.empty : Gutter { padding-top: 16px;
-            EmptyState { icon: Icons.explore; title: "Nada por aqui ainda"; message: "Quando o YouTube Music tiver novidades, elas aparecem aqui."; action-label: "Atualizar"; action => { AppState.retry-explore(); } }
-        }
-
-        if AppState.explore-state == LoadState.ready : VerticalLayout {
-            Rectangle { height: 8px; }
-            if AppState.new-releases.length > 0 : VerticalLayout {
-                Gutter { SectionHeader { horizontal-stretch: 1; title: "Novos lançamentos"; source-tag: AppState.source-label; } }
-                Rectangle { height: 8px; }
-                HRail { rail-h: root.tile + 64px; label: "Novos lançamentos";
-                    for a in AppState.new-releases : MediaTile { side: root.tile; cover: a.cover; title: a.title; subtitle: a.artist; clicked => { AppState.open-album(a.id); } }
+    property <int> cols: Theme.compact ? 2 : Theme.wide ? 4 : 4;
+    property <length> mood-w: (root.width - 2 * Theme.gutter - (cols - 1) * Theme.s-sm) / cols;
+    property <int> mood-rows: ceil(AppState.moods.length / cols);
+    Screen {
+        tab: Tab.explore;
+        VerticalLayout {
+            padding-top: AppState.safe-top + Theme.s-xs;
+            padding-bottom: Metrics.reserve;
+            spacing: Theme.s-xxl;
+            alignment: start;
+            VerticalLayout { RootHeader { } LargeTitle { text: "Explorar"; } }
+            if AppState.explore-state == LoadState.offline || !AppState.online : Gutters {
+                Banner { icon: Icons.cloud-off; title: "Sem conexão"; text: "Explorar precisa de internet. A música do aparelho continua na Biblioteca."; action: "Tentar de novo"; action-clicked => { AppState.retry-explore(); } }
+            }
+            if AppState.explore-state == LoadState.loading : VerticalLayout {
+                spacing: Theme.s-sm;
+                Rectangle { height: 48px; Skeleton { x: Theme.gutter; width: 160px; height: 22px; y: 13px; } }
+                Rectangle {
+                    height: Theme.compact ? 340px : 386px;
+                    clip: true;
+                    Skeleton { x: Theme.gutter; width: Theme.compact ? 264px : 300px; height: parent.height; border-radius: Theme.r-card; }
+                    Skeleton { x: Theme.gutter + (Theme.compact ? 264px : 300px) + Theme.s-md; width: Theme.compact ? 264px : 300px; height: parent.height; border-radius: Theme.r-card; }
+                    Skeleton { x: Theme.gutter + 2 * ((Theme.compact ? 264px : 300px) + Theme.s-md); width: Theme.compact ? 264px : 300px; height: parent.height; border-radius: Theme.r-card; }
                 }
-                Rectangle { height: 28px; }
             }
-            if AppState.moods.length > 0 : VerticalLayout {
-                Gutter { SectionHeader { horizontal-stretch: 1; title: "Humores e gêneros"; } }
-                Rectangle { height: 8px; }
-                Gutter { Rectangle {
-                    height: ceil(AppState.moods.length / root.mood-cols) * (root.mood-w / 1.55 + root.mood-gap);
-                    for m[i] in AppState.moods : MoodTile {
-                        x: mod(i, root.mood-cols) * (root.mood-w + root.mood-gap); y: floor(i / root.mood-cols) * (root.mood-w / 1.55 + root.mood-gap);
-                        width: root.mood-w; item: m; clicked => { AppState.open-item(m.kind, m.id); }
+            if AppState.explore-state == LoadState.error : Gutters {
+                StateCard {
+                    icon: Icons.cloud-off;
+                    title: "Não deu para carregar o Explorar";
+                    text: AppState.explore-error-text != "" ? AppState.explore-error-text : "O YouTube Music não respondeu. Tente de novo em instantes.";
+                    primary: "Tentar de novo";
+                    primary-clicked => { AppState.retry-explore(); }
+                }
+            }
+            if AppState.explore-state == LoadState.empty : Gutters {
+                StateCard { icon: Icons.explore; title: "Nada por aqui ainda"; text: "Quando o YouTube Music tiver novidades, elas aparecem aqui."; primary: "Atualizar"; primary-clicked => { AppState.retry-explore(); } }
+            }
+            if AppState.explore-state == LoadState.ready : VerticalLayout {
+                spacing: Theme.s-xxl;
+                if AppState.new-releases.length > 0 : VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Lançamentos"; }
+                    Rail {
+                        label: "Lançamentos";
+                        card-h: Theme.compact ? 340px : 386px;
+                        for a in AppState.new-releases : PickCard {
+                            cover: a.cover;
+                            title: a.title;
+                            subtitle: a.artist;
+                            clicked => { AppState.open-album(a.id); }
+                            play => { AppState.play-item("album", a.id); }
+                        }
                     }
-                } }
-                Rectangle { height: 16px; }
-            }
-            if AppState.trending.length > 0 : VerticalLayout {
-                Gutter { SectionHeader { horizontal-stretch: 1; title: "Em alta"; source-tag: AppState.source-label; } }
-                for t[i] in AppState.trending : Gutter { TrackRow { horizontal-stretch: 1; track: t; number: i + 1; clicked => { AppState.play-track(t.id); } } }
+                }
+                if AppState.moods.length > 0 : VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Momentos e gêneros"; }
+                    Rectangle {
+                        height: root.mood-rows * 56px + (root.mood-rows - 1) * Theme.s-sm;
+                        for m[i] in AppState.moods : MoodTile {
+                            x: Theme.gutter + mod(i, root.cols) * (root.mood-w + Theme.s-sm);
+                            y: floor(i / root.cols) * (56px + Theme.s-sm);
+                            width: root.mood-w;
+                            title: m.title;
+                            clicked => { AppState.open-item(m.kind, m.id); }
+                        }
+                    }
+                }
+                if AppState.trending.length > 0 : VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Em alta"; }
+                    Rows { for t[i] in AppState.trending : TrackRow { t: t; number: i + 1; ranked: true; separator: i > 0; clicked => { AppState.play-track(t.id); } more-clicked => { Nav.open-menu(t); } } }
+                }
             }
         }
     }

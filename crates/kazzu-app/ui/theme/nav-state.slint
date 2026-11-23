@@ -1,6 +1,6 @@
 // Navegação: as telas, o AppWindow e o Esc/Voltar do Android passam todos por aqui. O estado de tela vive no Slint;
 // o Rust só escuta os callbacks (`navigate`, `close-player`, `close-detail`...).
-import { Tab, AppState } from "app-contract.slint";
+import { Tab, AppState, Track } from "app-contract.slint";
 import { Metrics } from "metrics.slint";
 
 export global Nav {
@@ -12,6 +12,8 @@ export global Nav {
     }
     public function open-player() { AppState.player-open = true; AppState.open-player(); }
     public function close-player() { AppState.player-open = false; AppState.close-player(); }
+    /// Abre o menu de ações de uma faixa (linha de lista, player, barra de reprodução).
+    public function open-menu(t: Track) { AppState.menu-track = t; AppState.menu-open = true; }
     public function close-detail() { AppState.detail-open = false; AppState.close-detail(); }
     public function close-menus() {
         AppState.menu-open = false; AppState.playlist-sheet-open = false; AppState.new-playlist-open = false;

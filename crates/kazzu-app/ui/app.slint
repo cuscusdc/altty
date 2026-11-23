@@ -1,19 +1,18 @@
-// Janela raiz do Kazzu (v2, mobile-first). UMA árvore: o celular (compact < 600) é a base; `if !Theme.compact` só acrescenta.
-import "assets/fonts/HankenGrotesk-Regular.ttf";
-import "assets/fonts/HankenGrotesk-SemiBold.ttf";
-import "assets/fonts/HankenGrotesk-Bold.ttf";
-import "assets/fonts/GeistMono-Regular.ttf";
-import "assets/fonts/GeistMono-Medium.ttf";
+// Janela raiz do Kazzu (v4). UMA árvore: o celular (compacto, < 600) é a base; `Theme.wide` (>= 1100) acrescenta a barra lateral e
+// a barra de reprodução. O conteúdo rola por baixo do cromo (doca, cabeçalho recolhido), que é vidro. Fundo liso: toda a cor vem das capas.
+import "fonts/Inter-Regular.ttf";
+import "fonts/Inter-SemiBold.ttf";
+import "fonts/Inter-Bold.ttf";
+import "fonts/InterDisplay-Bold.ttf";
 
 import { Palette } from "std-widgets.slint";
 import { Theme } from "theme/tokens.slint";
 import { Icons } from "theme/icons.slint";
 import { Metrics } from "theme/metrics.slint";
 import { Nav } from "theme/nav-state.slint";
-import { AppState, Tab, RepeatMode, SearchState, ThemeMode, AccentMode, DetailKind, LoadState, HomeSection, Track, Album, Highlight, Artist, Playlist, Collection, OutputDevice, ProviderRow } from "theme/app-contract.slint";
-import { Stage, GlassPanel } from "theme/atoms.slint";
-import { NavDock, SearchButton, MiniPlayer, NavRail, NowBar } from "components/nav.slint";
-import { Toast, Scrim, TextButton, PillButton, PillKind } from "components/basics.slint";
+import { AppState, Tab, RepeatMode, SearchState, ThemeMode, DetailKind, LoadState, Track, Album, Highlight, Artist, Playlist, Collection, OutputDevice, ProviderRow } from "theme/app-contract.slint";
+import { Glass, Button, TextButton } from "components/atoms.slint";
+import { Dock, TopBar, Toast, Sidebar, NowBar } from "components/chrome.slint";
 import { MenuSheet, PlaylistSheet, NewPlaylistSheet, QueueSheet } from "components/sheets.slint";
 import { HomeScreen } from "screens/home.slint";
 import { ExploreScreen } from "screens/explore.slint";
@@ -23,21 +22,27 @@ import { SettingsScreen } from "screens/settings.slint";
 import { DetailScreen } from "screens/detail.slint";
 import { PlayerScreen } from "screens/player.slint";
 
-export { Metrics, Nav, Theme, AppState, Tab, RepeatMode, SearchState, ThemeMode, AccentMode, DetailKind, LoadState, HomeSection, Track, Album, Highlight, Artist, Playlist, Collection, OutputDevice, ProviderRow }
+export { Metrics, Nav, Theme, AppState, Tab, RepeatMode, SearchState, ThemeMode, DetailKind, LoadState, Track, Album, Highlight, Artist, Playlist, Collection, OutputDevice, ProviderRow }
 
 export component AppWindow inherits Window {
     title: "Kazzu";
     icon: @image-url("assets/icon-256.png");
-    default-font-family: Theme.font-sans;
-    background: Theme.bg;
-    min-width: 320px; min-height: 480px;
-    preferred-width: 390px; preferred-height: 844px;
+    default-font-family: Theme.font;
+    default-font-size: Theme.text-lg;
+    background: Theme.paper;
+    min-width: 320px;
+    min-height: 480px;
+    // desktop abre largo (barra lateral); no Android a janela ocupa a tela e estes valores não contam
+    preferred-width: 1280px;
+    preferred-height: 800px;
 
-    init => { Theme.window-w = self.width; copy-insets(); apply-theme(); apply-accent(); keys.focus(); }
-    // Áreas seguras: o backend (Android) alimenta Window.safe-area-inset-*; a UI só lê AppState.safe-* (a gallery pode forçar).
+    init => { Theme.window-w = self.width; copy-insets(); apply-theme(); keys.focus(); }
+    // Áreas seguras: o backend (Android) alimenta Window.safe-area-inset-*; a UI só lê AppState.safe-* (a galeria pode forçar).
     function copy-insets() {
-        AppState.safe-top = self.safe-area-insets.top; AppState.safe-bottom = self.safe-area-insets.bottom;
-        AppState.safe-left = self.safe-area-insets.left; AppState.safe-right = self.safe-area-insets.right;
+        AppState.safe-top = self.safe-area-insets.top;
+        AppState.safe-bottom = self.safe-area-insets.bottom;
+        AppState.safe-left = self.safe-area-insets.left;
+        AppState.safe-right = self.safe-area-insets.right;
     }
     property <length> inset-t: self.safe-area-insets.top;
     property <length> inset-b: self.safe-area-insets.bottom;
@@ -56,14 +61,6 @@ export component AppWindow inherits Window {
     changed cur-mode => { root.apply-theme(); }
     public function apply-theme() {
         Theme.dark = AppState.theme-mode == ThemeMode.dark || (AppState.theme-mode == ThemeMode.auto && root.sys-dark);
-        root.apply-accent();
-    }
-    // Acento da capa: o AppWindow escolhe a variante do tema vigente (globais não têm bindings cruzados).
-    property <bool> dark-now: Theme.dark;
-    changed dark-now => { root.apply-accent(); }
-    public function apply-accent() {
-        Theme.dynamic-accent = Theme.dark ? AppState.accent-dark : AppState.accent-light;
-        Theme.dynamic-accent-ink = Theme.dark ? AppState.accent-dark-ink : AppState.accent-light-ink;
     }
     /// Voltar (Esc; o Rust chama no botão Voltar do Android). false = já está no Início sem nada aberto (o sistema sai do app).
     public function go-back() -> bool { return Nav.back(); }
@@ -78,14 +75,20 @@ export component AppWindow inherits Window {
     changed cur-queue => { keys.focus(); }
     changed cur-detail => { keys.focus(); }
 
-    // posições das paradas dos esvaecimentos (fração da altura de cada um)
-    property <float> top-stop: AppState.safe-top / (AppState.safe-top + 24px);
-    property <float> fade-s1: 178px / Metrics.fade-h;
-    property <float> fade-s2: 190px / Metrics.fade-h;
     property <bool> sheet-up: AppState.queue-open || AppState.menu-open || AppState.playlist-sheet-open || AppState.new-playlist-open;
+    // destino ativo da barra lateral e da doca: 0 Início, 1 Explorar, 2 Biblioteca, 3 Buscar, 4 Ajustes (nenhum)
+    property <int> tab-idx: AppState.tab == Tab.home ? 0 : AppState.tab == Tab.explore ? 1 : AppState.tab == Tab.library ? 2 : AppState.tab == Tab.search ? 3 : 4;
+    function go(i: int) { Nav.go(i == 0 ? Tab.home : i == 1 ? Tab.explore : i == 2 ? Tab.library : Tab.search); }
+    property <length> side-w: Theme.wide ? Metrics.sidebar-w : 0px;
+    property <length> content-x: AppState.safe-left + side-w;
+    property <length> content-w: root.width - content-x - AppState.safe-right;
+    property <length> scrolled: AppState.detail-open ? -Metrics.scroll-detail : -Metrics.saved-scroll(AppState.tab);
+    property <bool> bar-shown: AppState.detail-open ? root.scrolled > (content-w >= 840px ? 160px : min(content-w, 520px) - 110px) : root.scrolled > 56px;
+    property <string> bar-title: AppState.detail-open ? AppState.detail-title : AppState.tab == Tab.home ? (Theme.wide ? "Início" : "") : AppState.tab == Tab.explore ? "Explorar" : AppState.tab == Tab.search ? "Buscar" : AppState.tab == Tab.library ? "Biblioteca" : "Ajustes";
 
     keys := FocusScope {
-        width: 100%; height: 100%;
+        width: 100%;
+        height: 100%;
         key-pressed(e) => {
             // Esc (desktop) e Voltar do Android (Key.Back): só "accept" se algo foi fechado; senão o sistema fecha o app
             if (e.text == Key.Escape || e.text == Key.Back) { return root.go-back() ? accept : reject; }
@@ -97,91 +100,117 @@ export component AppWindow inherits Window {
             return reject;
         }
 
-        // palco vivo: atrás de tudo, decorativo
-        Stage { width: 100%; height: 100%; backdrop: AppState.backdrop; has-cover: AppState.has-now; }
-
-        // ---- conteúdo: a aba atual (ou o detalhe por cima dela)
-        Rectangle {
-            x: Metrics.content-x; y: 0px; width: Metrics.content-w; height: root.height;
-            if AppState.detail-open : DetailScreen { width: 100%; height: 100%; }
-            if !AppState.detail-open && AppState.tab == Tab.home : HomeScreen { width: 100%; height: 100%; }
-            if !AppState.detail-open && AppState.tab == Tab.explore : ExploreScreen { width: 100%; height: 100%; }
-            if !AppState.detail-open && AppState.tab == Tab.library : LibraryScreen { width: 100%; height: 100%; }
-            if !AppState.detail-open && AppState.tab == Tab.search : SearchScreen { width: 100%; height: 100%; }
-            if !AppState.detail-open && AppState.tab == Tab.settings : SettingsScreen { width: 100%; height: 100%; }
+        // ---- a área de conteúdo: a tela da aba (ou o detalhe) e o cromo que flutua sobre ela
+        area := Rectangle {
+            x: root.content-x;
+            width: root.content-w;
+            height: parent.height;
+            // as telas ficam numa coluna de até 1240, centralizada (janelas muito largas)
+            screens := Rectangle {
+                x: (parent.width - self.width) / 2;
+                width: min(parent.width, 1240px);
+                if AppState.detail-open : DetailScreen { }
+                if !AppState.detail-open && AppState.tab == Tab.home : HomeScreen { }
+                if !AppState.detail-open && AppState.tab == Tab.explore : ExploreScreen { }
+                if !AppState.detail-open && AppState.tab == Tab.library : LibraryScreen { }
+                if !AppState.detail-open && AppState.tab == Tab.search : SearchScreen { }
+                if !AppState.detail-open && AppState.tab == Tab.settings : SettingsScreen { }
+            }
+            TopBar {
+                y: 0;
+                width: parent.width;
+                safe-top: AppState.safe-top;
+                shown: root.bar-shown;
+                title: root.bar-title;
+                back: AppState.detail-open;
+                back-clicked => { Nav.close-detail(); }
+            }
+            if !Theme.wide && !AppState.player-open : Dock {
+                y: parent.height - self.height;
+                width: parent.width;
+                tab: root.tab-idx;
+                has-now: AppState.has-now;
+                now: AppState.now;
+                now-tint: AppState.backdrop-wide;
+                now-dim: AppState.mini-dim;
+                playing: AppState.playing;
+                progress: AppState.progress;
+                safe-bottom: AppState.safe-bottom;
+                go(i) => { root.go(i); }
+                open-player => { Nav.open-player(); }
+                toggle-play => { AppState.toggle-play(); }
+                next => { AppState.next(); }
+            }
+            if Theme.wide && AppState.has-now && !AppState.player-open : NowBar {
+                x: Theme.s-md;
+                y: parent.height - self.height - Theme.s-md - AppState.safe-bottom;
+                width: parent.width - 2 * Theme.s-md;
+                now: AppState.now;
+                playing: AppState.playing;
+                progress: AppState.progress;
+                position: AppState.position-label;
+                remaining: AppState.remaining-label;
+                volume: AppState.volume;
+                open-player => { Nav.open-player(); }
+                toggle-play => { AppState.toggle-play(); }
+                previous => { AppState.previous(); }
+                next => { AppState.next(); }
+                seek(v) => { AppState.seek(v); }
+                set-volume(v) => { AppState.set-volume(v); }
+                toggle-like => { AppState.toggle-like(AppState.now.id); }
+                open-queue => { AppState.queue-open = true; }
+            }
+        }
+        if Theme.wide : Sidebar {
+            x: AppState.safe-left;
+            width: Metrics.sidebar-w;
+            height: parent.height;
+            tab: AppState.detail-open ? 4 : root.tab-idx;
+            safe-top: AppState.safe-top;
+            playlists: AppState.playlists;
+            go(i) => { root.go(i); }
+            open-playlist(id) => { AppState.open-playlist(id); }
         }
 
-        // ---- áreas seguras: o conteúdo não pode ficar legível sob a barra de status nem sob os botões do sistema.
-        // Esvaecimento superior (só com safe-top > 0; sem TouchArea): 70% do stage-base na barra de status, some em ~24 px.
-        if AppState.safe-top > 0px : Rectangle {
-            y: 0px; width: 100%; height: AppState.safe-top + 24px;
-            background: @linear-gradient(180deg, Theme.stage-base.with-alpha(0.7) 0%, Theme.stage-base.with-alpha(0.7) top-stop, Theme.stage-base.with-alpha(0.0) 100%);
-            accessible-role: none;
-        }
-        // ---- compact (base): esvaecimento inferior. Vai até a borda da janela (190 + safe-bottom): 55% atrás da barra (o vidro
-        // ainda enxerga o conteúdo) e ~95% de opacidade na faixa dos botões do sistema. Sem TouchArea (não rouba toques).
-        if Theme.compact : Rectangle {
-            y: root.height - Metrics.fade-h; height: Metrics.fade-h; width: 100%;
-            background: @linear-gradient(180deg, Theme.stage-base.with-alpha(0.0) 0%, Theme.stage-base.with-alpha(0.55) fade-s1, Theme.stage-base.with-alpha(0.95) fade-s2, Theme.stage-base.with-alpha(0.95) 100%);
-            accessible-role: none;
-        }
-        if Theme.compact && AppState.has-now : MiniPlayer {
-            x: 12px + AppState.safe-left; y: root.height - Metrics.mini-y-off; width: root.width - 24px - AppState.safe-left - AppState.safe-right;
-        }
-        if Theme.compact : NavDock {
-            x: 12px + AppState.safe-left; y: root.height - Metrics.dock-y-off; width: root.width - 24px - 64px - AppState.safe-left - AppState.safe-right;
-        }
-        if Theme.compact : SearchButton {
-            x: root.width - 12px - AppState.safe-right - self.width; y: root.height - Metrics.dock-y-off + (Theme.dock-h - self.height) / 2;
-        }
-
-        // ---- ≥ 600: trilho (88) ou barra lateral (248, ≥ 1200) + mini flutuante / NowBar
-        if !Theme.compact : NavRail {
-            x: 12px + AppState.safe-left; y: 12px + AppState.safe-top; height: root.height - 24px - AppState.safe-top - AppState.safe-bottom;
-        }
-        if !Theme.compact && !Theme.wide && AppState.has-now : MiniPlayer {
-            width: min(640px, Metrics.content-w - 48px); x: Metrics.content-x + (Metrics.content-w - self.width) / 2; y: root.height - 16px - AppState.safe-bottom - Theme.mini-h;
-        }
-        if Theme.wide && AppState.has-now : NowBar {
-            width: min(960px, Metrics.content-w - 48px); x: Metrics.content-x + (Metrics.content-w - self.width) / 2; y: root.height - 16px - AppState.safe-bottom - self.height;
-        }
-
-        // ---- oferta de desempenho (banner nível 2): aceitar liga Reduzir transparência
-        if AppState.perf-offer && !Theme.reduce-transparency : GlassPanel {
-            level: 2; radius: 24px;
-            width: min(560px, root.width - 24px); x: (root.width - self.width) / 2; y: AppState.safe-top + 8px; height: offer-col.preferred-height + 24px;
-            accessible-role: groupbox; accessible-label: "Deixar mais leve?";
+        // ---- oferta de desempenho (aviso nível 2): aceitar liga Reduzir transparência
+        if AppState.perf-offer && !Theme.reduce-transparency : Glass {
+            radius: Theme.r-card;
+            width: min(560px, root.width - 2 * Theme.s-md);
+            x: (root.width - self.width) / 2;
+            y: AppState.safe-top + Theme.s-xs;
+            height: offer-col.preferred-height + 2 * Theme.s-md;
+            accessible-role: groupbox;
+            accessible-label: "Deixar mais leve?";
             offer-col := VerticalLayout {
-                padding: 12px; padding-left: 18px; spacing: 4px;
-                HorizontalLayout { spacing: 8px;
-                    VerticalLayout { horizontal-stretch: 1; alignment: center;
-                        Text { text: "Deixar mais leve?"; font-size: Theme.fs-headline; font-weight: Theme.fw-headline; color: Theme.ink; accessible-role: text; }
-                        Text { text: "O app está lento neste aparelho. Reduzir a transparência ajuda."; font-size: Theme.fs-subhead; color: Theme.ink-2; wrap: word-wrap; accessible-role: text; }
-                    }
-                }
-                HorizontalLayout { spacing: 8px; alignment: end;
-                    TextButton { label: "Agora não"; clicked => { AppState.perf-offer-dismiss(); } }
-                    PillButton { label: "Reduzir transparência"; clicked => { Theme.reduce-transparency = true; AppState.reduce-transparency-changed(true); AppState.perf-offer-accept(); } }
+                padding: Theme.s-md;
+                spacing: Theme.s-xxs;
+                Text { text: "Deixar mais leve?"; color: Theme.ink; font-size: Theme.text-lg; font-weight: 600; accessible-role: AccessibleRole.text; }
+                Text { text: "O app está lento neste aparelho. Reduzir a transparência ajuda."; color: Theme.ink; font-size: Theme.text-md; wrap: word-wrap; accessible-role: AccessibleRole.text; }
+                HorizontalLayout {
+                    spacing: Theme.s-xs;
+                    alignment: end;
+                    TextButton { text: "Agora não"; ink: Theme.ink; width: 112px; clicked => { AppState.perf-offer-dismiss(); } }
+                    Button { text: "Reduzir transparência"; primary: true; clicked => { Theme.reduce-transparency = true; AppState.reduce-transparency-changed(true); AppState.perf-offer-accept(); } }
                 }
             }
         }
 
         // ---- player (folha cheia, sempre escura) e folhas
         if AppState.player-open : PlayerScreen { width: 100%; height: 100%; }
-        if AppState.queue-open : Scrim { width: 100%; height: 100%; clicked => { AppState.queue-open = false; } }
-        if AppState.queue-open : QueueSheet { win-w: root.width; win-h: root.height; }
-        if AppState.menu-open : Scrim { width: 100%; height: 100%; clicked => { AppState.menu-open = false; } }
-        if AppState.menu-open : MenuSheet { win-w: root.width; win-h: root.height; }
-        if AppState.playlist-sheet-open : Scrim { width: 100%; height: 100%; clicked => { AppState.playlist-sheet-open = false; } }
-        if AppState.playlist-sheet-open : PlaylistSheet { win-w: root.width; win-h: root.height; }
-        if AppState.new-playlist-open : Scrim { width: 100%; height: 100%; clicked => { AppState.new-playlist-open = false; } }
-        if AppState.new-playlist-open : NewPlaylistSheet { win-w: root.width; win-h: root.height; }
+        if AppState.queue-open : QueueSheet { width: 100%; height: 100%; }
+        if AppState.menu-open : MenuSheet { width: 100%; height: 100%; }
+        if AppState.playlist-sheet-open : PlaylistSheet { width: 100%; height: 100%; }
+        if AppState.new-playlist-open : NewPlaylistSheet { width: 100%; height: 100%; }
 
-        // ---- aviso: 8 acima da reserva da barra (em cima de tudo)
+        // ---- aviso: 8 acima do cromo (em cima de tudo)
         Toast {
-            message: AppState.toast-text; error: AppState.toast-error; action-label: AppState.toast-action-label; seq: AppState.toast-seq;
-            avail: root.width; x: (root.width - self.width) / 2;
-            y: root.height - ((AppState.player-open || root.sheet-up) ? 24px + AppState.safe-bottom : Metrics.chrome-top-off) - 8px - self.height;
+            message: AppState.toast-text;
+            error: AppState.toast-error;
+            action-label: AppState.toast-action-label;
+            seq: AppState.toast-seq;
+            avail: root.width;
+            x: (root.width - self.width) / 2;
+            y: root.height - ((AppState.player-open || root.sheet-up) ? Theme.s-xl + AppState.safe-bottom : Metrics.chrome-top) - Theme.s-xs - self.height;
             action => { AppState.toast-action(); }
             dismissed => { AppState.dismiss-toast(); }
         }

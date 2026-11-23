@@ -1,19 +1,18 @@
-// Contrato entre a UI (Slint) e o kazzu-app (Rust), v2 (mobile-first, YouTube Music padrão).
+// Contrato entre a UI (Slint) e o kazzu-app (Rust), v4 (vidro sobre capas, YouTube Music padrão).
 // A UI só LÊ estas propriedades e CHAMA estes callbacks. Nomes em inglês (código); textos visíveis em pt-BR vêm
-// prontos do Rust (ex.: count-label "214 músicas"). Cópia do design (design/slint/app-contract.slint) + acréscimos
-// da SLINT_SPEC §7 e do kazzu-app (ver docs/UI_NOTES.md). Nada do design foi removido.
+// prontos do Rust (ex.: count-label "214 músicas"). Mudanças da v4 (design/v4/SLINT_SPEC.md §6): `backdrop` ganhou
+// outro formato, entraram `backdrop-wide`, `player-dim`, `mini-dim` e `now-source-line`; saíram o acento da capa,
+// os chips do Início e `search-ideas`. Ver docs/UI_NOTES.md.
 
 export enum Tab { home, explore, library, search, settings }
 export enum RepeatMode { off, all, one }
 // idle: campo vazio | results | empty: sem resultado | loading | error: provedor não respondeu | offline
 export enum SearchState { idle, results, empty, loading, error, offline }
 export enum ThemeMode { auto, light, dark }
-export enum AccentMode { from-cover, brand }
 // tracks: lista de faixas (álbum, playlist, curtidas, gênero) | albums: grade de álbuns | artist: faixas + álbuns
 export enum DetailKind { tracks, albums, artist }
 // estado de carregamento de uma tela de conteúdo (Início, Explorar, detalhe)
 export enum LoadState { loading, ready, empty, error, offline }
-export enum HomeSection { for-you, discover, mixes, focus, workout }
 
 export struct Track {
     id: string,
@@ -34,7 +33,7 @@ export struct Track {
 
 export struct Album { id: string, title: string, artist: string, cover: image }
 // `kind`: "album" | "playlist" | "artist" | "mood" | "shuffle" | "liked" (diz o que `open-item`/`play-item` abrem).
-// `tint`: cor da placa quando não há capa (humores); transparente = usar capa.
+// `caption` e `tint` não são mais usados pela UI (v4: humores neutros, prateleiras com nomes próprios).
 export struct Highlight { id: string, kind: string, caption: string, title: string, subtitle: string, cover: image, tint: color }
 export struct Artist { id: string, name: string, subtitle: string, cover: image }
 export struct Playlist { id: string, name: string, count-label: string, covers: [image] }   // até 4 capas
@@ -83,7 +82,11 @@ export global AppState {
     in property <string> now-source: "";           // "Do YouTube Music" | "Neste aparelho"
     in property <string> quality-label: "";        // "OPUS 160 kbps" (selo do player)
     in property <image> now-art;                   // capa grande da faixa atual (player); `now.cover` é a miniatura
-    in property <image> backdrop;                  // capa 96×96 pré-desfocada pelo Rust (palco)
+    in property <image> backdrop;                  // 192×464 (Rust): capa, capa espelhada e os 80 px do topo, desfoque σ3, saturação ×1,2 (atrás do console do player)
+    in property <image> backdrop-wide;             // 96×96 muito desfocada (σ9, saturação ×1,35): tinge o mini-player e fica atrás do player em janelas largas
+    in property <float> player-dim: 0.64;          // escurecimento do console do player, 0,24 a 0,64 (regra em art.rs::glass_dims)
+    in property <float> mini-dim: 0.7;             // escurecimento do mini-player, 0,30 a 0,70
+    in property <string> now-source-line: "";      // "YouTube Music, OPUS 160 kbps" | "Neste aparelho, FLAC 24/96"
     in property <bool> player-loading: false;      // buffering / resolvendo
     in property <string> player-error: "";         // "" = sem erro
     in property <string> player-error-action: "Tentar de novo";
@@ -106,11 +109,9 @@ export global AppState {
 
     // ---- Início (YouTube Music) ---------------------------------------------------------------
     in property <LoadState> home-state: LoadState.loading;
-    in-out property <HomeSection> home-section: HomeSection.for-you;
     in property <bool> home-stale: false;           // erro, mas há conteúdo em cache: mostra faixa de aviso
     in property <string> home-error-title: "";
     in property <string> home-error-text: "";
-    in property <string> home-error-code: "";       // texto técnico pequeno (mono), p/ quem precisa relatar
     in property <string> source-label: "";          // "Do YouTube Music" (tag das seções)
     in property <bool> first-run-banner: false;     // aviso "O YouTube Music já está ativo"
     in property <[Highlight]> highlights;           // "Continue por aqui"
@@ -118,7 +119,6 @@ export global AppState {
     in property <[Highlight]> mixes;                // "Mixes para você"
     in property <[Album]> albums;                   // "Álbuns em destaque"
     in property <[Track]> recents;                  // locais recentes (Início offline, Biblioteca)
-    callback home-section-changed(HomeSection);
     callback dismiss-first-run-banner();
     callback retry-home();
     callback open-item(string, string);             // kind, id: abre álbum/playlist/artista/humor
@@ -185,7 +185,6 @@ export global AppState {
     in property <[Album]> search-albums;
     in property <[Artist]> search-artists;
     in property <[Highlight]> search-playlists;
-    in property <[string]> search-ideas: ["Calmaria", "Estrada", "Madrugada", "Verão", "Foco"];
     callback search(string);                        // a cada edição; o Rust faz o debounce (≈250 ms)
     callback search-kind-changed(int);
     callback remove-recent-search(string);
@@ -220,7 +219,6 @@ export global AppState {
 
     // ---- Configurações ------------------------------------------------------------------------
     in-out property <ThemeMode> theme-mode: ThemeMode.dark;
-    in-out property <AccentMode> accent-mode: AccentMode.from-cover;
     in-out property <int> stream-quality: 0;        // 0 Original, 1 Alta, 2 Baixa
     in-out property <bool> autoplay-radio: true;    // "Continuar com músicas parecidas"
     in property <bool> perf-offer: false;           // oferta "Deixar mais leve?" (quadros lentos)
@@ -228,13 +226,7 @@ export global AppState {
     in property <[OutputDevice]> outputs;
     in property <string> version-label: "Kazzu 0.1.0";
     in property <string> licenses-text: "";
-    // Variantes do acento da capa para os dois temas (o Rust escreve; o AppWindow aplica a do tema vigente em `apply-accent`).
-    in property <color> accent-dark: #ffa154;
-    in property <color> accent-dark-ink: #190c04;
-    in property <color> accent-light: #ab4b01;
-    in property <color> accent-light-ink: #fefbf8;
     callback theme-mode-changed(ThemeMode);
-    callback accent-mode-changed(AccentMode);
     callback stream-quality-changed(int);
     callback autoplay-radio-changed(bool);
     callback reduce-transparency-changed(bool);     // o Rust também escreve Theme.reduce-transparency

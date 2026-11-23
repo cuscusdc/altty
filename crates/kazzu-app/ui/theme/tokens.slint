@@ -1,246 +1,106 @@
-// GERADO por design/tools/gen_tokens.py a partir de design/tokens.json. NÃO edite à mão.
-// Uso: `import { Theme } from "tokens.slint";`  ->  `background: Theme.bg;`
+// Tokens da v4. GERADO por design/v4/tools/gen_tokens.py a partir de design/v4/tokens.json: não edite à mão.
+// Slint 1.19. Tudo o que é cor, medida ou tempo na UI vem deste global.
+import "../fonts/Inter-Regular.ttf";
+import "../fonts/Inter-SemiBold.ttf";
+import "../fonts/Inter-Bold.ttf";
+import "../fonts/InterDisplay-Bold.ttf";
 
 export global Theme {
-    // ---- estado de tema (o kazzu-app escreve) ------------------------------------------------
+    // ---- ambiente (o Rust escreve) ----
     in-out property <bool> dark: true;
+    in-out property <bool> reduce-transparency: false;   // Ajustes ou sistema
     in-out property <bool> reduce-motion: false;
-    /// largura da janela; o AppWindow atualiza em `changed width`.
-    in property <length> window-w: 390px;
-    /// classes de janela (Material 3): compact < 600 (celular, base) | medium 600–839 | expanded 840–1199 | wide >= 1200.
-    out property <bool> compact: window-w < bp-regular;
-    out property <bool> expanded: window-w >= bp-expanded;
-    out property <bool> wide: window-w >= bp-wide;
-    out property <length> bp-regular: 600px;
-    out property <length> bp-expanded: 840px;
-    out property <length> bp-wide: 1200px;
+    in-out property <bool> blur-supported: true;          // false no renderer software
+    in-out property <length> window-w: 390px;
+    out property <bool> glass-on: blur-supported && !reduce-transparency;
+    out property <bool> compact: window-w < 600px;
+    out property <bool> wide: window-w >= 1100px;
+    out property <length> gutter: window-w < 368px ? 16px : window-w < 600px ? 20px : 32px;
 
-    // ---- transparência / blur (Slint 1.19 backdrop-blur: Skia e FemtoVG) --------------------------
-    /// preferência do usuário (Configurações > Aparência > Reduzir transparência).
-    in-out property <bool> reduce-transparency: false;
-    /// o Rust escreve false quando o renderer é o software (sem backdrop-blur).
-    in property <bool> blur-supported: true;
-    out property <bool> glass-live: blur-supported && !reduce-transparency;
+    // ---- cor ----
+    out property <color> paper: dark ? #07080a : #f3f4f6;   // fundo da página
+    out property <color> paper-2: dark ? #16171a : #fcfdfe;   // superfície elevada: listas agrupadas, ladrilhos sem capa, sólido do vidro
+    out property <color> paper-3: dark ? #25262a : #e5e6e9;   // preenchimento de controle, pressionado, esqueleto
+    out property <color> ink: dark ? #f2f3f6 : #0f1217;   // texto e ícones principais
+    out property <color> ink-2: dark ? #aeb1b6 : #4d5057;   // texto secundário (4,5:1 sobre paper, paper-2 e paper-3)
+    out property <color> muted: dark ? #8a8c91 : #696c72;   // ícones inativos, texto de ajuda, bordas de campo (3:1)
+    out property <color> rule: dark ? #2b2d30 : #d8d9dc;   // fios de 1 px
+    out property <color> accent: dark ? #ff7345 : #cc2c05;   // Brasa: estado (tocando, curtido, ligado), links, foco
+    out property <color> accent-ink: dark ? #1a0a06 : #fffaf5;   // texto sobre o acento
+    out property <color> focus: dark ? #ff855c : #cc2c05;   // anel de foco, 2 px
+    out property <color> error: dark ? #f97770 : #b7191c;   // erro, sempre com ícone e texto
+    out property <color> success: dark ? #68ca80 : #146d34;   // confirmação pontual
+    out property <color> bubble: dark ? #595b5f : #fcfdfe;   // bolha opaca do item ativo dentro do vidro (aba, segmento)
+    out property <color> primary: dark ? #f2f3f6 : #0f1217;   // botão principal preenchido (= ink)
+    out property <color> primary-ink: dark ? #0a0b0e : #fbfcfd;   // texto do botão principal
 
-    // ---- cor de destaque dinâmica (derivada da capa; calculada em Rust, ver DESIGN.md §3.4) ----
-    in-out property <bool> use-dynamic-accent: false;
-    in-out property <color> dynamic-accent: #ffa154;
-    in-out property <color> dynamic-accent-ink: #190c04;
-    out property <color> accent: use-dynamic-accent ? dynamic-accent : (dark ? #ffa154 : #ab4b01);
-    out property <color> accent-ink: use-dynamic-accent ? dynamic-accent-ink : (dark ? #190c04 : #fefbf8);
-    out property <color> accent-soft: accent.with-alpha(dark ? 0.16 : 0.14);
-    out property <color> focus-ring: accent;
+    // ---- vidro ----
+    out property <color> glass-tint: dark ? #343539bd : #fbfcfd8a;   // cromo: barra, busca, mini-player, cabeçalho recolhido, botões sobre capa
+    out property <color> glass-tint-sheet: dark ? #313336c2 : #f9fafb9e;   // folhas (menu, playlists)
+    out property <color> glass-solid: dark ? #16171a : #fcfdfe;   // Reduzir transparência e renderer sem desfoque
+    out property <color> glass-edge-hi: dark ? #ffffff75 : #ffffffe6;   // fio de luz, topo
+    out property <color> glass-edge-lo: dark ? #ffffff1a : #0f121714;   // fio de luz, base
+    out property <color> glass-sheen: dark ? #ffffff24 : #ffffff8c;   // brilho no terço superior (some no meio)
+    out property <color> glass-shadow: dark ? #00000180 : #0f121729;   // sombra do painel
+    out property <length> glass-blur: 32px;
+    out property <length> glass-blur-sheet: 40px;
+    out property <length> glass-blur-console: 24px;
 
-    // ---- palco vivo (fundo ambiente) e matiz do vidro: o Rust escreve as duas variantes a partir do acento da capa
-    //      (DESIGN.md §3.5: stage = fórmula [L, C, dh] sobre o matiz); sem capa tocando valem os padrões em âmbar.
-    in-out property <color> stage-a-dark: #944f04;
-    in-out property <color> stage-a-light: #fec396;
-    out property <color> stage-a: dark ? stage-a-dark : stage-a-light;
-    in-out property <color> stage-b-dark: #a20222;
-    in-out property <color> stage-b-light: #ffbebb;
-    out property <color> stage-b: dark ? stage-b-dark : stage-b-light;
-    in-out property <color> stage-c-dark: #00555c;
-    in-out property <color> stage-c-light: #ace7ee;
-    out property <color> stage-c: dark ? stage-c-dark : stage-c-light;
-    in-out property <color> stage-d-dark: #625101;
-    in-out property <color> stage-d-light: #eedea1;
-    out property <color> stage-d: dark ? stage-d-dark : stage-d-light;
-    in-out property <color> glass-tint-dark: #331702;
-    in-out property <color> glass-tint-light: #fffbf4;
-    out property <color> glass-tint: dark ? glass-tint-dark : glass-tint-light;
+    // ---- sobre capas e no player (igual nos dois temas) ----
+    out property <color> media-ink: #f9fafc;
+    out property <color> media-plate: #0c0d0f99;
+    out property <color> media-console: #08090b;
+    out property <color> media-scrim: #0303044c;
+    out property <color> media-well: #0303044c;
+    out property <color> media-track: #ffffff42;
+    out property <color> media-edge-hi: #ffffff57;
+    out property <color> media-edge-lo: #ffffff0f;
+    out property <color> media-accent: #ff8f68;
+    out property <color> media-shadow: #00000166;
+    out property <float> media-dim-min: 0.24;
+    out property <float> media-dim-max: 0.64;
 
-    // ---- paleta (claro/escuro) -----------------------------------------------------------------
-    out property <color> bg: dark ? #120904 : #f5eee0;
-    out property <color> surface: dark ? #211208 : #ece9e2;
-    out property <color> surface-2: dark ? #2f1d10 : #e3dfd8;
-    out property <color> surface-3: dark ? #402b1c : #d8d4cc;
-    out property <color> ink: dark ? #faf8f5 : #1a1511;
-    out property <color> ink-2: dark ? #e1ddd8 : #47413c;
-    out property <color> ink-3: dark ? #cac3bc : #554e49;
-    out property <color> ink-disabled: dark ? #8c857f : #97918c;
-    out property <color> line: dark ? #ffffff24 : #1a15111a;
-    out property <color> line-strong: dark ? #ffffff42 : #1a151133;
-    out property <color> success: dark ? #61da92 : #037441;
-    out property <color> warning: dark ? #edc14d : #8d5e05;
-    out property <color> danger: dark ? #fd736d : #ba2b2e;
-    out property <color> glass-solid: dark ? #2e1a0c : #f8f5ee;
-    out property <color> glass-solid-strong: dark ? #281508 : #fbf8f2;
-    out property <color> glass-edge: dark ? #ffffff75 : #fffffff2;
-    out property <color> glass-edge-low: dark ? #ffffff1a : #ffffff66;
-    out property <color> glass-sheen: dark ? #ffffff24 : #ffffff99;
-    out property <color> shadow: dark ? #05010099 : #683b184c;
-    out property <color> ambient-scrim: dark ? #270f0080 : #f4ead58c;
-    out property <color> stage-base: dark ? #270f00 : #f4ead5;
-    out property <color> glass-solid-3: dark ? #221106 : #fefcf7;
-    out property <color> scrim-bottom: dark ? #0e0300c7 : #f4ead5cc;
-    out property <color> glass-fill: glass-tint.with-alpha(dark ? 0.40 : 0.52);
-    out property <color> glass-fill-strong: glass-tint.with-alpha(dark ? 0.56 : 0.66);
-    out property <color> glass-fill-3: glass-tint.with-alpha(dark ? 0.72 : 0.80);
-    // blur por nível de profundidade (0 quando não há blur: renderer software ou reduzir transparência)
-    out property <length> glass-blur-1: glass-live ? 20px : 0px;
-    out property <length> glass-blur-2: glass-live ? 32px : 0px;
-    out property <length> glass-blur-3: glass-live ? 40px : 0px;
-    out property <length> glass-blur-radius: glass-blur-1;          // legado v1 = nível 1
-    out property <length> glass-blur-strong-radius: glass-blur-2;   // legado v1 = nível 2
-    out property <length> glass-blur-light-radius: glass-live ? 16px : 0px;
-    /// fundo do painel por nível: translúcido com blur ao vivo; sólido sem blur.
-    out property <color> glass-bg: glass-live ? glass-fill : glass-solid;
-    out property <color> glass-bg-strong: glass-live ? glass-fill-strong : glass-solid-strong;
-    out property <color> glass-bg-3: glass-live ? glass-fill-3 : glass-solid-3;
-    out property <length> glass-shadow-blur-1: 24px;
-    out property <length> glass-shadow-y-1: 8px;
-    out property <length> glass-shadow-blur-2: 32px;
-    out property <length> glass-shadow-y-2: 12px;
-    out property <length> glass-shadow-blur-3: 56px;
-    out property <length> glass-shadow-y-3: 24px;
-    out property <float> ambient-opacity: dark ? 0.5 : 0.35;
+    // ---- tipo (Inter; pesos 400, 600, 700) ----
+    out property <string> font: "Inter";
+    out property <string> font-display: "Inter Display";
+    out property <length> text-xs: 12px;   // rótulo de aba, selo (linha 16)
+    out property <length> text-sm: 13px;   // meta, legenda (linha 18)
+    out property <length> text-md: 15px;   // linha secundária, botão (linha 20)
+    out property <length> text-lg: 17px;   // corpo, título de linha (linha 22)
+    out property <length> text-xl: 22px;   // título de seção, título de folha (linha 28)
+    out property <length> text-xxl: 28px;   // título do player em telas largas (linha 34)
+    out property <length> text-xxxl: 34px;   // título grande (linha 40)
 
-    // ---- imersivo (player em tela cheia): independe do tema --------------------------------------
-    out property <color> im-ink: #faf8f5;
-    out property <color> im-ink-2: #ffffffdb;
-    out property <color> im-ink-3: #ffffffbd;
-    out property <color> im-track: #ffffff3d;
-    out property <color> im-control-fill: #00000042;
-    out property <color> im-control-fill-active: #ffffff33;
-    out property <color> im-control-edge: #ffffff2e;
-    out property <color> im-scrim-top: #0000001a;
-    out property <color> im-scrim-mid: #00000000;
-    out property <color> im-scrim-bottom: #000000b8;
-    out property <float> im-base-darken: 0.46;
-
-    // ---- tipografia ----------------------------------------------------------------------------
-    out property <string> font-sans: "Hanken Grotesk";
-    out property <string> font-mono: "Geist Mono";
-    out property <length> fs-large-title: 34px;
-    out property <length> lh-large-title: 40px;
-    out property <int> fw-large-title: 700;
-    out property <length> ls-large-title: -0.6px;
-    out property <length> fs-title-1: 28px;
-    out property <length> lh-title-1: 34px;
-    out property <int> fw-title-1: 700;
-    out property <length> ls-title-1: -0.4px;
-    out property <length> fs-title-2: 22px;
-    out property <length> lh-title-2: 28px;
-    out property <int> fw-title-2: 600;
-    out property <length> ls-title-2: -0.2px;
-    out property <length> fs-headline: 17px;
-    out property <length> lh-headline: 22px;
-    out property <int> fw-headline: 600;
-    out property <length> ls-headline: 0px;
-    out property <length> fs-body: 16px;
-    out property <length> lh-body: 22px;
-    out property <int> fw-body: 400;
-    out property <length> ls-body: 0px;
-    out property <length> fs-callout: 15px;
-    out property <length> lh-callout: 20px;
-    out property <int> fw-callout: 400;
-    out property <length> ls-callout: 0px;
-    out property <length> fs-subhead: 14px;
-    out property <length> lh-subhead: 18px;
-    out property <int> fw-subhead: 400;
-    out property <length> ls-subhead: 0px;
-    out property <length> fs-caption: 12px;
-    out property <length> lh-caption: 16px;
-    out property <int> fw-caption: 600;
-    out property <length> ls-caption: 0.1px;
-    out property <length> fs-player-title: 26px;
-    out property <length> lh-player-title: 32px;
-    out property <int> fw-player-title: 700;
-    out property <length> ls-player-title: -0.4px;
-    out property <length> fs-player-title-desktop: 36px;
-    out property <length> lh-player-title-desktop: 42px;
-    out property <int> fw-player-title-desktop: 700;
-    out property <length> ls-player-title-desktop: -0.6px;
-    out property <length> fs-timecode: 13px;
-    out property <length> lh-timecode: 16px;
-    out property <int> fw-timecode: 500;
-    out property <length> ls-timecode: 0px;
-    out property <length> fs-badge: 12px;
-    out property <length> lh-badge: 14px;
-    out property <int> fw-badge: 500;
-    out property <length> ls-badge: 0px;
-
-    // ---- espaçamento / raios / tamanhos --------------------------------------------------------
-    out property <length> sp-1: 4px;
-    out property <length> sp-2: 8px;
-    out property <length> sp-3: 12px;
-    out property <length> sp-4: 16px;
-    out property <length> sp-5: 20px;
-    out property <length> sp-6: 24px;
-    out property <length> sp-7: 32px;
-    out property <length> sp-8: 40px;
-    out property <length> sp-9: 56px;
-    out property <length> sp-10: 80px;
-    out property <length> r-xs: 6px;
-    out property <length> r-sm: 10px;
-    out property <length> r-md: 14px;
-    out property <length> r-lg: 20px;
-    out property <length> r-xl: 28px;
-    out property <length> r-full: 999px;
-    out property <length> hit: 48px;
-    out property <length> hit-comfortable: 56px;
-    out property <length> icon: 24px;
-    out property <length> icon-sm: 20px;
-    out property <length> icon-lg: 28px;
+    // ---- espaço, raio, tamanho ----
+    out property <length> s-xxxs: 2px;
+    out property <length> s-xxs: 4px;
+    out property <length> s-xs: 8px;
+    out property <length> s-sm: 12px;
+    out property <length> s-md: 16px;
+    out property <length> s-lg: 20px;
+    out property <length> s-xl: 24px;
+    out property <length> s-xxl: 32px;
+    out property <length> s-xxxl: 48px;
+    out property <length> s-xxxxl: 64px;
+    out property <length> r-thumb: 8px;
+    out property <length> r-cover: 12px;
+    out property <length> r-group: 14px;
+    out property <length> r-plate: 16px;
+    out property <length> r-card: 22px;
+    out property <length> r-sheet: 32px;
+    out property <length> r-pill: 999px;
+    out property <length> tap: 48px;
     out property <length> row-h: 64px;
-    out property <length> row-cover: 48px;
-    out property <length> thumb-radius: 10px;
-    out property <length> card-radius: 18px;
-    out property <length> hero-card-w-mobile: 300px;
-    out property <length> hero-card-h-mobile: 380px;
-    out property <length> hero-card-w-desktop: 380px;
-    out property <length> hero-card-h-desktop: 460px;
-    out property <length> dock-h: 64px;
-    out property <length> dock-radius: 32px;
-    out property <length> dock-search: 56px;
-    out property <length> mini-h: 64px;
-    out property <length> mini-radius: 24px;
-    out property <length> sidebar-w: 248px;
-    out property <length> sidebar-w-compact: 80px;
-    out property <length> gutter-mobile: 16px;
-    out property <length> gutter-desktop: 32px;
-    out property <length> content-max: 1180px;
-    out property <length> player-cover-mobile: 358px;
-    out property <length> player-cover-desktop: 440px;
-    out property <length> player-cover-radius: 28px;
-    out property <length> play-main: 76px;
-    out property <length> play-main-desktop: 72px;
-    out property <length> progress-h: 8px;
-    out property <length> progress-h-active: 12px;
-    out property <length> slider-thumb: 22px;
-    out property <length> focus-ring-w: 2px;
-    out property <length> focus-offset: 2px;
-    out property <length> hit-min: 44px;
-    out property <length> dock-margin: 12px;
-    out property <length> topbar-h: 56px;
-    out property <length> sheet-radius: 32px;
-    out property <length> grabber-w: 36px;
-    out property <length> grabber-h: 4px;
-    out property <length> rail-w: 88px;
-    out property <length> rail-w-wide: 248px;
-    out property <length> nowbar-h: 84px;
-    out property <length> chip-h: 40px;
-    out property <length> field-h: 56px;
-    out property <length> badge-h: 24px;
-    out property <length> collection-gap: 12px;
+    out property <length> bar-h: 64px;
+    out property <length> orb: 64px;
+    out property <length> mini-h: 60px;
+    out property <length> header-h: 48px;
+    out property <length> control-h: 48px;
+    out property <length> control-s-h: 36px;
 
-    // ---- elevação (drop-shadow-blur / -offset-y; a cor é `shadow` × strength) ------------------
-    out property <length> e1-blur: 8px;
-    out property <length> e1-y: 2px;
-    out property <color> e1-color: shadow.with-alpha(dark ? 0.25 : 0.14);
-    out property <length> e2-blur: 24px;
-    out property <length> e2-y: 8px;
-    out property <color> e2-color: shadow.with-alpha(dark ? 0.35 : 0.20);
-    out property <length> e3-blur: 48px;
-    out property <length> e3-y: 20px;
-    out property <color> e3-color: shadow.with-alpha(dark ? 0.45 : 0.25);
-
-    // ---- movimento (reduzir movimento zera as durações) ----------------------------------------
-    out property <duration> dur-micro: reduce-motion ? 0ms : 120ms;
-    out property <duration> dur-short: reduce-motion ? 0ms : 200ms;
-    out property <duration> dur-medium: reduce-motion ? 0ms : 320ms;
-    out property <duration> dur-long: reduce-motion ? 0ms : 480ms;
-    // ease-out: cubic-bezier(0.22, 0.9, 0.28, 1.0)  (Slint exige literal em `easing:`; copie daqui)
-    // ease-in: cubic-bezier(0.5, 0.0, 0.9, 0.4)  (Slint exige literal em `easing:`; copie daqui)
-    // ease-in-out: cubic-bezier(0.45, 0.0, 0.2, 1.0)  (Slint exige literal em `easing:`; copie daqui)
+    // ---- movimento (com Reduzir movimento os deslocamentos somem; fica só o esmaecer curto) ----
+    out property <duration> dur-micro: 120ms;
+    out property <duration> dur-short: reduce-motion ? 120ms : 220ms;
+    out property <duration> dur-long: reduce-motion ? 120ms : 420ms;
+    // curva de chegada, tipo mola sem ressalto: cubic-bezier(0.2, 0.9, 0.2, 1)
 }
