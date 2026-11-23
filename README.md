@@ -6,7 +6,7 @@ Repositório: `cuscusdc/altty`. Mapa mental do autor: [`docs/mindmap/Kazzu.canva
 
 ## Estado
 
-Etapa 1 (Fundação) concluída e Etapa 2 em andamento: motor de áudio bit-perfect, biblioteca local, design system e UI Slint v2 (mobile-first, vidro real) com **YouTube Music como provedor padrão, sem login** (Início, busca, reprodução, rádio, curtidas e playlists locais). APK Android: ver [`docs/ANDROID.md`](docs/ANDROID.md). Ver [`docs/BRIEF.md`](docs/BRIEF.md).
+Etapa 1 (Fundação) concluída e Etapa 2 em andamento: motor de áudio bit-perfect, biblioteca local, design system e UI Slint v4 (vidro sobre capas, mobile-first e desktop com barra lateral) com **YouTube Music como provedor padrão, sem login** (Início, busca, reprodução, rádio, curtidas e playlists locais). APK Android: ver [`docs/ANDROID.md`](docs/ANDROID.md). Ver [`docs/BRIEF.md`](docs/BRIEF.md).
 
 > **Atenção ao atualizar:** o banco da biblioteca é agora **v2** (playlists com faixas do YouTube Music). Ele **não abre em versões antigas do app** e não há downgrade; faça backup da pasta de dados antes de atualizar (ver `docs/library.md`).
 

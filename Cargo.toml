@@ -11,3 +11,10 @@ repository = "https://github.com/cuscusdc/altty"
 [profile.release]
 lto = "thin"
 codegen-units = 1
+
+# O desfoque e o redimensionamento das capas (`kazzu-app::art`, genéricos do `image` instanciados no próprio kazzu-app) levam
+# ~0,5 s por faixa sem otimização e deixavam os testes do controller lentos e instáveis.
+[profile.dev.package.image]
+opt-level = 3
+[profile.dev.package.kazzu-app]
+opt-level = 2
