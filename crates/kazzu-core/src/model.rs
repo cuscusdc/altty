@@ -237,6 +237,8 @@ pub struct Artist {
     pub provider: ProviderKind,
     pub name: String,
     pub image: Option<CoverRef>,
+    pub genres: Vec<String>,
+    pub popularity: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
