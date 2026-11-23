@@ -3,20 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Ajustes — Kazzu</title>
+<title>Kazzu: Ajustes</title>
 <meta name="color-scheme" content="dark light">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/tokens.css">
 <link rel="stylesheet" href="assets/covers.css">
-<link rel="stylesheet" href="assets/stage.css">
 <link rel="stylesheet" href="assets/kazzu.css">
 </head>
-<body class="dyn cv-07" data-screen="settings" data-cover="07">
+<body class="cv-07" data-screen="settings" data-cover="07">
 <a class="skip" href="#main">Ir para o conteúdo</a>
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
 <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.2 12 4l8 7.2V19a1.5 1.5 0 0 1-1.5 1.5H15V15H9v5.5H5.5A1.5 1.5 0 0 1 4 19z"/></symbol>
 <symbol id="i-explore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="m15.6 8.4-1.9 5.3-5.3 1.9 1.9-5.3z"/></symbol>
 <symbol id="i-library" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9.5" width="16" height="10.5" rx="2.5"/><path d="M7 6h10M9.5 2.75h5"/></symbol>
+<symbol id="i-home-fill" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.2 12 4l8 7.2V19a1.5 1.5 0 0 1-1.5 1.5H15V15H9v5.5H5.5A1.5 1.5 0 0 1 4 19z"/></symbol>
+<symbol id="i-explore-fill" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="0.5" stroke-linejoin="round"><path fill-rule="evenodd" d="M12 3.25a8.75 8.75 0 1 0 0 17.5 8.75 8.75 0 0 0 0-17.5zM15.6 8.4l-1.9 5.3-5.3 1.9 1.9-5.3z"/></symbol>
+<symbol id="i-library-fill" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9.5" width="16" height="10.5" rx="2.5"/><path d="M7 6h10M9.5 2.75h5"/></symbol>
 <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.25"/><path d="m15.2 15.2 4.8 4.8"/></symbol>
 <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
 <symbol id="i-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 6 6 6-6 6"/></symbol>
@@ -69,40 +71,44 @@
 <symbol id="i-badge-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="m8.2 12.3 2.6 2.6 5-5.4"/></symbol>
 <symbol id="i-cloud-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l16 16M8.6 8.2A5 5 0 0 0 7 18h10.6M17 10.2a4 4 0 0 1 3 3.8"/></symbol>
 </svg>
-<div class="stage" aria-hidden="true"><img class="cv" src="covers/cover-07.svg" alt="" width="640" height="640" data-stage></div>
-<aside class="rail-nav glass g2" aria-label="Navegação principal">
+<aside class="rail-nav glass g1" aria-label="Navegação principal">
   <a class="mk" href="home.html" aria-label="Kazzu, ir para Início"><img class="mark-sm th-d" src="../assets/kazzu-mark-dark.svg" alt="" width="36" height="36"><img class="mark-sm th-l" src="../assets/kazzu-mark-light.svg" alt="" width="36" height="36"><img class="logo-w th-d" src="../assets/kazzu-wordmark-dark.svg" alt="Kazzu" width="108" height="28"><img class="logo-w th-l" src="../assets/kazzu-wordmark-light.svg" alt="Kazzu" width="108" height="28"></a>
   <nav><a class="tab" href="home.html"><svg class="ic " aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a><a class="tab" href="explore.html"><svg class="ic " aria-hidden="true"><use href="#i-explore"/></svg><span>Explorar</span></a><a class="tab" href="library.html"><svg class="ic " aria-hidden="true"><use href="#i-library"/></svg><span>Biblioteca</span></a><a class="tab" href="search.html"><svg class="ic " aria-hidden="true"><use href="#i-search"/></svg><span>Buscar</span></a></nav>
   <div class="sp"></div>
   <a class="tab" href="settings.html" aria-current="page"><svg class="ic " aria-hidden="true"><use href="#i-gear"/></svg><span>Ajustes</span></a>
 </aside><main class="page" id="main">
-  <header class="topbar"><a class="btn-ic glass" href="home.html" aria-label="Voltar"><svg class="ic " aria-hidden="true"><use href="#i-back"/></svg></a><h1 class="t-title1" style="margin-right:auto;margin-left:12px">Ajustes</h1></header>
+  <header class="topbar" data-hdr>
+    <a class="btn-ic glass back" href="home.html" aria-label="Voltar"><svg class="ic " aria-hidden="true"><use href="#i-back"/></svg></a>
+    <span class="inline-title" aria-hidden="true">Ajustes</span>
+    <div class="actions"></div>
+  </header>
+  <div class="lt-row"><h1 class="t-large lt">Ajustes</h1></div>
   <section class="section" aria-labelledby="g1"><h2 class="group-h" id="g1">Fontes de música</h2>
-    <div class="group glass">
+    <div class="group cell">
       <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-cloud"/></svg></span><span><span class="t" style="display:block">YouTube Music</span><span class="d">Ativo e padrão. Sem login.</span></span><span class="tag ok">Ativo</span></div>
-      <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-folder"/></svg></span><span><span class="t" style="display:block">Arquivos neste aparelho</span><span class="d">1 pasta, 2 músicas</span></span><a class="btn btn-glass" href="states.html#s=permission" style="min-height:44px">Adicionar pasta</a></div>
+      <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-folder"/></svg></span><span><span class="t" style="display:block">Arquivos neste aparelho</span><span class="d">1 pasta, 2 músicas</span></span><a class="btn btn-glass" href="states.html#s=permission">Adicionar pasta</a></div>
       <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-plus"/></svg></span><span><span class="t" style="display:block">Outras fontes</span><span class="d">Spotify, Tidal e Qobuz entram depois, só se você ligar.</span></span><span class="tag">Em breve</span></div>
     </div></section>
   <section class="section" aria-labelledby="g2"><h2 class="group-h" id="g2">Áudio</h2>
-    <div class="group glass">
+    <div class="group cell">
       <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-wave"/></svg></span><span><span class="t" style="display:block">Qualidade</span><span class="d">Original, sem equalizador. O que a fonte entrega é o que toca.</span></span><span class="tag">Original</span></div>
       <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-eq"/></svg></span><span><span class="t" style="display:block">Equalizador</span><span class="d">Desligado. Desligado significa sinal intacto.</span></span><span class="tag">Em breve</span></div>
       <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-download"/></svg></span><span><span class="t" style="display:block">Baixar só no Wi-Fi</span><span class="d">Evita gastar seu plano de dados.</span></span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Baixar só no Wi-Fi"></button></div>
     </div></section>
   <section class="section" aria-labelledby="g3"><h2 class="group-h" id="g3">Aparência</h2>
-    <div class="group glass">
+    <div class="group cell">
       <div class="set-row" style="grid-template-columns:1fr"><div role="radiogroup" aria-label="Tema" class="seg lite"><button type="button" role="radio" aria-checked="false" data-theme="auto">Automático</button><button type="button" role="radio" aria-checked="true" data-theme="dark">Escuro</button><button type="button" role="radio" aria-checked="false" data-theme="light">Claro</button></div></div>
-      <div class="set-row" style="grid-template-columns:1fr"><div role="radiogroup" aria-label="Cor de destaque" class="seg lite"><button type="button" role="radio" aria-checked="true" data-accent="dyn">Da capa</button><button type="button" role="radio" aria-checked="false" data-accent="brand">Âmbar Kazzu</button></div></div>
+      <div class="set-row" style="grid-template-columns:1fr"><div role="radiogroup" aria-label="Cor de destaque" class="seg lite"><button type="button" role="radio" aria-checked="false" data-accent="dyn">Da capa</button><button type="button" role="radio" aria-checked="true" data-accent="brand">Âmbar Kazzu</button></div></div>
       <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-moon"/></svg></span><span><span class="t" style="display:block">Reduzir transparência</span><span class="d">Troca o vidro por painéis sólidos. Ajuda em telas lentas e em baixa visão.</span></span><button class="switch" type="button" role="switch" aria-checked="false" aria-label="Reduzir transparência" data-setting=reduce-transparency></button></div>
       <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-sliders"/></svg></span><span><span class="t" style="display:block">Reduzir movimento</span><span class="d">Corta animações e a troca suave de capas.</span></span><button class="switch" type="button" role="switch" aria-checked="false" aria-label="Reduzir movimento" data-setting=reduce-motion></button></div>
     </div></section>
   <section class="section" aria-labelledby="g4"><h2 class="group-h" id="g4">Privacidade</h2>
-    <div class="group glass">
+    <div class="group cell">
       <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-shield"/></svg></span><span><span class="t" style="display:block">Sem telemetria</span><span class="d">O Kazzu só recebe dados. Nada sobre você sai do aparelho. Não dá para desligar.</span></span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Sem telemetria, sempre ligado" aria-disabled=true></button></div>
       <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-lock"/></svg></span><span><span class="t" style="display:block">Histórico de escuta</span><span class="d">Fica só neste aparelho.</span></span><button class="btn btn-glass" type="button" style="min-height:44px">Apagar</button></div>
     </div></section>
   <section class="section" aria-labelledby="g5"><h2 class="group-h" id="g5">Sobre</h2>
-    <div class="group glass">
+    <div class="group cell">
       <div class="set-row"><span class="lead"><svg class="ic " aria-hidden="true"><use href="#i-info"/></svg></span><span><span class="t" style="display:block">Kazzu 0.1</span><span class="d">Licença GPL-3.0, código aberto.</span></span><a class="btn-ic" href="settings.html" aria-label="Ver licenças"><svg class="ic " aria-hidden="true"><use href="#i-chevron-right"/></svg></a></div>
     </div></section>
 </main>

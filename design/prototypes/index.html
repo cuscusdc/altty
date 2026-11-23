@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="pt-BR" data-theme="dark">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Protótipos — Kazzu v2</title>
+<title>Protótipos — Kazzu v3</title>
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="assets/tokens.css"><link rel="stylesheet" href="assets/covers.css"><link rel="stylesheet" href="assets/stage.css"><link rel="stylesheet" href="assets/kazzu.css">
+<link rel="stylesheet" href="assets/tokens.css"><link rel="stylesheet" href="assets/covers.css"><link rel="stylesheet" href="assets/kazzu.css">
 <style>
  body.hub{padding:24px 16px 64px;max-width:1560px;margin-inline:auto}
  .hub h1{font:700 28px/34px var(--font-sans)} .hub p{color:var(--ink-2);max-width:68ch;margin-top:6px}
@@ -20,11 +20,14 @@
  .f1280{width:960px;height:600px;border-radius:14px} .f1280 iframe{width:1280px;height:800px;transform:scale(.75)}
  @media (max-width:1000px){.f768,.f1280{display:none}
 </style></head>
-<body class="hub cv-07 dyn">
+<body class="hub cv-07">
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
 <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.2 12 4l8 7.2V19a1.5 1.5 0 0 1-1.5 1.5H15V15H9v5.5H5.5A1.5 1.5 0 0 1 4 19z"/></symbol>
 <symbol id="i-explore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="m15.6 8.4-1.9 5.3-5.3 1.9 1.9-5.3z"/></symbol>
 <symbol id="i-library" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9.5" width="16" height="10.5" rx="2.5"/><path d="M7 6h10M9.5 2.75h5"/></symbol>
+<symbol id="i-home-fill" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.2 12 4l8 7.2V19a1.5 1.5 0 0 1-1.5 1.5H15V15H9v5.5H5.5A1.5 1.5 0 0 1 4 19z"/></symbol>
+<symbol id="i-explore-fill" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="0.5" stroke-linejoin="round"><path fill-rule="evenodd" d="M12 3.25a8.75 8.75 0 1 0 0 17.5 8.75 8.75 0 0 0 0-17.5zM15.6 8.4l-1.9 5.3-5.3 1.9 1.9-5.3z"/></symbol>
+<symbol id="i-library-fill" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9.5" width="16" height="10.5" rx="2.5"/><path d="M7 6h10M9.5 2.75h5"/></symbol>
 <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.25"/><path d="m15.2 15.2 4.8 4.8"/></symbol>
 <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
 <symbol id="i-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 6 6 6-6 6"/></symbol>
@@ -77,14 +80,14 @@
 <symbol id="i-badge-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="m8.2 12.3 2.6 2.6 5-5.4"/></symbol>
 <symbol id="i-cloud-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l16 16M8.6 8.2A5 5 0 0 0 7 18h10.6M17 10.2a4 4 0 0 1 3 3.8"/></symbol>
 </svg>
-<div class="stage" aria-hidden="true"><img class="cv" src="covers/cover-07.svg" alt="" width="640" height="640"></div>
-<h1>Kazzu v2: protótipos mobile-first</h1>
+<h1>Kazzu v3: protótipos mobile-first (Apple-like)</h1>
 <p>Base em 390 e 360 px; depois tablet (768) e desktop (1280). O vidro usa <code>backdrop-filter</code> real. Cada tela abre sozinha e aceita <code>#theme=light|dark</code>, <code>#rt=1</code> (reduzir transparência), <code>#sat=0</code> (sem saturação, como no Slint) e <code>#c=01..10</code> (capa).</p>
 <div class="ctl" role="group" aria-label="Controles">
   <label class="sr-only" for="scr">Tela</label><select id="scr"><option value="home.html">Início</option><option value="explore.html">Explorar</option><option value="library.html">Biblioteca</option><option value="album.html">Álbum</option><option value="search.html">Buscar</option><option value="player.html">Player</option><option value="queue.html">Fila</option><option value="sheets.html">Folhas</option><option value="settings.html">Ajustes</option><option value="states.html">Estados</option></select>
   <button class="chip" type="button" data-hub="theme" aria-pressed="false">Tema claro</button>
   <button class="chip" type="button" data-hub="rt" aria-pressed="false">Sem transparência</button>
   <button class="chip" type="button" data-hub="sat" aria-pressed="false">Sem saturação (Slint)</button>
+  <a class="chip" href="glass-proof.html">Prova de vidro</a>
   <label class="sr-only" for="cvr">Capa</label><select id="cvr"><option value="01">Cidade Submersa</option><option value="02">Nove Horas</option><option value="03">Bruma</option><option value="04">Quadra 7</option><option value="05">Sal e Cinza</option><option value="06">Linha de Fuga</option><option value="07">Calor de Março</option><option value="08">Vidro Líquido</option><option value="09">Papel de Seda</option><option value="10">Fita Magnética</option></select>
 </div>
 <div class="frames" id="frames">

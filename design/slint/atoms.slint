@@ -1,83 +1,110 @@
-// Átomos de referência do design system do Kazzu (Slint 1.19). Compilados e conferidos no design; o kazzu-app deve
-// MOVER/ADAPTAR estes arquivos, não reinventar. Nada aqui chama Rust além de callbacks.
-// Receita do vidro: SLINT_SPEC.md §2.  Tokens: tokens.slint (gerado de tokens.json).
+// Átomos de referência do design system do Kazzu v3 (Apple-like, Slint 1.19). Compilados e renderizados no design
+// (design/tools/slint-shot); o kazzu-app deve MOVER/ADAPTAR estes arquivos, não reinventar. Nada aqui chama Rust além de callbacks.
+// Receita do vidro: DESIGN.md §6 e SLINT_SPEC.md §2.  Tokens: tokens.slint (gerado de tokens.json).
+//
+// v3 em uma frase: fundo NEUTRO, cor vem das CAPAS, e o cromo flutuante (barra, mini player, cabeçalho de rolagem, folhas,
+// legendas sobre capas) é VIDRO CLARO sobre o conteúdo que passa por trás. Sem malha de gradiente, sem vidro "esfumaçado" tingido.
 
 import { Theme } from "tokens.slint";
 
 // ---------------------------------------------------------------------------------------------
-// PALCO VIVO (v2): o fundo ambiente que dá ao vidro algo para desfocar. Malha de 4 manchões com o matiz da capa
-// (Theme.stage-a..d, calculados no Rust com a fórmula de DESIGN.md §3.5) + a própria capa em grande escala, já
-// desfocada e escurecida pelo Rust (96x96, sigma 4, saturação 1.35, brilho 0.72) + véu inferior.
-// Vai UMA vez, atrás de tudo, ocupando a janela inteira. Sem ele o vidro vira cartão escuro opaco (erro da v1).
+// FUNDO (v3). Neutro: preto verdadeiro / grafite no escuro, cinza-sistema no claro. Sem manchões coloridos.
+// `immersive` (SÓ no player): a capa pré-desfocada pelo Rust (96×96, σ 4) esticada em 150%, um véu escuro neutro e um degradê
+// inferior para o texto ter contraste. Sem capa: grafite. A cor do player é a da capa, nunca um laranja forçado.
 // ---------------------------------------------------------------------------------------------
 export component Stage inherits Rectangle {
-    in property <image> backdrop;         // capa pré-desfocada pelo Rust; vazia = só a malha
+    in property <image> backdrop;         // capa pré-desfocada pelo Rust; vazia = grafite
     in property <bool> has-cover: false;
-    in property <bool> show-cover: true;  // false com "Reduzir movimento" se o autor quiser palco estático
-    background: Theme.stage-base;
+    in property <bool> immersive: false;  // true só no player
+    background: immersive ? Theme.surface : Theme.bg;
     clip: true;
-    // manchão A (alto-esquerda), B (direita), C (meio-esquerda), D (rodapé): posições de tokens.json > stage.layout
-    Rectangle { width: max(parent.width, parent.height) * 1.3; height: self.width; x: parent.width * 0.12 - self.width / 2; y: parent.height * 0.08 - self.height / 2;
-        background: @radial-gradient(circle, Theme.stage-a 0%, Theme.stage-a.with-alpha(0.0) 70%); }
-    Rectangle { width: max(parent.width, parent.height) * 1.2; height: self.width; x: parent.width * 0.98 - self.width / 2; y: parent.height * 0.34 - self.height / 2;
-        background: @radial-gradient(circle, Theme.stage-b 0%, Theme.stage-b.with-alpha(0.0) 70%); }
-    Rectangle { width: max(parent.width, parent.height) * 1.2; height: self.width; x: parent.width * 0.10 - self.width / 2; y: parent.height * 0.72 - self.height / 2;
-        background: @radial-gradient(circle, Theme.stage-c 0%, Theme.stage-c.with-alpha(0.0) 70%); }
-    Rectangle { width: max(parent.width, parent.height) * 1.1; height: self.width; x: parent.width * 0.88 - self.width / 2; y: parent.height * 0.96 - self.height / 2;
-        background: @radial-gradient(circle, Theme.stage-d 0%, Theme.stage-d.with-alpha(0.0) 70%); }
-    if root.has-cover && root.show-cover : Image {
-        source: root.backdrop; image-fit: cover; opacity: Theme.ambient-opacity;
-        width: root.width * 1.5; height: root.height * 1.5; x: (root.width - self.width) / 2; y: (root.height - self.height) / 2 - root.height * 0.1;
+    if root.immersive && root.has-cover : Image {
+        source: root.backdrop; image-fit: ImageFit.cover;
+        width: root.width * 1.5; height: root.height * 1.5;
+        x: (root.width - self.width) / 2; y: (root.height - self.height) / 2 - root.height * 0.12;
     }
-    Rectangle { background: @linear-gradient(180deg, transparent 55%, Theme.stage-base.with-alpha(0.55) 100%); }
+    if root.immersive : Rectangle { background: Theme.im-veil; }
+    if root.immersive : Rectangle { background: @linear-gradient(180deg, Theme.im-scrim-top 0%, Theme.im-scrim-mid 30%, Theme.im-scrim-bottom 100%); }
 }
 
 // ---------------------------------------------------------------------------------------------
-// VIDRO (v2): 3 níveis de profundidade. Receita, de baixo para cima:
-//   1. backdrop-blur (20 / 32 / 40)           2. fill translúcido = glass-tint (matiz da capa) com alfa por nível
-//   3. brilho superior (gradiente 50% da altura)  4. borda de 1 px em GRADIENTE de luz (forte no canto superior esquerdo)
-//   5. fio especular de 1 px no topo           6. sombra (e por nível)
-// Nível 1 = conteúdo (cartões, grupos)  | 2 = cromo flutuante (dock, mini player, campo)  | 3 = folhas, menus, diálogos.
-// Quanto mais alto, mais opaco e mais sombra (contraste AA garantido, ver tokens.json/gen_tokens.py).
-// Sem blur (renderer software) ou Theme.reduce-transparency: fill sólido, blur 0, mesma hierarquia (Theme.glass-live).
-// Limites: <= Theme "max-blurred-layers" (6) painéis com blur visíveis; nunca dentro de ListView; nunca aninhar
-// GlassPanel dentro de GlassPanel (o filho borraria o pai, não o palco): filhos usam `Theme.ink.with-alpha(0.12)` simples.
+// VIDRO (v3): 3 materiais Apple-like. Receita, de baixo para cima:
+//   1. backdrop-blur forte (24 / 32 / 40)
+//   2. SOMBREADO neutro (preto 36–52% no escuro; nenhum no claro)   ← garante contraste sem tingir
+//   3. TINT claro translúcido (branco 10–20% no escuro; 55–75% no claro)  ← é isto que faz ler "vidro", não "fumaça"
+//   4. brilho especular: gradiente branco no topo (52% da altura)
+//   5. borda de luz de 1 px em GRADIENTE (forte no canto superior esquerdo) + fio especular de 1 px no topo
+//   6. sombra neutra do nível
+// Nível 1 = fino (legendas sobre capa, banners, botões) | 2 = regular (barra, mini player, NowBar, cabeçalho) | 3 = espesso (folhas).
+// SÓ lê como vidro com CONTEÚDO COLORIDO passando por trás: o cromo fica sempre sobre a lista/capas (DESIGN.md §6.1).
+// Sem blur (renderer software) ou Theme.reduce-transparency: fundo sólido (glass-solid*), tint some, mesma hierarquia.
+// Limites: <= 6 painéis com blur visíveis; nunca dentro de ListView; nunca aninhar GlassPanel (o filho borraria o pai).
 // ---------------------------------------------------------------------------------------------
 export component GlassPanel inherits Rectangle {
     in property <length> radius: Theme.r-lg;
-    in property <int> level: 1;            // 1 conteúdo | 2 cromo flutuante | 3 folhas e menus
-    in property <bool> strong: false;      // LEGADO v1: equivale a level 2
-    in property <bool> light-blur: false;  // LEGADO v1: botões pequenos (blur 16)
+    in property <int> level: 1;            // 1 fino | 2 regular | 3 espesso
     in property <bool> elevated: true;     // sombra do nível
+    in property <bool> light-blur: false;  // botões pequenos (blur 16)
 
-    property <int> lv: root.strong ? 2 : root.level;
+    property <int> lv: root.level;
     border-radius: radius;
-    background: lv == 3 ? Theme.glass-bg-3 : (lv == 2 ? Theme.glass-bg-strong : Theme.glass-bg);
+    background: lv == 3 ? Theme.glass-bg-3 : (lv == 2 ? Theme.glass-bg-2 : Theme.glass-bg-1);
     backdrop-blur: light-blur ? Theme.glass-blur-light-radius : (lv == 3 ? Theme.glass-blur-3 : (lv == 2 ? Theme.glass-blur-2 : Theme.glass-blur-1));
-    // borda de luz em gradiente (FemtoVG/Skia aceitam brush em border-color). Se um renderer ignorar, cai na cor de repouso.
     border-width: 1px;
-    border-color: @linear-gradient(155deg, Theme.glass-edge 0%, Theme.glass-edge-low 34%, Theme.glass-edge-low 66%, Theme.glass-edge.with-alpha(0.4) 100%);
+    border-color: @linear-gradient(155deg, Theme.glass-edge 0%, Theme.glass-edge-low 34%, Theme.glass-edge-low 66%, Theme.glass-edge.with-alpha(0.45) 100%);
     drop-shadow-blur: elevated ? (lv == 3 ? Theme.glass-shadow-blur-3 : (lv == 2 ? Theme.glass-shadow-blur-2 : Theme.glass-shadow-blur-1)) : 0px;
     drop-shadow-offset-y: lv == 3 ? Theme.glass-shadow-y-3 : (lv == 2 ? Theme.glass-shadow-y-2 : Theme.glass-shadow-y-1);
     drop-shadow-color: Theme.e2-color;
     clip: true;
 
-    // brilho superior: gradiente na metade de cima
+    // tint claro translúcido
+    Rectangle { background: lv == 3 ? Theme.glass-tint-3 : (lv == 2 ? Theme.glass-tint-2 : Theme.glass-tint-1); opacity: Theme.glass-tint-on; }
+    // brilho superior (gradiente na metade de cima)
     Rectangle {
-        x: 0px; y: 0px; width: parent.width; height: parent.height * 0.52;
+        x: 0px; y: 0px; width: parent.width; height: parent.height * 0.52; opacity: Theme.glass-tint-on;
         background: @linear-gradient(180deg, Theme.glass-sheen 0%, transparent 100%);
     }
-    // brilho especular: fio de 1px no topo, esvaecendo nas pontas
+    // fio especular de 1 px no topo, esvaecendo nas pontas
     Rectangle {
-        x: root.radius; y: 0px; width: max(0px, parent.width - 2 * root.radius); height: 1px;
+        x: root.radius; y: 0px; width: max(0px, parent.width - 2 * root.radius); height: 1px; opacity: Theme.glass-tint-on;
         background: @linear-gradient(90deg, transparent 0%, Theme.glass-edge 22%, Theme.glass-edge 78%, transparent 100%);
     }
     @children
 }
 
 // ---------------------------------------------------------------------------------------------
-// "Vidro leve": chip, pílula de ação, campo. SEM blur próprio (nunca aninhar blur): translúcido sobre o palco.
-// `selected`: preenchido com Theme.ink (chip ativo, texto Theme.bg).
+// Degradê de borda de rolagem (scroll edge): o conteúdo some suavemente sob o cromo, garante contraste do texto do vidro sobre
+// capas claras. `top: true` desce do topo; senão sobe do rodapé. Cor = Theme.edge-fade (preto / cinza-sistema).
+// ---------------------------------------------------------------------------------------------
+export component EdgeFade inherits Rectangle {
+    in property <bool> top: false;
+    in property <float> strength: 0.55;
+    background: top ? @linear-gradient(180deg, Theme.edge-fade.with-alpha(root.strength) 0%, Theme.edge-fade.with-alpha(0.0) 100%)
+                    : @linear-gradient(180deg, Theme.edge-fade.with-alpha(0.0) 0%, Theme.edge-fade.with-alpha(root.strength * 0.6) 45%, Theme.edge-fade.with-alpha(root.strength) 100%);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Separador fino de listas agrupadas (1 px, recuado até o texto).
+// ---------------------------------------------------------------------------------------------
+export component Divider inherits Rectangle {
+    in property <length> inset: 0px;
+    height: 1px;
+    Rectangle { x: root.inset; width: parent.width - root.inset; background: Theme.line; }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Lista agrupada (inset grouped): cartão opaco de cantos grandes (raio 20), separadores finos. NÃO é vidro: o vidro é só o que flutua.
+// ---------------------------------------------------------------------------------------------
+export component GroupCard inherits Rectangle {
+    in property <length> radius: Theme.group-radius;
+    background: Theme.surface;
+    border-radius: radius;
+    clip: true;
+    VerticalLayout { spacing: 0px; @children }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Pílula de neutra translúcida (chip). Sem blur próprio. `selected`: tinta invertida (texto Theme.bg).
 // ---------------------------------------------------------------------------------------------
 export component Chip inherits Rectangle {
     in property <string> text;
@@ -85,22 +112,20 @@ export component Chip inherits Rectangle {
     callback clicked();
     height: Theme.chip-h; border-radius: self.height / 2;
     width: lbl.preferred-width + 32px;
-    background: selected ? Theme.ink : Theme.ink.with-alpha(0.12);
-    border-width: selected ? 0px : 1px; border-color: Theme.ink.with-alpha(0.16);
+    background: selected ? Theme.ink : Theme.fill;
     accessible-role: button; accessible-label: text; accessible-checkable: true; accessible-checked: selected;
     accessible-action-default => { root.clicked(); }
-    lbl := Text { text: root.text; font-size: Theme.fs-subhead; font-weight: Theme.fw-caption; color: root.selected ? Theme.bg : Theme.ink; x: 16px; y: (parent.height - self.height) / 2; }
+    lbl := Text { text: root.text; font-family: Theme.font-sans; font-size: Theme.fs-subhead; font-weight: 600; letter-spacing: Theme.ls-subhead; color: root.selected ? Theme.bg : Theme.ink; x: 16px; y: (parent.height - self.height) / 2; }
     // alvo de toque de 48 (o chip tem 40): área invisível de 4px acima e abaixo
     TouchArea { y: -4px; height: parent.height + 8px; mouse-cursor: pointer; clicked => { root.clicked(); } }
     fs := FocusScope { focus-on-click: false;
         key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; }
     }
-    // anel de foco por dentro da pílula (não é cortado por clip nem por rolagem)
     Rectangle { visible: fs.has-focus; border-radius: parent.height / 2; border-width: Theme.focus-ring-w; border-color: Theme.focus-ring; }
 }
 
 // ---------------------------------------------------------------------------------------------
-// Capa com contorno de 1px (separa capas escuras do fundo). `radius` por contexto: 10 miniatura, 16 cartão, 28 player.
+// Capa com contorno de 1px (separa capas escuras do fundo). `radius` por contexto: 10 miniatura, 14 tile, 22 player.
 // ---------------------------------------------------------------------------------------------
 export component CoverImage inherits Rectangle {
     in property <image> source;
@@ -109,8 +134,8 @@ export component CoverImage inherits Rectangle {
     border-radius: radius;
     background: placeholder;
     clip: true;
-    Image { source: root.source; width: 100%; height: 100%; image-fit: cover; }
-    Rectangle { border-radius: root.radius; border-width: 1px; border-color: Theme.dark ? #ffffff14 : #00000014; }
+    Image { source: root.source; width: 100%; height: 100%; image-fit: ImageFit.cover; }
+    Rectangle { border-radius: root.radius; border-width: 1px; border-color: Theme.dark ? #ffffff1a : #0000001a; }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -119,7 +144,7 @@ export component CoverImage inherits Rectangle {
 export component IconButton inherits Rectangle {
     in property <image> icon;
     in property <string> label;                 // accessible-label (pt-BR)
-    in property <color> tint: Theme.ink-2;
+    in property <color> tint: Theme.ink;
     in property <bool> active: false;           // equivale a aria-pressed
     in property <length> glyph: Theme.icon;
     in property <length> size: Theme.hit;
@@ -127,7 +152,7 @@ export component IconButton inherits Rectangle {
     callback clicked();
 
     width: size; height: size; border-radius: size / 2;
-    background: !enabled ? transparent : ta.pressed ? Theme.surface-3 : ta.has-hover ? Theme.accent-soft : transparent;
+    background: !enabled ? transparent : ta.pressed ? Theme.fill-2 : ta.has-hover ? Theme.fill : transparent;
     opacity: enabled ? 1.0 : 0.5;
     accessible-role: button;
     accessible-label: label;
@@ -159,17 +184,60 @@ export component IconButton inherits Rectangle {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Selo de formato: FLAC | 24/96. `hires` (>= 24 bits) usa a cor de destaque.
+// Botão circular de VIDRO (voltar, mais, ajustes, curtir sobre capa): GlassPanel nível 1, sem aninhar blur.
+// ---------------------------------------------------------------------------------------------
+export component GlassIconButton inherits GlassPanel {
+    in property <image> icon;
+    in property <string> label;
+    in property <bool> active: false;
+    in property <length> size: Theme.hit;
+    callback clicked();
+    width: size; height: size; radius: size / 2; level: 1; light-blur: true;
+    IconButton {
+        x: 0px; y: 0px; size: root.size; icon: root.icon; label: root.label; active: root.active; tint: Theme.ink;
+        clicked => { root.clicked(); }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Botão em pílula (48 de altura). primary = neutro invertido (ink sobre Theme.bg; UM por tela); secondary = preenchimento neutro.
+// O acento NÃO é cor de botão: aparece só em estado (aba ativa, curtir, foco, interruptor).
+// ---------------------------------------------------------------------------------------------
+export component PillButton inherits Rectangle {
+    in property <string> text;
+    in property <image> icon;
+    in property <bool> primary: false;
+    callback clicked();
+    height: Theme.hit; border-radius: self.height / 2;
+    width: row.preferred-width + 40px;
+    background: primary ? (ta.pressed ? Theme.ink-2 : Theme.ink) : (ta.pressed ? Theme.fill-2 : Theme.fill);
+    accessible-role: button; accessible-label: text;
+    accessible-action-default => { root.clicked(); }
+    animate background { duration: Theme.dur-micro; }
+    row := HorizontalLayout {
+        padding-left: 20px; padding-right: 20px; spacing: 8px; alignment: center;
+        if root.icon.width > 0 : Image { source: root.icon; width: 20px; height: 20px; y: (root.height - self.height) / 2; colorize: root.primary ? Theme.bg : Theme.ink; }
+        Text { text: root.text; font-family: Theme.font-sans; font-size: Theme.fs-callout; font-weight: 600; letter-spacing: Theme.ls-callout; color: root.primary ? Theme.bg : Theme.ink; vertical-alignment: center; }
+    }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false;
+        key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; }
+    }
+    Rectangle { visible: fs.has-focus; x: -2px; y: -2px; width: parent.width + 4px; height: parent.height + 4px; border-radius: self.height / 2; border-width: Theme.focus-ring-w; border-color: Theme.focus-ring; }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Selo de formato: FLAC | 24/96. `hires` (>= 24 bits) usa o acento.
 // ---------------------------------------------------------------------------------------------
 export component FormatBadge inherits Rectangle {
     in property <string> codec: "FLAC";
     in property <string> detail: "24/96";
     in property <bool> hires: false;
-    in property <color> ink: Theme.ink-2;          // no player (imersivo): Theme.im-ink-2
+    in property <color> ink: Theme.ink-2;          // sobre vidro/player: Theme.ink-glass-2 / Theme.im-ink-2
     in property <color> strong-ink: Theme.ink;
     height: 22px; border-radius: 7px;
     border-width: 1px;
-    border-color: hires ? Theme.accent.with-alpha(0.55) : Theme.line-strong;
+    border-color: hires ? Theme.accent.with-alpha(0.7) : Theme.line-strong;
     width: row.preferred-width;
     accessible-role: text;
     accessible-label: codec + " " + detail;
@@ -182,6 +250,21 @@ export component FormatBadge inherits Rectangle {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Etiqueta de fonte ("Do YouTube Music"): pílula de 28 com ícone `cloud`. Nunca usa a marca de terceiros.
+// ---------------------------------------------------------------------------------------------
+export component SourceTag inherits Rectangle {
+    in property <string> text: "Do YouTube Music";
+    height: 28px; border-radius: 14px; background: Theme.fill;
+    width: row.preferred-width;
+    accessible-role: AccessibleRole.text; accessible-label: text;
+    row := HorizontalLayout {
+        padding-left: 10px; padding-right: 12px; spacing: 6px; alignment: center;
+        Image { source: @image-url("../assets/icons/cloud.svg"); width: 16px; height: 16px; y: (root.height - self.height) / 2; colorize: Theme.ink-2; }
+        Text { text: root.text; font-family: Theme.font-sans; font-size: Theme.fs-caption; font-weight: 600; color: Theme.ink-2; vertical-alignment: center; }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Interruptor 52x32 (alvo 64x48 com margem invisível). `locked` = ligado e não editável (Sem telemetria).
 // ---------------------------------------------------------------------------------------------
 export component KSwitch inherits Rectangle {
@@ -190,7 +273,7 @@ export component KSwitch inherits Rectangle {
     in property <string> label;
     callback toggled(bool);
     width: 52px; height: 32px; border-radius: 16px;
-    background: (checked || locked) ? Theme.accent : Theme.surface-3;
+    background: (checked || locked) ? Theme.accent : Theme.fill-2;
     accessible-role: switch;
     accessible-label: label;
     accessible-checked: checked || locked;
@@ -199,9 +282,10 @@ export component KSwitch inherits Rectangle {
     animate background { duration: Theme.dur-short; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
     function flip() { if (!locked) { root.checked = !root.checked; root.toggled(root.checked); } }
     Rectangle {
-        y: 3px; width: 26px; height: 26px; border-radius: 13px;
-        x: (root.checked || root.locked) ? 23px : 3px;
-        background: (root.checked || root.locked) ? Theme.accent-ink : Theme.ink;
+        y: 2px; width: 28px; height: 28px; border-radius: 14px;
+        x: (root.checked || root.locked) ? 22px : 2px;
+        background: #ffffff;
+        drop-shadow-blur: 4px; drop-shadow-offset-y: 2px; drop-shadow-color: #00000040;
         animate x { duration: Theme.dur-short; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
     }
     // alvo de toque de 48 (o interruptor tem 32 de altura): 8 px invisíveis acima e abaixo, 6 nas laterais
@@ -218,12 +302,13 @@ export component KSwitch inherits Rectangle {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Barra de progresso/volume. value 0..1. Trilho 6px (10px com hover/foco/arraste), alvo de 44px, polegar 20px.
-// `immersive`: cores do player (trilho branco 24%, preenchimento branco ou acento).
+// Barra de progresso/volume FINA e arredondada (6 px; 10 com hover/foco/arraste), alvo de 48 px. value 0..1.
+// `immersive`: trilho branco 24% e preenchimento branco (player); senão trilho neutro e preenchimento `ink`.
+// O polegar só aparece com hover/foco/arraste (Apple Music: barra limpa em repouso).
 // ---------------------------------------------------------------------------------------------
 export component KSlider inherits Rectangle {
-    // ALTERAÇÃO do kazzu-app (ver docs/UI_NOTES.md): `value` é `in`, para a ligação com AppState.progress não ser
-    // quebrada pelo arraste; o valor mostrado durante o arraste (e por 300 ms depois, até o motor confirmar) é interno.
+    // `value` é `in`, para a ligação com AppState.progress não ser quebrada pelo arraste; o valor mostrado durante o arraste
+    // (e por 300 ms depois, até o motor confirmar) é interno. (Correção herdada do kazzu-app, ver docs/UI_NOTES.md.)
     in property <float> value: 0.0;
     in property <bool> immersive: true;
     in property <bool> accent-fill: false;
@@ -260,10 +345,11 @@ export component KSlider inherits Rectangle {
 
     Rectangle { // trilho
         y: (parent.height - self.height) / 2; height: root.track-h; border-radius: self.height / 2;
-        background: root.immersive ? Theme.im-track : Theme.surface-3;
+        background: root.immersive ? Theme.im-track : Theme.fill-2;
+        clip: true;
         Rectangle { // preenchimento
             x: 0px; width: parent.width * clamp(root.shown, 0.0, 1.0); height: parent.height; border-radius: parent.border-radius;
-            background: root.accent-fill ? Theme.accent : (root.immersive ? Theme.im-ink : Theme.accent);
+            background: root.accent-fill ? Theme.accent : (root.immersive ? Theme.im-ink : Theme.ink);
         }
     }
     Rectangle { // polegar

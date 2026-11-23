@@ -1,0 +1,17 @@
+# Ferramenta do design (NÃO faz parte do workspace do app): renderiza design/slint/preview.slint de verdade (FemtoVG com
+# backdrop-blur real, via Xvfb) e grava PNGs. Uso: veja README.md desta pasta / design/README.md.
+[package]
+name = "kazzu-slint-shot"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "GPL-3.0-only"
+
+[workspace]
+
+[dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }
+slint = { version = "1.19", default-features = false, features = ["std", "backend-winit", "renderer-femtovg", "renderer-software", "compat-1-2"] }
+
+[build-dependencies]
+slint-build = "1.19"

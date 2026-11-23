@@ -1,69 +1,505 @@
-// Pré-visualização dos átomos v2 (slint-viewer design/slint/preview.slint). Não é parte do app.
-// Mostra o PALCO VIVO e o vidro nos 3 níveis (mini player/dock = nível 2, cartão = nível 1, folha = nível 3).
+// Pré-visualização do design v3 (Apple-like) em Slint 1.19. Não é parte do app: serve para RENDERIZAR de verdade (FemtoVG com
+// backdrop-blur, via design/tools/slint-shot) e comparar lado a lado com os protótipos HTML. Cenas:
+//   home · home-scrolled · home-wide · home-wide-scrolled · library · settings · player · player-wide · sheet · proof
+// A cena é escolhida pela propriedade `scene` e a rolagem por `scroll-y` (o Rust do slint-shot escreve as duas).
 import { Theme } from "tokens.slint";
-import { Stage, GlassPanel, CoverImage, Chip, IconButton, FormatBadge, KSwitch, KSlider } from "atoms.slint";
+import { Stage, GlassPanel, EdgeFade, Divider, GroupCard, Chip, CoverImage, IconButton, GlassIconButton, PillButton, FormatBadge, SourceTag, KSwitch, KSlider } from "atoms.slint";
+import { NavDock, SearchButton, MiniPlayer, ScrollHeader, SectionHeader, TrackRow, HeroCard, Sidebar, NowBar } from "chrome.slint";
 export { Theme }
 
-import "../fonts/HankenGrotesk-Regular.ttf";
-import "../fonts/HankenGrotesk-SemiBold.ttf";
-import "../fonts/HankenGrotesk-Bold.ttf";
+import "../fonts/Inter-Regular.ttf";
+import "../fonts/Inter-Medium.ttf";
+import "../fonts/Inter-SemiBold.ttf";
+import "../fonts/Inter-Bold.ttf";
+import "../fonts/InterDisplay-SemiBold.ttf";
+import "../fonts/InterDisplay-Bold.ttf";
 import "../fonts/GeistMono-Regular.ttf";
 import "../fonts/GeistMono-Medium.ttf";
 
+struct Item { cover: image, title: string, artist: string, why: string, codec: string, detail: string }
+
+global Demo {
+    out property <image> c01: @image-url("../prototypes/covers/cover-01.svg");
+    out property <image> c02: @image-url("../prototypes/covers/cover-02.svg");
+    out property <image> c03: @image-url("../prototypes/covers/cover-03.svg");
+    out property <image> c04: @image-url("../prototypes/covers/cover-04.svg");
+    out property <image> c05: @image-url("../prototypes/covers/cover-05.svg");
+    out property <image> c06: @image-url("../prototypes/covers/cover-06.svg");
+    out property <image> c07: @image-url("../prototypes/covers/cover-07.svg");
+    out property <image> c08: @image-url("../prototypes/covers/cover-08.svg");
+    out property <image> c09: @image-url("../prototypes/covers/cover-09.svg");
+    out property <image> c10: @image-url("../prototypes/covers/cover-10.svg");
+    out property <image> blur07: @image-url("assets/blur-07.png");
+    out property <[Item]> quick: [
+        { cover: c07, title: "Quase Verão", artist: "Nina Sabiá", why: "Em alta hoje", codec: "OPUS", detail: "160" },
+        { cover: c08, title: "Respiração de Vidro", artist: "Kaito e Vê", why: "Novidade para você", codec: "AAC", detail: "256" },
+        { cover: c02, title: "Hora do Café", artist: "Doma", why: "Para a manhã", codec: "AAC", detail: "256" },
+        { cover: c04, title: "Canal Sete", artist: "Os Faróis", why: "Parecido com Os Faróis", codec: "OPUS", detail: "160" },
+    ];
+    out property <[Item]> recents: [
+        { cover: c07, title: "Quase Verão", artist: "Nina Sabiá", why: "", codec: "OPUS", detail: "160" },
+        { cover: c05, title: "Escada de Sal", artist: "Tomás Reis", why: "", codec: "FLAC", detail: "24/192" },
+        { cover: c10, title: "Fita sem Fim", artist: "Rádio Cobre", why: "", codec: "FLAC", detail: "24/96" },
+        { cover: c02, title: "Hora do Café", artist: "Doma", why: "", codec: "AAC", detail: "256" },
+    ];
+}
+
+// bloco "tile" de álbum/mix: capa quadrada com sombra neutra, título e artista
+component Tile inherits Rectangle {
+    in property <image> cover;
+    in property <string> title;
+    in property <string> sub;
+    in property <length> side: 148px;
+    width: side; height: side + 50px;
+    CoverImage { x: 0px; y: 0px; width: root.side; height: root.side; source: root.cover; radius: Theme.tile-radius;
+        drop-shadow-blur: 16px; drop-shadow-offset-y: 6px; drop-shadow-color: Theme.e2-color; }
+    Text { x: 0px; y: root.side + 8px; width: parent.width; text: root.title; font-family: Theme.font-sans; font-size: Theme.fs-callout; font-weight: 600; letter-spacing: Theme.ls-callout; color: Theme.ink; overflow: elide; }
+    Text { x: 0px; y: root.side + 28px; width: parent.width; text: root.sub; font-family: Theme.font-sans; font-size: Theme.fs-footnote; color: Theme.ink-2; overflow: elide; }
+}
+
+component LargeTitle inherits Text {
+    font-family: Theme.font-display; font-size: Theme.fs-large-title; font-weight: Theme.fw-large-title; letter-spacing: Theme.ls-large-title; color: Theme.ink;
+    height: Theme.lh-large-title + 6px; vertical-alignment: center;
+}
+
+// aviso de primeiro uso: cartão agrupado com ícone, texto e dispensar
+component Banner inherits GroupCard {
+    height: 92px;
+    Rectangle {
+        Rectangle { x: 14px; y: (parent.height - self.height) / 2; width: 44px; height: 44px; border-radius: 22px; background: Theme.accent-soft;
+            Image { source: @image-url("../assets/icons/badge-check.svg"); width: 26px; height: 26px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; colorize: Theme.accent; } }
+        VerticalLayout { x: 70px; y: 0px; width: parent.width - 70px - 56px; height: parent.height; alignment: center; spacing: 2px;
+            Text { text: "O YouTube Music já está ativo"; font-family: Theme.font-sans; font-size: Theme.fs-callout; font-weight: 600; letter-spacing: Theme.ls-callout; color: Theme.ink; overflow: elide; }
+            Text { text: "Sem conta e sem configuração. O Kazzu só usa a rede quando você pede algo."; wrap: word-wrap; font-family: Theme.font-sans; font-size: Theme.fs-footnote; color: Theme.ink-2; }
+        }
+        IconButton { x: parent.width - 52px; y: 4px; icon: @image-url("../assets/icons/close.svg"); label: "Dispensar aviso"; tint: Theme.ink-2; glyph: 20px; }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Início (compact 390): conteúdo rola por BAIXO do cabeçalho de vidro, da barra, do mini player; borda de rolagem garante o contraste.
+// ---------------------------------------------------------------------------------------------
+component HomeCompact inherits Rectangle {
+    in property <length> scroll-y: 0px;
+    in property <bool> banner: true;
+    in property <bool> playing: true;
+    property <length> g: Theme.gutter-mobile;
+    background: Theme.bg;
+    Flickable {
+        content-y: -root.scroll-y;
+        VerticalLayout {
+            padding-top: Theme.header-h; padding-bottom: 184px; spacing: 0px;
+            Rectangle { height: 52px; LargeTitle { x: root.g; text: "Início"; } }
+            if root.banner : Rectangle { height: 92px + 16px; Banner { x: root.g; y: 0px; width: root.width - 2 * root.g; } }
+            Rectangle { height: 40px + 20px;
+                HorizontalLayout { x: root.g; y: 0px; height: 40px; spacing: 8px; alignment: start;
+                    Chip { text: "Para você"; selected: true; } Chip { text: "Descobrir"; } Chip { text: "Mixes"; } Chip { text: "Foco"; } Chip { text: "Treino"; } } }
+            Rectangle { height: 40px + 8px; SectionHeader { x: root.g; width: root.width - 2 * root.g; title: "Continue por aqui"; tag: "Do YouTube Music"; } }
+            Rectangle { height: Theme.hero-card-h-mobile + 28px;
+                HorizontalLayout { x: root.g; y: 0px; spacing: 12px; alignment: start;
+                    HeroCard { cover: Demo.c07; caption: "Novo no YouTube Music"; title: "Calor de Março"; subtitle: "Nina Sabiá"; }
+                    HeroCard { cover: Demo.c06; caption: "Mix para foco"; title: "Linha de Fuga e mais"; subtitle: "Do YouTube Music"; }
+                    HeroCard { cover: Demo.c02; caption: "Para começar o dia"; title: "Hora do Café"; subtitle: "Doma"; }
+                } }
+            Rectangle { height: 40px + 8px; SectionHeader { x: root.g; width: root.width - 2 * root.g; title: "Escolhas rápidas"; action: "Ver mais"; } }
+            Rectangle { height: 4 * (Theme.row-h + 4px) + 28px;
+                GroupCard { x: root.g; width: root.width - 2 * root.g; height: 4 * (Theme.row-h + 4px);
+                    for it[i] in Demo.quick : TrackRow { cover: it.cover; title: it.title; artist: it.artist; why: it.why; codec: ""; playing: i == 0 && root.playing; divider: i < 3; }
+                } }
+            Rectangle { height: 40px + 8px; SectionHeader { x: root.g; width: root.width - 2 * root.g; title: "Mixes para você"; tag: "Do YouTube Music"; } }
+            Rectangle { height: 148px + 50px + 28px;
+                HorizontalLayout { x: root.g; y: 0px; spacing: 12px; alignment: start;
+                    Tile { cover: Demo.c06; title: "Mix Foco"; sub: "40 músicas"; } Tile { cover: Demo.c01; title: "Mix Madrugada"; sub: "35 músicas"; } Tile { cover: Demo.c02; title: "Mix Energia"; sub: "50 músicas"; } Tile { cover: Demo.c09; title: "Mix Calmaria"; sub: "30 músicas"; }
+                } }
+            Rectangle { height: 40px + 8px; SectionHeader { x: root.g; width: root.width - 2 * root.g; title: "Álbuns em destaque"; tag: "Do YouTube Music"; } }
+            Rectangle { height: 2 * (160px + 50px + 16px);
+                GridLayout { x: root.g; y: 0px; width: root.width - 2 * root.g; spacing: 12px;
+                    Row { Tile { side: (root.width - 2 * root.g - 12px) / 2; cover: Demo.c01; title: "Cidade Submersa"; sub: "Aurora Vento"; } Tile { side: (root.width - 2 * root.g - 12px) / 2; cover: Demo.c06; title: "Linha de Fuga"; sub: "Meridiano"; } }
+                    Row { Tile { side: (root.width - 2 * root.g - 12px) / 2; cover: Demo.c09; title: "Papel de Seda"; sub: "Ilha Branca"; } Tile { side: (root.width - 2 * root.g - 12px) / 2; cover: Demo.c10; title: "Fita Magnética"; sub: "Rádio Cobre"; } }
+                } }
+        }
+    }
+    // cromo: cabeçalho de rolagem (vidro ao rolar), degradê de borda e cápsulas de vidro
+    ScrollHeader { x: 0px; y: 0px; width: root.width; p: min(1.0, root.scroll-y / 60px); title: "Início"; }
+    EdgeFade { x: 0px; y: root.height - 176px; width: root.width; height: 176px; top: false; }
+    if root.playing : MiniPlayer { x: 12px; y: root.height - 12px - Theme.dock-h - 8px - Theme.mini-h; width: root.width - 24px; cover: Demo.c07; title: "Quase Verão"; artist: "Nina Sabiá"; }
+    NavDock { x: 12px; y: root.height - 12px - Theme.dock-h; width: root.width - 24px - 8px - Theme.dock-search; current: 0; }
+    SearchButton { x: root.width - 12px - Theme.dock-search; y: root.height - 12px - Theme.dock-search - 4px; }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Início (desktop ≥ 1200): barra lateral de material fino, conteúdo largo e NowBar de vidro flutuante.
+// ---------------------------------------------------------------------------------------------
+component HomeWide inherits Rectangle {
+    in property <length> scroll-y: 0px;
+    property <length> left: 12px + 248px + 32px;
+    property <length> right: 32px;
+    background: Theme.bg;
+    Flickable {
+        content-y: -root.scroll-y;
+        VerticalLayout {
+            padding-bottom: 140px; spacing: 0px;
+            Rectangle { height: 24px + 56px; LargeTitle { x: root.left; y: 24px; text: "Início"; } }
+            Rectangle { height: 40px + 24px; HorizontalLayout { x: root.left; y: 0px; height: 40px; spacing: 8px; alignment: start;
+                Chip { text: "Para você"; selected: true; } Chip { text: "Descobrir"; } Chip { text: "Mixes"; } Chip { text: "Foco"; } Chip { text: "Treino"; } } }
+            Rectangle { height: 40px + 8px; SectionHeader { x: root.left; width: root.width - root.left - root.right; title: "Continue por aqui"; tag: "Do YouTube Music"; } }
+            Rectangle { height: 440px + 32px;
+                HorizontalLayout { x: root.left; y: 0px; spacing: 16px; alignment: start;
+                    HeroCard { width: 400px; height: 440px; cover: Demo.c07; caption: "Novo no YouTube Music"; title: "Calor de Março"; subtitle: "Nina Sabiá"; }
+                    HeroCard { width: 400px; height: 440px; cover: Demo.c06; caption: "Mix para foco"; title: "Linha de Fuga e mais"; subtitle: "Do YouTube Music"; }
+                    HeroCard { width: 400px; height: 440px; cover: Demo.c02; caption: "Para começar o dia"; title: "Hora do Café"; subtitle: "Doma"; }
+                } }
+            Rectangle { height: 40px + 8px; SectionHeader { x: root.left; width: root.width - root.left - root.right; title: "Mixes para você"; tag: "Do YouTube Music"; } }
+            Rectangle { height: 190px + 50px + 28px;
+                HorizontalLayout { x: root.left; y: 0px; spacing: 16px; alignment: start;
+                    Tile { side: 190px; cover: Demo.c06; title: "Mix Foco"; sub: "40 músicas"; } Tile { side: 190px; cover: Demo.c01; title: "Mix Madrugada"; sub: "35 músicas"; } Tile { side: 190px; cover: Demo.c02; title: "Mix Energia"; sub: "50 músicas"; } Tile { side: 190px; cover: Demo.c09; title: "Mix Calmaria"; sub: "30 músicas"; } Tile { side: 190px; cover: Demo.c08; title: "Mix Noite"; sub: "28 músicas"; }
+                } }
+            Rectangle { height: 40px + 8px; SectionHeader { x: root.left; width: root.width - root.left - root.right; title: "Escolhas rápidas"; action: "Ver mais"; } }
+            Rectangle { height: 4 * (Theme.row-h + 4px) + 28px;
+                GroupCard { x: root.left; width: root.width - root.left - root.right; height: 4 * (Theme.row-h + 4px);
+                    for it[i] in Demo.quick : TrackRow { cover: it.cover; title: it.title; artist: it.artist; why: it.why; codec: it.codec; detail: it.detail; playing: i == 0; divider: i < 3; }
+                } }
+        }
+    }
+    // cabeçalho de vidro desktop: Ajustes à direita; título pequeno ao rolar
+    ScrollHeader { x: 12px + 248px + 12px; y: 0px; width: root.width - (12px + 248px + 12px); brand: false; p: min(1.0, root.scroll-y / 60px); title: "Início"; }
+    Sidebar { x: 12px; y: 12px; width: 248px; height: root.height - 24px; current: 0; }
+    EdgeFade { x: 0px; y: root.height - 150px; width: root.width; height: 150px; top: false; }
+    NowBar { x: root.left - 20px; y: root.height - 20px - Theme.nowbar-h; width: root.width - (root.left - 20px) - 20px; cover: Demo.c07; title: "Quase Verão"; artist: "Nina Sabiá"; }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Biblioteca (compact): título grande + Criar playlist, 4 coleções em cartões agrupados, lista recente.
+// ---------------------------------------------------------------------------------------------
+component Collection inherits Rectangle {
+    in property <string> title;
+    in property <string> count;
+    in property <image> icon;            // ícone central (Baixados/Curtidas); vazio = mosaico
+    in property <image> m1; in property <image> m2; in property <image> m3; in property <image> m4;
+    in property <int> kind: 0;           // 0 neutro | 1 curtidas (acento) | 2 mosaico
+    background: Theme.surface; border-radius: Theme.group-radius; clip: true;
+    property <length> art: root.width - 24px;
+    Rectangle { x: 12px; y: 12px; width: root.art; height: root.art; border-radius: 14px; clip: true;
+        background: root.kind == 1 ? Theme.accent : Theme.fill;
+        if root.kind == 2 : Rectangle {
+            Image { x: 0px; y: 0px; width: parent.width / 2; height: parent.height / 2; source: root.m1; image-fit: ImageFit.cover; }
+            Image { x: parent.width / 2; y: 0px; width: parent.width / 2; height: parent.height / 2; source: root.m2; image-fit: ImageFit.cover; }
+            Image { x: 0px; y: parent.height / 2; width: parent.width / 2; height: parent.height / 2; source: root.m3; image-fit: ImageFit.cover; }
+            Image { x: parent.width / 2; y: parent.height / 2; width: parent.width / 2; height: parent.height / 2; source: root.m4; image-fit: ImageFit.cover; }
+        }
+        if root.kind != 2 : Image { source: root.icon; width: 56px; height: 56px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; colorize: root.kind == 1 ? Theme.accent-ink : Theme.ink; }
+    }
+    Text { x: 14px; y: root.art + 20px; width: parent.width - 28px; text: root.title; font-family: Theme.font-sans; font-size: Theme.fs-headline; font-weight: 600; letter-spacing: Theme.ls-headline; color: Theme.ink; overflow: elide; }
+    Text { x: 14px; y: root.art + 42px; width: parent.width - 28px; text: root.count; font-family: Theme.font-sans; font-size: Theme.fs-subhead; color: Theme.ink-2; overflow: elide; }
+}
+
+component LibraryCompact inherits Rectangle {
+    in property <length> scroll-y: 0px;
+    property <length> g: Theme.gutter-mobile;
+    property <length> cw: (root.width - 2 * root.g - 12px) / 2;
+    property <length> ch: root.cw - 24px + 24px + 62px;
+    background: Theme.bg;
+    Flickable {
+        content-y: -root.scroll-y;
+        VerticalLayout {
+            padding-top: Theme.header-h; padding-bottom: 184px; spacing: 0px;
+            Rectangle { height: 52px + 12px;
+                LargeTitle { x: root.g; text: "Biblioteca"; }
+                PillButton { x: root.width - root.g - self.width; y: 2px; height: 44px; text: "Criar playlist"; icon: @image-url("../assets/icons/playlist-add.svg"); primary: true; } }
+            Rectangle { height: 2 * root.ch + 12px + 20px;
+                GridLayout { x: root.g; y: 0px; width: root.width - 2 * root.g; spacing: 12px;
+                    Row { Collection { height: root.ch; title: "Baixados"; count: "0 músicas"; icon: @image-url("../assets/icons/download.svg"); }
+                          Collection { height: root.ch; title: "Curtidas"; count: "12 músicas"; icon: @image-url("../assets/icons/heart-fill.svg"); kind: 1; } }
+                    Row { Collection { height: root.ch; title: "Álbuns"; count: "10 álbuns"; kind: 2; m1: Demo.c01; m2: Demo.c02; m3: Demo.c06; m4: Demo.c09; }
+                          Collection { height: root.ch; title: "Playlists"; count: "3 playlists"; kind: 2; m1: Demo.c07; m2: Demo.c03; m3: Demo.c08; m4: Demo.c04; } }
+                } }
+            Rectangle { height: 76px + 28px;
+                GroupCard { x: root.g; width: root.width - 2 * root.g; height: 76px;
+                    Rectangle {
+                        Rectangle { x: 14px; y: (parent.height - self.height) / 2; width: 44px; height: 44px; border-radius: 12px; background: Theme.fill;
+                            Image { source: @image-url("../assets/icons/folder.svg"); width: 24px; height: 24px; x: 10px; y: 10px; colorize: Theme.ink; } }
+                        VerticalLayout { x: 70px; y: 0px; width: parent.width - 70px - 120px; height: parent.height; alignment: center;
+                            Text { text: "Neste aparelho"; font-family: Theme.font-sans; font-size: Theme.fs-headline; font-weight: 600; color: Theme.ink; }
+                            Text { text: "2 músicas locais"; font-family: Theme.font-sans; font-size: Theme.fs-footnote; color: Theme.ink-2; } }
+                        PillButton { x: parent.width - self.width - 12px; y: (parent.height - self.height) / 2; height: 40px; text: "Adicionar"; }
+                    } } }
+            Rectangle { height: 40px + 8px; SectionHeader { x: root.g; width: root.width - 2 * root.g; title: "Tocadas recentemente"; } }
+            Rectangle { height: 4 * (Theme.row-h + 4px);
+                GroupCard { x: root.g; width: root.width - 2 * root.g; height: 4 * (Theme.row-h + 4px);
+                    for it[i] in Demo.recents : TrackRow { cover: it.cover; title: it.title; artist: it.artist; codec: it.codec; detail: it.detail; divider: i < 3; }
+                } }
+        }
+    }
+    ScrollHeader { x: 0px; y: 0px; width: root.width; p: min(1.0, root.scroll-y / 60px); title: "Biblioteca"; }
+    EdgeFade { x: 0px; y: root.height - 176px; width: root.width; height: 176px; top: false; }
+    MiniPlayer { x: 12px; y: root.height - 12px - Theme.dock-h - 8px - Theme.mini-h; width: root.width - 24px; cover: Demo.c07; title: "Quase Verão"; artist: "Nina Sabiá"; }
+    NavDock { x: 12px; y: root.height - 12px - Theme.dock-h; width: root.width - 24px - 8px - Theme.dock-search; current: 2; }
+    SearchButton { x: root.width - 12px - Theme.dock-search; y: root.height - 12px - Theme.dock-search - 4px; }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Ajustes: listas AGRUPADAS (cartão opaco, raio 20, separadores finos) com ícone em quadrado, título, descrição e controle.
+// ---------------------------------------------------------------------------------------------
+component SetRow inherits Rectangle {
+    in property <image> icon;
+    in property <string> title;
+    in property <string> desc;
+    in property <string> tag;
+    in property <bool> has-switch: false;
+    in property <bool> on: false;
+    in property <bool> locked: false;
+    in property <bool> divider: true;
+    height: 64px;
+    Rectangle { x: 14px; y: (parent.height - self.height) / 2; width: 36px; height: 36px; border-radius: 10px; background: Theme.fill;
+        Image { source: root.icon; width: 22px; height: 22px; x: 7px; y: 7px; colorize: Theme.ink; } }
+    VerticalLayout { x: 64px; y: 0px; width: parent.width - 64px - (root.has-switch ? 76px : (root.tag != "" ? 92px : 20px)); height: parent.height; alignment: center; spacing: 1px;
+        Text { text: root.title; font-family: Theme.font-sans; font-size: Theme.fs-body; font-weight: 500; letter-spacing: Theme.ls-body; color: Theme.ink; overflow: elide; }
+        Text { text: root.desc; font-family: Theme.font-sans; font-size: Theme.fs-footnote; color: Theme.ink-2; overflow: elide; }
+    }
+    if root.has-switch : KSwitch { x: parent.width - self.width - 14px; y: (parent.height - self.height) / 2; checked: root.on; locked: root.locked; label: root.title; }
+    if root.tag != "" : Rectangle { x: parent.width - self.width - 14px; y: (parent.height - self.height) / 2; height: 28px; width: tg.preferred-width + 24px; border-radius: 10px; background: Theme.fill;
+        tg := Text { x: 12px; y: (parent.height - self.height) / 2; text: root.tag; font-family: Theme.font-sans; font-size: Theme.fs-caption; font-weight: 600; color: Theme.ink; } }
+    if root.divider : Divider { x: 0px; y: parent.height - 1px; width: parent.width; inset: 64px; }
+}
+
+component GroupTitle inherits Text {
+    font-family: Theme.font-sans; font-size: Theme.fs-footnote; font-weight: 600; color: Theme.ink-2; height: 32px; vertical-alignment: center;
+}
+
+component SettingsCompact inherits Rectangle {
+    in property <length> scroll-y: 0px;
+    property <length> g: Theme.gutter-mobile;
+    background: Theme.bg;
+    Flickable {
+        content-y: -root.scroll-y;
+        VerticalLayout {
+            padding-top: Theme.header-h; padding-bottom: 184px; spacing: 0px;
+            Rectangle { height: 52px; LargeTitle { x: root.g; text: "Ajustes"; } }
+            Rectangle { height: 32px; GroupTitle { x: root.g + 6px; text: "Fontes de música"; } }
+            Rectangle { height: 3 * 64px + 24px;
+                GroupCard { x: root.g; width: root.width - 2 * root.g; height: 3 * 64px;
+                    SetRow { icon: @image-url("../assets/icons/cloud.svg"); title: "YouTube Music"; desc: "Ativo e padrão. Sem login."; tag: "Ativo"; }
+                    SetRow { icon: @image-url("../assets/icons/folder.svg"); title: "Arquivos neste aparelho"; desc: "1 pasta, 2 músicas"; tag: "Pasta"; }
+                    SetRow { icon: @image-url("../assets/icons/plus.svg"); title: "Outras fontes"; desc: "Entram depois, só se você ligar."; tag: "Em breve"; divider: false; }
+                } }
+            Rectangle { height: 32px; GroupTitle { x: root.g + 6px; text: "Aparência"; } }
+            Rectangle { height: 4 * 64px + 24px;
+                GroupCard { x: root.g; width: root.width - 2 * root.g; height: 4 * 64px;
+                    Rectangle { height: 64px;
+                        Rectangle { x: 14px; y: 12px; width: parent.width - 28px; height: 40px; border-radius: 20px; background: Theme.fill;
+                            Rectangle { x: parent.width / 3 + 3px; y: 3px; width: parent.width / 3 - 6px; height: 34px; border-radius: 17px; background: Theme.ink; }
+                            HorizontalLayout { padding: 0px;
+                                Text { text: "Automático"; horizontal-alignment: center; vertical-alignment: center; font-family: Theme.font-sans; font-size: Theme.fs-subhead; font-weight: 600; color: Theme.ink-2; }
+                                Text { text: "Escuro"; horizontal-alignment: center; vertical-alignment: center; font-family: Theme.font-sans; font-size: Theme.fs-subhead; font-weight: 600; color: Theme.bg; }
+                                Text { text: "Claro"; horizontal-alignment: center; vertical-alignment: center; font-family: Theme.font-sans; font-size: Theme.fs-subhead; font-weight: 600; color: Theme.ink-2; }
+                            } }
+                        Divider { x: 0px; y: parent.height - 1px; width: parent.width; inset: 14px; } }
+                    SetRow { icon: @image-url("../assets/icons/sliders.svg"); title: "Cor de destaque"; desc: "Âmbar Kazzu"; tag: "Âmbar"; }
+                    SetRow { icon: @image-url("../assets/icons/moon.svg"); title: "Reduzir transparência"; desc: "Troca o vidro por painéis sólidos."; has-switch: true; on: Theme.reduce-transparency; }
+                    SetRow { icon: @image-url("../assets/icons/wave.svg"); title: "Reduzir movimento"; desc: "Corta animações e a troca suave de capas."; has-switch: true; on: false; divider: false; }
+                } }
+            Rectangle { height: 32px; GroupTitle { x: root.g + 6px; text: "Privacidade"; } }
+            Rectangle { height: 2 * 64px + 24px;
+                GroupCard { x: root.g; width: root.width - 2 * root.g; height: 2 * 64px;
+                    SetRow { icon: @image-url("../assets/icons/shield.svg"); title: "Sem telemetria"; desc: "O Kazzu só recebe dados."; has-switch: true; locked: true; }
+                    SetRow { icon: @image-url("../assets/icons/lock.svg"); title: "Histórico de escuta"; desc: "Fica só neste aparelho."; tag: "Apagar"; divider: false; }
+                } }
+        }
+    }
+    ScrollHeader { x: 0px; y: 0px; width: root.width; p: min(1.0, root.scroll-y / 60px); title: "Ajustes"; back: true; }
+    EdgeFade { x: 0px; y: root.height - 150px; width: root.width; height: 150px; top: false; }
+    NavDock { x: 12px; y: root.height - 12px - Theme.dock-h; width: root.width - 24px - 8px - Theme.dock-search; current: -1; }
+    SearchButton { x: root.width - 12px - Theme.dock-search; y: root.height - 12px - Theme.dock-search - 4px; }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Player (sempre escuro): fundo = capa MUITO desfocada e escurecida (Stage immersive), capa grande com sombra neutra, controles de vidro.
+// ---------------------------------------------------------------------------------------------
+component Pill inherits GlassPanel {
+    in property <image> icon;
+    in property <string> text;
+    height: 56px; radius: 20px; level: 1; elevated: false;
+    accessible-role: button; accessible-label: text;
+    Image { source: root.icon; width: 22px; height: 22px; x: (parent.width - self.width) / 2; y: 9px; colorize: Theme.ink; }
+    Text { x: 0px; y: 34px; width: parent.width; text: root.text; horizontal-alignment: center; font-family: Theme.font-sans; font-size: Theme.fs-caption; font-weight: 600; color: Theme.ink; }
+    TouchArea { mouse-cursor: pointer; }
+}
+
+component PlayerCompact inherits Rectangle {
+    in property <bool> playing: true;
+    property <length> g: 20px;
+    property <length> cover: min(root.width - 2 * root.g - 8px, root.height - 480px);
+    Stage { immersive: true; has-cover: true; backdrop: Demo.blur07; }
+    // grabber + topo
+    Rectangle { x: (root.width - self.width) / 2; y: 8px; width: Theme.grabber-w; height: Theme.grabber-h; border-radius: 2px; background: Theme.im-ink-3; }
+    IconButton { x: 8px; y: 22px; icon: @image-url("../assets/icons/chevron-down.svg"); label: "Fechar o player"; glyph: 28px; }
+    VerticalLayout { x: 64px; y: 22px; width: root.width - 128px; height: 48px; alignment: center; spacing: 0px;
+        Text { text: "Tocando de"; horizontal-alignment: center; font-family: Theme.font-sans; font-size: Theme.fs-footnote; color: Theme.im-ink-2; }
+        Text { text: "Mix Foco"; horizontal-alignment: center; font-family: Theme.font-sans; font-size: Theme.fs-subhead; font-weight: 600; color: Theme.im-ink; } }
+    IconButton { x: root.width - 56px; y: 22px; icon: @image-url("../assets/icons/more.svg"); label: "Mais opções da faixa"; }
+    // capa com sombra neutra
+    CoverImage { x: (root.width - root.cover) / 2; y: 84px; width: root.cover; height: root.cover; source: Demo.c07; radius: Theme.player-cover-radius;
+        drop-shadow-blur: 48px; drop-shadow-offset-y: 24px; drop-shadow-color: #00000099; }
+    property <length> y0: 84px + root.cover + 28px;
+    // título e curtir
+    VerticalLayout { x: root.g; y: root.y0; width: root.width - 2 * root.g - 64px; height: 56px; alignment: center; spacing: 1px;
+        Text { text: "Quase Verão"; font-family: Theme.font-display; font-size: Theme.fs-player-title; font-weight: Theme.fw-player-title; letter-spacing: Theme.ls-player-title; color: Theme.im-ink; overflow: elide; }
+        Text { text: "Nina Sabiá"; font-family: Theme.font-sans; font-size: Theme.fs-body; letter-spacing: Theme.ls-body; color: Theme.im-ink-2; overflow: elide; } }
+    GlassIconButton { x: root.width - root.g - Theme.hit; y: root.y0 + 4px; icon: @image-url("../assets/icons/heart.svg"); label: "Curtir"; }
+    // progresso
+    KSlider { x: root.g; y: root.y0 + 58px; width: root.width - 2 * root.g; value: 0.31; label: "Progresso da faixa"; value-text: "1:02 de 3:21"; }
+    Text { x: root.g; y: root.y0 + 100px; text: "1:02"; font-family: Theme.font-mono; font-size: Theme.fs-timecode; color: Theme.im-ink-2; }
+    Text { x: root.width - root.g - self.width; y: root.y0 + 100px; text: "-2:19"; font-family: Theme.font-mono; font-size: Theme.fs-timecode; color: Theme.im-ink-2; }
+    // transporte: cápsula de vidro (nível 2) com o play branco como único elemento opaco
+    GlassPanel { x: root.g; y: root.y0 + 126px; width: root.width - 2 * root.g; height: 88px; radius: 44px; level: 2;
+        IconButton { x: 14px; y: 20px; icon: @image-url("../assets/icons/shuffle.svg"); label: "Aleatório"; }
+        IconButton { x: parent.width / 2 - 36px - 12px - 56px; y: 16px; size: 56px; glyph: 28px; icon: @image-url("../assets/icons/prev.svg"); label: "Faixa anterior"; }
+        Rectangle { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; width: Theme.play-main; height: Theme.play-main; border-radius: Theme.play-main / 2; background: Theme.im-ink;
+            drop-shadow-blur: 16px; drop-shadow-offset-y: 6px; drop-shadow-color: #00000066;
+            Image { source: root.playing ? @image-url("../assets/icons/pause.svg") : @image-url("../assets/icons/play.svg"); width: 34px; height: 34px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; colorize: #000000; } }
+        IconButton { x: parent.width / 2 + 36px + 12px; y: 16px; size: 56px; glyph: 28px; icon: @image-url("../assets/icons/next.svg"); label: "Próxima faixa"; }
+        IconButton { x: parent.width - 14px - 48px; y: 20px; icon: @image-url("../assets/icons/repeat.svg"); label: "Repetir"; }
+    }
+    // atalhos
+    HorizontalLayout { x: root.g; y: root.y0 + 228px; width: root.width - 2 * root.g; height: 56px; spacing: 8px;
+        Pill { icon: @image-url("../assets/icons/queue.svg"); text: "Fila"; }
+        Pill { icon: @image-url("../assets/icons/lyrics.svg"); text: "Letra"; }
+        Pill { icon: @image-url("../assets/icons/timer.svg"); text: "Timer"; }
+        Pill { icon: @image-url("../assets/icons/device.svg"); text: "Este celular"; } }
+    HorizontalLayout { x: root.g; y: root.y0 + 296px; width: root.width - 2 * root.g; height: 24px; alignment: center; spacing: 10px;
+        FormatBadge { codec: "OPUS"; detail: "160 kbps"; ink: Theme.im-ink-2; strong-ink: Theme.im-ink; }
+        Text { text: "Do YouTube Music"; vertical-alignment: center; font-family: Theme.font-sans; font-size: Theme.fs-footnote; color: Theme.im-ink-2; } }
+}
+
+component PlayerWide inherits Rectangle {
+    in property <bool> playing: true;
+    Stage { immersive: true; has-cover: true; backdrop: Demo.blur07; }
+    property <length> cover: min(520px, root.height - 200px);
+    IconButton { x: 24px; y: 20px; icon: @image-url("../assets/icons/chevron-down.svg"); label: "Fechar o player"; glyph: 28px; }
+    CoverImage { x: 120px; y: (root.height - self.height) / 2 + 8px; width: root.cover; height: root.cover; source: Demo.c07; radius: Theme.player-cover-radius;
+        drop-shadow-blur: 64px; drop-shadow-offset-y: 28px; drop-shadow-color: #000000a6; }
+    property <length> cx: 120px + root.cover + 72px;
+    property <length> cw: min(420px, root.width - root.cx - 48px);
+    property <length> cy: (root.height - 420px) / 2;
+    Text { x: root.cx; y: root.cy - 24px; text: "Tocando de Mix Foco"; font-family: Theme.font-sans; font-size: Theme.fs-footnote; color: Theme.im-ink-2; }
+    VerticalLayout { x: root.cx; y: root.cy; width: root.cw - 64px; height: 76px; alignment: center; spacing: 2px;
+        Text { text: "Quase Verão"; font-family: Theme.font-display; font-size: Theme.fs-player-title-desktop; font-weight: Theme.fw-player-title-desktop; letter-spacing: Theme.ls-player-title-desktop; color: Theme.im-ink; overflow: elide; }
+        Text { text: "Nina Sabiá"; font-family: Theme.font-sans; font-size: Theme.fs-body; color: Theme.im-ink-2; } }
+    GlassIconButton { x: root.cx + root.cw - Theme.hit; y: root.cy + 14px; icon: @image-url("../assets/icons/heart.svg"); label: "Curtir"; }
+    KSlider { x: root.cx; y: root.cy + 92px; width: root.cw; value: 0.31; label: "Progresso da faixa"; value-text: "1:02 de 3:21"; }
+    Text { x: root.cx; y: root.cy + 134px; text: "1:02"; font-family: Theme.font-mono; font-size: Theme.fs-timecode; color: Theme.im-ink-2; }
+    Text { x: root.cx + root.cw - self.width; y: root.cy + 134px; text: "-2:19"; font-family: Theme.font-mono; font-size: Theme.fs-timecode; color: Theme.im-ink-2; }
+    GlassPanel { x: root.cx; y: root.cy + 164px; width: root.cw; height: 88px; radius: 44px; level: 2;
+        IconButton { x: 14px; y: 20px; icon: @image-url("../assets/icons/shuffle.svg"); label: "Aleatório"; }
+        IconButton { x: parent.width / 2 - 36px - 12px - 56px; y: 16px; size: 56px; glyph: 28px; icon: @image-url("../assets/icons/prev.svg"); label: "Faixa anterior"; }
+        Rectangle { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; width: Theme.play-main-desktop; height: Theme.play-main-desktop; border-radius: Theme.play-main-desktop / 2; background: Theme.im-ink;
+            Image { source: @image-url("../assets/icons/pause.svg"); width: 32px; height: 32px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; colorize: #000000; } }
+        IconButton { x: parent.width / 2 + 36px + 12px; y: 16px; size: 56px; glyph: 28px; icon: @image-url("../assets/icons/next.svg"); label: "Próxima faixa"; }
+        IconButton { x: parent.width - 14px - 48px; y: 20px; icon: @image-url("../assets/icons/repeat.svg"); label: "Repetir"; }
+    }
+    Image { x: root.cx; y: root.cy + 272px; width: 22px; height: 22px; source: @image-url("../assets/icons/vol-low.svg"); colorize: Theme.im-ink-2; }
+    KSlider { x: root.cx + 34px; y: root.cy + 262px; width: root.cw - 68px; value: 0.7; label: "Volume"; value-text: "70%"; }
+    Image { x: root.cx + root.cw - 22px; y: root.cy + 272px; width: 22px; height: 22px; source: @image-url("../assets/icons/vol-high.svg"); colorize: Theme.im-ink-2; }
+    HorizontalLayout { x: root.cx; y: root.cy + 326px; width: root.cw; height: 56px; spacing: 8px;
+        Pill { icon: @image-url("../assets/icons/queue.svg"); text: "Fila"; }
+        Pill { icon: @image-url("../assets/icons/lyrics.svg"); text: "Letra"; }
+        Pill { icon: @image-url("../assets/icons/timer.svg"); text: "Timer"; }
+        Pill { icon: @image-url("../assets/icons/device.svg"); text: "Este PC"; } }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Folha (menu da faixa): vidro nível 3 sobre a lista que continua visível por trás, com scrim neutro.
+// ---------------------------------------------------------------------------------------------
+component MenuItem inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    in property <string> hint;
+    height: 52px;
+    Image { x: 6px; y: 14px; width: 24px; height: 24px; source: root.icon; colorize: Theme.ink-glass-2; }
+    Text { x: 46px; y: 0px; height: parent.height; text: root.label; vertical-alignment: center; font-family: Theme.font-sans; font-size: Theme.fs-body; font-weight: 500; letter-spacing: Theme.ls-body; color: Theme.ink; }
+    Text { x: parent.width - self.width - 6px; y: 0px; height: parent.height; text: root.hint; vertical-alignment: center; font-family: Theme.font-sans; font-size: Theme.fs-subhead; color: Theme.ink-glass-2; }
+}
+
+component SheetScene inherits Rectangle {
+    background: Theme.bg;
+    property <length> g: Theme.gutter-mobile;
+    // lista por trás
+    Flickable { content-y: -240px;
+        VerticalLayout { padding-top: Theme.header-h; spacing: 12px;
+            Rectangle { height: 52px; LargeTitle { x: root.g; text: "Início"; } }
+            Rectangle { height: 380px; HorizontalLayout { x: root.g; spacing: 12px; alignment: start;
+                HeroCard { cover: Demo.c08; caption: "Descobrir"; title: "Vidro Líquido"; subtitle: "Kaito e Vê"; }
+                HeroCard { cover: Demo.c04; caption: "Mix"; title: "Canal Sete"; subtitle: "Os Faróis"; } } }
+            Rectangle { height: 4 * (Theme.row-h + 4px);
+                GroupCard { x: root.g; width: root.width - 2 * root.g; height: 4 * (Theme.row-h + 4px);
+                    for it[i] in Demo.quick : TrackRow { cover: it.cover; title: it.title; artist: it.artist; why: it.why; divider: i < 3; } } }
+        } }
+    Rectangle { background: Theme.scrim; }
+    GlassPanel { x: 8px; y: root.height - 560px; width: root.width - 16px; height: 552px; radius: Theme.sheet-radius; level: 3;
+        Rectangle { x: (parent.width - self.width) / 2; y: 8px; width: Theme.grabber-w; height: Theme.grabber-h; border-radius: 2px; background: Theme.line-strong; }
+        CoverImage { x: 20px; y: 28px; width: 56px; height: 56px; source: Demo.c08; radius: 12px; }
+        VerticalLayout { x: 90px; y: 28px; width: parent.width - 110px; height: 56px; alignment: center;
+            Text { text: "Respiração de Vidro"; font-family: Theme.font-sans; font-size: Theme.fs-headline; font-weight: 600; color: Theme.ink; overflow: elide; }
+            Text { text: "Kaito e Vê"; font-family: Theme.font-sans; font-size: Theme.fs-subhead; color: Theme.ink-glass-2; } }
+        Divider { x: 20px; y: 96px; width: parent.width - 40px; }
+        VerticalLayout { x: 14px; y: 104px; width: parent.width - 28px; spacing: 0px;
+            MenuItem { icon: @image-url("../assets/icons/play.svg"); label: "Tocar em seguida"; }
+            MenuItem { icon: @image-url("../assets/icons/queue.svg"); label: "Adicionar à fila"; }
+            MenuItem { icon: @image-url("../assets/icons/heart.svg"); label: "Curtir"; }
+            MenuItem { icon: @image-url("../assets/icons/playlist-add.svg"); label: "Adicionar à playlist"; }
+            MenuItem { icon: @image-url("../assets/icons/download.svg"); label: "Baixar"; hint: "Wi-Fi"; }
+            MenuItem { icon: @image-url("../assets/icons/disc.svg"); label: "Ir para o álbum"; }
+            MenuItem { icon: @image-url("../assets/icons/user.svg"); label: "Ir para o artista"; }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// PROVA DE VIDRO: o mesmo conteúdo colorido atrás de cada material (fino, regular, espesso), da cápsula da barra e da legenda sobre capa,
+// ao lado das versões sólidas (Reduzir transparência).
+// ---------------------------------------------------------------------------------------------
+component ProofSample inherits Rectangle {
+    in property <string> label;
+    in property <int> level: 1;
+    in property <length> r: 20px;
+    Text { x: 0px; y: 0px; text: root.label; font-family: Theme.font-sans; font-size: Theme.fs-caption; font-weight: 600; color: Theme.ink; }
+    GlassPanel { x: 0px; y: 22px; width: parent.width; height: parent.height - 22px; radius: root.r; level: root.level;
+        Text { x: 16px; y: 14px; text: "Vidro nível " + root.level; font-family: Theme.font-sans; font-size: Theme.fs-headline; font-weight: 600; color: Theme.ink; }
+        Text { x: 16px; y: 38px; text: "Texto secundário sobre vidro"; font-family: Theme.font-sans; font-size: Theme.fs-subhead; color: Theme.ink-glass-2; } }
+}
+
+component ProofScene inherits Rectangle {
+    background: Theme.bg;
+    property <length> cs: root.width / 4;
+    // conteúdo colorido de fundo: grade de capas em tamanho grande
+    for i[k] in [Demo.c07, Demo.c08, Demo.c02, Demo.c06, Demo.c01, Demo.c09, Demo.c04, Demo.c10, Demo.c03, Demo.c05, Demo.c07, Demo.c08] : Image {
+        x: mod(k, 4) * root.cs; y: floor(k / 4) * root.cs; width: root.cs; height: root.cs; source: i; image-fit: ImageFit.cover;
+    }
+    Text { x: 20px; y: 16px; text: "Prova de vidro (Slint, FemtoVG)"; font-family: Theme.font-display; font-size: Theme.fs-title-2; font-weight: 700; color: #ffffff; }
+    ProofSample { x: 20px; y: 70px; width: root.width / 3 - 26px; height: 100px; label: "nível 1 · fino"; level: 1; }
+    ProofSample { x: root.width / 3 + 6px; y: 70px; width: root.width / 3 - 12px; height: 100px; label: "nível 2 · regular"; level: 2; }
+    ProofSample { x: root.width * 2 / 3 + 6px; y: 70px; width: root.width / 3 - 26px; height: 100px; label: "nível 3 · espesso"; level: 3; }
+    NavDock { x: 20px; y: root.cs + 40px; width: root.width * 0.6; current: 1; }
+    SearchButton { x: 20px + root.width * 0.6 + 12px; y: root.cs + 40px + 4px; }
+    HeroCard { x: 20px; y: root.cs * 2 - 30px; width: 300px; height: 230px; cover: Demo.c05; caption: "Legenda sobre capa clara"; title: "Escada de Sal"; subtitle: "Tomás Reis"; }
+    MiniPlayer { x: 340px; y: root.cs * 2 + 20px; width: root.width - 360px; cover: Demo.c07; title: "Quase Verão"; artist: "Nina Sabiá"; }
+}
+
 export component Preview inherits Window {
-    width: 390px; height: 844px;
+    in-out property <string> scene: "home";
+    in-out property <float> scroll-y: 0;
+    preferred-width: 390px; preferred-height: 844px;
     default-font-family: Theme.font-sans;
-    background: Theme.stage-base;
-
-    Stage { width: parent.width; height: parent.height; has-cover: true; backdrop: @image-url("../prototypes/covers/cover-07.svg"); }
-
-    Text { x: 16px; y: 22px; text: "Vidro v2"; font-size: Theme.fs-title-1; font-weight: Theme.fw-title-1; color: Theme.ink; }
-
-    // nível 1: cartão de conteúdo
-    GlassPanel {
-        x: 16px; y: 80px; width: parent.width - 32px; height: 120px; radius: 24px; level: 1;
-        Text { x: 16px; y: 16px; text: "Nível 1, conteúdo"; font-size: Theme.fs-headline; font-weight: Theme.fw-headline; color: Theme.ink; }
-        Text { x: 16px; y: 44px; width: parent.width - 32px; wrap: word-wrap; text: "Cartões e grupos. Blur 20, fill leve: o palco aparece por baixo."; font-size: Theme.fs-subhead; color: Theme.ink-2; }
-    }
-    HorizontalLayout { x: 16px; y: 216px; width: parent.width - 32px; height: 40px; spacing: 8px; alignment: start;
-        Chip { text: "Para você"; selected: true; }
-        Chip { text: "Descobrir"; }
-        Chip { text: "Mixes"; }
-    }
-    // nível 3: folha
-    GlassPanel {
-        x: 16px; y: 276px; width: parent.width - 32px; height: 150px; radius: Theme.sheet-radius; level: 3;
-        Text { x: 20px; y: 18px; text: "Nível 3, folha"; font-size: Theme.fs-headline; font-weight: Theme.fw-headline; color: Theme.ink; }
-        Text { x: 20px; y: 46px; width: parent.width - 40px; wrap: word-wrap; text: "Menus, folhas e diálogos: mais opaco, blur 40, sombra grande."; font-size: Theme.fs-subhead; color: Theme.ink-2; }
-        HorizontalLayout { x: 20px; y: 96px; spacing: 12px; alignment: start;
-            FormatBadge { codec: "OPUS"; detail: "160"; }
-            FormatBadge { codec: "FLAC"; detail: "24/96"; hires: true; }
-            KSwitch { checked: true; label: "Equalizador"; }
-        }
-    }
-    KSlider { x: 16px; y: 450px; width: parent.width - 32px; value: 0.31; label: "Progresso"; value-text: "1:02 de 3:21"; }
-
-    // nível 2: mini player + dock
-    GlassPanel {
-        x: 12px; y: parent.height - 12px - 64px - 8px - 64px; width: parent.width - 24px; height: Theme.mini-h; radius: Theme.mini-radius; level: 2;
-        CoverImage { x: 8px; y: 8px; width: 48px; height: 48px; source: @image-url("../prototypes/covers/cover-07.svg"); radius: 16px; }
-        Text { x: 68px; y: 11px; text: "Quase Verão"; font-size: Theme.fs-callout; font-weight: 600; color: Theme.ink; }
-        Text { x: 68px; y: 33px; text: "Nina Sabiá"; font-size: Theme.fs-subhead; color: Theme.ink-2; }
-        IconButton { x: parent.width - 108px; y: 8px; icon: @image-url("../assets/icons/pause.svg"); label: "Pausar"; tint: Theme.ink; glyph: 28px; }
-        IconButton { x: parent.width - 56px; y: 8px; icon: @image-url("../assets/icons/next.svg"); label: "Próxima faixa"; tint: Theme.ink; }
-    }
-    GlassPanel {
-        x: 12px; y: parent.height - 12px - 64px; width: parent.width - 24px - 64px; height: Theme.dock-h; radius: Theme.dock-radius; level: 2;
-        HorizontalLayout { padding: 6px; spacing: 4px;
-            Rectangle { background: Theme.ink.with-alpha(0.2); border-radius: 26px;
-                IconButton { x: (parent.width - self.width) / 2; y: 0px; icon: @image-url("../assets/icons/home.svg"); label: "Início"; active: true; }
-            }
-            Rectangle { IconButton { x: (parent.width - self.width) / 2; y: 0px; icon: @image-url("../assets/icons/explore.svg"); label: "Explorar"; tint: Theme.ink; } }
-            Rectangle { IconButton { x: (parent.width - self.width) / 2; y: 0px; icon: @image-url("../assets/icons/library.svg"); label: "Biblioteca"; tint: Theme.ink; } }
-        }
-    }
-    GlassPanel {
-        x: parent.width - 12px - Theme.dock-search; y: parent.height - 12px - Theme.dock-search; width: Theme.dock-search; height: Theme.dock-search; radius: Theme.dock-search / 2; level: 2;
-        IconButton { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; icon: @image-url("../assets/icons/search.svg"); label: "Buscar"; tint: Theme.ink; }
-    }
+    background: Theme.bg;
+    // o player é sempre escuro, mesmo com o tema claro
+    changed scene => { if (self.scene == "player" || self.scene == "player-wide") { Theme.dark = true; } }
+    if scene == "home" : HomeCompact { width: parent.width; height: parent.height; scroll-y: root.scroll-y * 1px; }
+    if scene == "home-playing" : HomeCompact { width: parent.width; height: parent.height; scroll-y: root.scroll-y * 1px; banner: false; }
+    if scene == "home-wide" : HomeWide { width: parent.width; height: parent.height; scroll-y: root.scroll-y * 1px; }
+    if scene == "library" : LibraryCompact { width: parent.width; height: parent.height; scroll-y: root.scroll-y * 1px; }
+    if scene == "settings" : SettingsCompact { width: parent.width; height: parent.height; scroll-y: root.scroll-y * 1px; }
+    if scene == "player" : PlayerCompact { width: parent.width; height: parent.height; }
+    if scene == "player-wide" : PlayerWide { width: parent.width; height: parent.height; }
+    if scene == "sheet" : SheetScene { width: parent.width; height: parent.height; }
+    if scene == "proof" : ProofScene { width: parent.width; height: parent.height; }
 }

@@ -3,20 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Álbum — Kazzu</title>
+<title>Kazzu: Álbum</title>
 <meta name="color-scheme" content="dark light">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/tokens.css">
 <link rel="stylesheet" href="assets/covers.css">
-<link rel="stylesheet" href="assets/stage.css">
 <link rel="stylesheet" href="assets/kazzu.css">
 </head>
-<body class="dyn cv-07" data-screen="album" data-cover="07">
+<body class="cv-07" data-screen="album" data-cover="07">
 <a class="skip" href="#main">Ir para o conteúdo</a>
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
 <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.2 12 4l8 7.2V19a1.5 1.5 0 0 1-1.5 1.5H15V15H9v5.5H5.5A1.5 1.5 0 0 1 4 19z"/></symbol>
 <symbol id="i-explore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="m15.6 8.4-1.9 5.3-5.3 1.9 1.9-5.3z"/></symbol>
 <symbol id="i-library" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9.5" width="16" height="10.5" rx="2.5"/><path d="M7 6h10M9.5 2.75h5"/></symbol>
+<symbol id="i-home-fill" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.2 12 4l8 7.2V19a1.5 1.5 0 0 1-1.5 1.5H15V15H9v5.5H5.5A1.5 1.5 0 0 1 4 19z"/></symbol>
+<symbol id="i-explore-fill" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="0.5" stroke-linejoin="round"><path fill-rule="evenodd" d="M12 3.25a8.75 8.75 0 1 0 0 17.5 8.75 8.75 0 0 0 0-17.5zM15.6 8.4l-1.9 5.3-5.3 1.9 1.9-5.3z"/></symbol>
+<symbol id="i-library-fill" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9.5" width="16" height="10.5" rx="2.5"/><path d="M7 6h10M9.5 2.75h5"/></symbol>
 <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.25"/><path d="m15.2 15.2 4.8 4.8"/></symbol>
 <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
 <symbol id="i-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 6 6 6-6 6"/></symbol>
@@ -69,38 +71,42 @@
 <symbol id="i-badge-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="m8.2 12.3 2.6 2.6 5-5.4"/></symbol>
 <symbol id="i-cloud-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l16 16M8.6 8.2A5 5 0 0 0 7 18h10.6M17 10.2a4 4 0 0 1 3 3.8"/></symbol>
 </svg>
-<div class="stage" aria-hidden="true"><img class="cv" src="covers/cover-07.svg" alt="" width="640" height="640" data-stage></div>
-<aside class="rail-nav glass g2" aria-label="Navegação principal">
+<aside class="rail-nav glass g1" aria-label="Navegação principal">
   <a class="mk" href="home.html" aria-label="Kazzu, ir para Início"><img class="mark-sm th-d" src="../assets/kazzu-mark-dark.svg" alt="" width="36" height="36"><img class="mark-sm th-l" src="../assets/kazzu-mark-light.svg" alt="" width="36" height="36"><img class="logo-w th-d" src="../assets/kazzu-wordmark-dark.svg" alt="Kazzu" width="108" height="28"><img class="logo-w th-l" src="../assets/kazzu-wordmark-light.svg" alt="Kazzu" width="108" height="28"></a>
-  <nav><a class="tab" href="home.html"><svg class="ic " aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a><a class="tab" href="explore.html"><svg class="ic " aria-hidden="true"><use href="#i-explore"/></svg><span>Explorar</span></a><a class="tab" href="library.html" aria-current="page"><svg class="ic " aria-hidden="true"><use href="#i-library"/></svg><span>Biblioteca</span></a><a class="tab" href="search.html"><svg class="ic " aria-hidden="true"><use href="#i-search"/></svg><span>Buscar</span></a></nav>
+  <nav><a class="tab" href="home.html"><svg class="ic " aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a><a class="tab" href="explore.html"><svg class="ic " aria-hidden="true"><use href="#i-explore"/></svg><span>Explorar</span></a><a class="tab" href="library.html" aria-current="page"><svg class="ic " aria-hidden="true"><use href="#i-library-fill"/></svg><span>Biblioteca</span></a><a class="tab" href="search.html"><svg class="ic " aria-hidden="true"><use href="#i-search"/></svg><span>Buscar</span></a></nav>
   <div class="sp"></div>
   <a class="tab" href="settings.html"><svg class="ic " aria-hidden="true"><use href="#i-gear"/></svg><span>Ajustes</span></a>
 </aside><main class="page" id="main">
-  <header class="topbar"><a class="btn-ic glass" href="library.html" aria-label="Voltar"><svg class="ic " aria-hidden="true"><use href="#i-back"/></svg></a><span></span><a class="btn-ic glass" href="sheets.html" aria-label="Mais opções do álbum"><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></a></header>
+  <header class="topbar" data-hdr>
+    <a class="btn-ic glass back" href="library.html" aria-label="Voltar"><svg class="ic " aria-hidden="true"><use href="#i-back"/></svg></a>
+    <span class="inline-title" aria-hidden="true">Calor de Março</span>
+    <div class="actions"><a class="btn-ic glass" href="sheets.html" aria-label="Mais opções do álbum"><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></a></div>
+  </header>
+  
   <section class="album-head" aria-labelledby="al-h">
     <span class="cover "><img src="covers/cover-07.svg" alt="Capa de Calor de Março" width="640" height="640" loading="lazy" decoding="async"></span>
     <div><h1 class="t-title1" id="al-h">Calor de Março</h1><p class="muted2">Nina Sabiá, álbum</p>
     <p style="margin-top:6px"><span class="src"><svg class="ic " aria-hidden="true"><use href="#i-cloud"/></svg>Do YouTube Music</span></p></div>
     <div class="acts"><button class="btn btn-primary" type="button"><svg class="ic " aria-hidden="true"><use href="#i-play"/></svg>Tocar</button><button class="btn btn-glass" type="button"><svg class="ic " aria-hidden="true"><use href="#i-shuffle"/></svg>Aleatório</button><button class="btn-ic glass" type="button" aria-label="Curtir álbum" aria-pressed="false" data-toggle><svg class="ic " aria-hidden="true"><use href="#i-heart"/></svg></button></div>
   </section>
-  <ul class="rows"><li><div class="row playing">
-      <a class="cover" href="player.html" aria-label="Tocar Quase Verão" style="width:52px;height:52px;border-radius:12px"><span class="cover "><img src="covers/cover-07.svg" alt="" width="104" height="104" loading="lazy" decoding="async"></span></a>
+  <ul class="group-list"><li><div class="row playing">
+      <a class="cover" href="player.html" aria-label="Tocar Quase Verão"><span class="cover "><img src="covers/cover-07.svg" alt="" width="104" height="104" loading="lazy" decoding="async"></span></a>
       <a class="meta" href="player.html"><span class="title ellipsis">Quase Verão</span><span class="sub ellipsis">Nina Sabiá</span></a>
       <span class="end"><span class="nowbars" role="img" aria-label="Tocando agora"><i></i><i></i><i></i></span><span class="fmt" aria-label="OPUS 160 kbps"><b>OPUS</b><i></i>160</span><a class="btn-ic" href="sheets.html" aria-label="Mais opções para Quase Verão"><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></a></span>
     </div></li><li><div class="row">
-      <a class="cover" href="player.html" aria-label="Tocar Maré Alta" style="width:52px;height:52px;border-radius:12px"><span class="cover "><img src="covers/cover-01.svg" alt="" width="104" height="104" loading="lazy" decoding="async"></span></a>
+      <a class="cover" href="player.html" aria-label="Tocar Maré Alta"><span class="cover "><img src="covers/cover-01.svg" alt="" width="104" height="104" loading="lazy" decoding="async"></span></a>
       <a class="meta" href="player.html"><span class="title ellipsis">Maré Alta</span><span class="sub ellipsis">Aurora Vento</span></a>
       <span class="end"><span class="fmt" aria-label="OPUS 160 kbps"><b>OPUS</b><i></i>160</span><a class="btn-ic" href="sheets.html" aria-label="Mais opções para Maré Alta"><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></a></span>
     </div></li><li><div class="row">
-      <a class="cover" href="player.html" aria-label="Tocar Seda e Sal" style="width:52px;height:52px;border-radius:12px"><span class="cover "><img src="covers/cover-09.svg" alt="" width="104" height="104" loading="lazy" decoding="async"></span></a>
+      <a class="cover" href="player.html" aria-label="Tocar Seda e Sal"><span class="cover "><img src="covers/cover-09.svg" alt="" width="104" height="104" loading="lazy" decoding="async"></span></a>
       <a class="meta" href="player.html"><span class="title ellipsis">Seda e Sal</span><span class="sub ellipsis">Ilha Branca</span></a>
       <span class="end"><span class="fmt" aria-label="OPUS 160 kbps"><b>OPUS</b><i></i>160</span><a class="btn-ic" href="sheets.html" aria-label="Mais opções para Seda e Sal"><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></a></span>
     </div></li><li><div class="row">
-      <a class="cover" href="player.html" aria-label="Tocar Canal Sete" style="width:52px;height:52px;border-radius:12px"><span class="cover "><img src="covers/cover-04.svg" alt="" width="104" height="104" loading="lazy" decoding="async"></span></a>
+      <a class="cover" href="player.html" aria-label="Tocar Canal Sete"><span class="cover "><img src="covers/cover-04.svg" alt="" width="104" height="104" loading="lazy" decoding="async"></span></a>
       <a class="meta" href="player.html"><span class="title ellipsis">Canal Sete</span><span class="sub ellipsis">Os Faróis</span></a>
       <span class="end"><span class="fmt" aria-label="OPUS 160 kbps"><b>OPUS</b><i></i>160</span><a class="btn-ic" href="sheets.html" aria-label="Mais opções para Canal Sete"><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></a></span>
     </div></li><li><div class="row">
-      <a class="cover" href="player.html" aria-label="Tocar Linha de Fuga" style="width:52px;height:52px;border-radius:12px"><span class="cover "><img src="covers/cover-06.svg" alt="" width="104" height="104" loading="lazy" decoding="async"></span></a>
+      <a class="cover" href="player.html" aria-label="Tocar Linha de Fuga"><span class="cover "><img src="covers/cover-06.svg" alt="" width="104" height="104" loading="lazy" decoding="async"></span></a>
       <a class="meta" href="player.html"><span class="title ellipsis">Linha de Fuga</span><span class="sub ellipsis">Meridiano</span></a>
       <span class="end"><span class="fmt" aria-label="OPUS 160 kbps"><b>OPUS</b><i></i>160</span><a class="btn-ic" href="sheets.html" aria-label="Mais opções para Linha de Fuga"><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></a></span>
     </div></li></ul>
@@ -115,7 +121,7 @@
     <span class="prog" aria-hidden="true" style="--p:31%"></span>
   </div>
   <div class="dock-row">
-    <nav class="dock glass g2" aria-label="Navegação principal"><a class="tab" href="home.html"><svg class="ic " aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a><a class="tab" href="explore.html"><svg class="ic " aria-hidden="true"><use href="#i-explore"/></svg><span>Explorar</span></a><a class="tab" href="library.html" aria-current="page"><svg class="ic " aria-hidden="true"><use href="#i-library"/></svg><span>Biblioteca</span></a></nav>
+    <nav class="dock glass g2" aria-label="Navegação principal"><a class="tab" href="home.html"><svg class="ic " aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a><a class="tab" href="explore.html"><svg class="ic " aria-hidden="true"><use href="#i-explore"/></svg><span>Explorar</span></a><a class="tab" href="library.html" aria-current="page"><svg class="ic " aria-hidden="true"><use href="#i-library-fill"/></svg><span>Biblioteca</span></a></nav>
     <a class="search-btn glass g2" href="search.html" aria-label="Buscar"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-search"/></svg></a>
   </div>
 </div>

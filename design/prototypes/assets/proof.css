@@ -1,0 +1,21 @@
+/* ============================ prova de vidro (glass-proof.html) ============================ */
+.proof { --gutter: 20px; padding: 24px var(--gutter) 64px; max-width: 1180px; margin-inline: auto; display: grid; gap: 28px; }
+.proof h1 { font: var(--fw-large-title) var(--fs-large-title)/var(--lh-large-title) var(--ff-large-title); letter-spacing: var(--ls-large-title); }
+.proof .lead { color: var(--ink-2); max-width: 70ch; }
+.pstage { position: relative; isolation: isolate; border-radius: 28px; overflow: hidden; padding: 20px; background: var(--bg); color: var(--ink); display: grid; gap: 18px; }
+.pstage .collage { position: absolute; inset: 0; z-index: -1; display: grid; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 1fr; }
+.pstage .collage img { width: 100%; height: 100%; object-fit: cover; }
+.pstage h2 { text-shadow: 0 1px 8px rgb(0 0 0 / .55); }
+.pstage .label { font: 600 var(--fs-caption)/1 var(--font-sans); color: #fff; text-shadow: 0 1px 6px rgb(0 0 0 / .5); }
+.prow { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.psample { min-height: 112px; padding: 16px; display: grid; align-content: start; gap: 4px; }
+.psample .t-headline { color: var(--ink); } 
+.pdock { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pdock .dock { flex: 1; min-width: 260px; max-width: 420px; }
+.pnote { font: 500 var(--fs-footnote)/1.4 var(--font-sans); color: var(--ink-2); }
+.pcmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.pcmp figure { margin: 0; display: grid; gap: 8px; } .pcmp img { border-radius: 16px; width: 100%; }
+.pcmp figcaption { font: 500 var(--fs-footnote)/1.4 var(--font-sans); color: var(--ink-2); }
+.old-glass { background: linear-gradient(180deg, #ffffff24, transparent 52%), #3a1a10b3; backdrop-filter: blur(32px) saturate(1.45); border-radius: 20px; box-shadow: 0 12px 32px #0008, inset 0 0 0 1px #ffffff30; color: #fff; }
+.solid-glass { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: var(--g-solid) !important; }
+.solid-glass::before, .solid-glass::after { opacity: .5; }

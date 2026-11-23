@@ -116,60 +116,79 @@ def check(name, fg, bg, minimum):
         failures.append(name)
 
 
+def comp(layers, backdrop):
+    """compõe camadas [(rgba)...] de baixo para cima sobre um fundo opaco."""
+    cur = (backdrop[0], backdrop[1], backdrop[2], 1.0)
+    for l in layers:
+        cur = over(l, cur)
+    return cur
+
+
+def glass_over(c, tier, backdrop):
+    """cor resultante do vidro de um nível sobre um fundo opaco (sombreado neutro + tint claro)."""
+    return comp([c[f"glass-shade-{tier}"], c[f"glass-tint-{tier}"]], backdrop)
+
+
+def gray(y):
+    g = gamma_from_lum(y)
+    return (g, g, g, 1.0)
+
+
 def run_checks():
     for mode, acc, acc_ink in (("dark", brand["ember"], brand["ember-ink-on-dark"]),
                                ("light", brand["ember-on-light"], brand["ember-ink-on-light"])):
         c = {k: parse(v) for k, v in colors(mode).items()}
         print(f"[{mode}]")
-        for s in ("bg", "surface", "surface-2", "surface-3"):
-            check(f"ink / {s}", c["ink"], c[s], 7.0 if s == "bg" else 4.5)
-        for s in ("bg", "surface", "surface-2"):
-            check(f"ink-2 / {s}", c["ink-2"], c[s], 4.5)
-        for s in ("bg", "surface"):
-            check(f"ink-3 / {s}", c["ink-3"], c[s], 4.5)
+        for s_ in ("bg", "surface", "surface-2", "surface-3"):
+            check(f"ink / {s_}", c["ink"], c[s_], 7.0 if s_ in ("bg", "surface") else 4.5)
+        for s_ in ("bg", "surface", "surface-2"):
+            check(f"ink-2 / {s_}", c["ink-2"], c[s_], 4.5)
+        for s_ in ("bg", "surface"):
+            check(f"ink-3 / {s_}", c["ink-3"], c[s_], 4.5)
         check("accent-ink / accent", acc_ink, acc, 4.5)
-        check("accent / bg (texto de destaque 4.5:1)", acc, c["bg"], 4.5)
-        check("accent / surface-2 (ícones/foco 3:1)", acc, c["surface-2"], 3.0)
+        check("accent / bg (ícone, foco 3:1)", acc, c["bg"], 3.0)
+        check("accent / surface (ícone 3:1)", acc, c["surface"], 3.0)
         for k in ("success", "warning", "danger"):
             check(f"{k} / bg", c[k], c["bg"], 4.5)
-        check("line-strong / bg (borda de campo 1.4:1)", c["line-strong"], c["bg"], 1.4)
-        # --- palco vivo: pior manchão (o mais claro no escuro, o mais escuro no claro) ---------------------------
-        st = {k: c[k] for k in ("stage-base", "stage-a", "stage-b", "stage-c", "stage-d")}
-        worst = max(st.values(), key=luminance) if mode == "dark" else min(st.values(), key=luminance)
-        check("ink / palco (pior manchão)", c["ink"], worst, 4.5)
-        check("ink-2 / palco (pior manchão)", c["ink-2"], worst, 4.5)
-        check("accent / palco (ícone, foco, trilho 3:1; texto só sobre vidro)", acc, worst, 3.0)
-        # --- vidro, 3 níveis, sobre o pior manchão ---------------------------------------------------------------
-        for tier, key in (("1", "glass-fill"), ("2", "glass-fill-strong"), ("3", "glass-fill-3")):
-            gf = over(c[key], worst)
-            check(f"ink / vidro {tier} sobre palco", c["ink"], gf, 7.0)
-            check(f"ink-2 / vidro {tier} sobre palco", c["ink-2"], gf, 4.5)
-            check(f"ink-3 / vidro {tier} sobre palco", c["ink-3"], gf, 4.5)
-            check(f"accent / vidro {tier} (ícone 3:1)", acc, gf, 3.0)
+        check("line-strong / bg (borda de campo 1.4:1)", over(c["line-strong"], c["bg"]), c["bg"], 1.4)
+        # --- vidro, 3 níveis -------------------------------------------------------------------------------------
+        # fundos de referência: fundo da página, conteúdo médio (L 0,30), e o PIOR caso sob o fade de borda (branco puro
+        # atrás de um fade de 55%: o cromo inferior/superior nunca fica sobre conteúdo mais claro que isso).
+        fade_a = 0.45
+        fade = (c["edge-fade"][0], c["edge-fade"][1], c["edge-fade"][2], fade_a)
+        white = (1.0, 1.0, 1.0, 1.0)
+        worst_back = over(fade, white)
+        for tier in ("1", "2", "3"):
+            for name, bgc in (("fundo", c["bg"]), ("conteúdo médio", gray(0.20)), ("branco sob fade 45%", worst_back)):
+                gf = glass_over(c, tier, bgc)
+                need_ink = 7.0 if name == "fundo" else 4.5
+                check(f"ink / vidro {tier} sobre {name}", c["ink"], gf, need_ink)
+                check(f"ink-glass-2 / vidro {tier} sobre {name}", c["ink-glass-2"], gf, 4.5)
+            check(f"accent / vidro {tier} sobre fundo (ícone 3:1)", acc, glass_over(c, tier, c["bg"]), 3.0)
         for key in ("glass-solid", "glass-solid-strong", "glass-solid-3"):
             check(f"ink / {key} (reduzir transparência)", c["ink"], c[key], 7.0)
             check(f"ink-3 / {key} (reduzir transparência)", c["ink-3"], c[key], 4.5)
             check(f"accent / {key} (ícone 3:1)", acc, c[key], 3.0)
         # --- teto de luminância do que pode ficar ATRÁS do vidro (conteúdo rolando, capas) ------------------------
-        for tier, key in (("1", "glass-fill"), ("2", "glass-fill-strong"), ("3", "glass-fill-3")):
+        for tier in ("1", "2", "3"):
             lo, hi = 0.0, 1.0
             for _ in range(24):  # busca binária do cinza de fundo mais extremo que ainda dá 4.5:1 para ink-2
                 mid = (lo + hi) / 2
-                g = gamma_from_lum(mid) if mode == "dark" else gamma_from_lum(1 - mid)
-                bgc = (g, g, g, 1.0)
-                ok = contrast(c["ink-2"], over(c[key], bgc)) >= 4.5
+                g = gray(mid) if mode == "dark" else gray(1 - mid)
+                ok = contrast(c["ink-glass-2"], glass_over(c, tier, g)) >= 4.5
                 if ok: lo = mid
                 else: hi = mid
-            print(f"  info  vidro {tier}: ink-2 mantém 4.5:1 com atrás até {'luminância relativa' if mode=='dark' else 'escuridão'} {lo:.2f}")
-    # imersivo: pior caso = capa branca
+            print(f"  info  vidro {tier}: ink-glass-2 mantém 4.5:1 com atrás até {'luminância relativa' if mode=='dark' else 'escuridão'} {lo:.2f}")
+    # imersivo: pior caso = capa branca desfocada (já escurecida por brilho * base-darken e pelo véu)
     im = {k: parse(v) for k, v in colors("immersive").items()}
     base = T["color"]["immersive"]["base-darken"]
-    sb = parse(T["color"]["immersive"]["scrim-bottom"])[3]
+    veil = im["veil"]
+    sb = im["scrim-bottom"][3]
     print("[immersive, pior caso: capa branca]")
     for frac, nome in ((0.60, "linha do artista"), (0.70, "tempos/progresso"), (0.90, "botões inferiores")):
         a = 0.0 if frac < 0.30 else sb * (frac - 0.30) / 0.70
         g = 1.0 * base
-        bg = (g * (1 - a),) * 3 + (1.0,)
+        bg = comp([veil, (0, 0, 0, a)], (g, g, g, 1.0))
         check(f"ink / fundo @ {nome} ({int(frac*100)}%)", im["ink"], bg, 7.0)
         check(f"ink-2 / fundo @ {nome}", im["ink-2"], bg, 4.5)
         check(f"ink-3 / fundo @ {nome}", im["ink-3"], bg, 4.5)
@@ -184,6 +203,8 @@ def slint():
     w = L.append
     w("// GERADO por design/tools/gen_tokens.py a partir de design/tokens.json. NÃO edite à mão.")
     w("// Uso: `import { Theme } from \"tokens.slint\";`  ->  `background: Theme.bg;`")
+    w("// v3 (Apple-like): fundo NEUTRO (preto/grafite no escuro, cinza-sistema no claro), vidro CLARO translúcido sobre conteúdo,")
+    w("// UM acento discreto. Sem malha de gradiente: `stage-*` e `glass-tint-*/dark|light` da v2 deixaram de existir (ver SLINT_SPEC.md §0).")
     w("")
     w("export global Theme {")
     w("    // ---- estado de tema (o kazzu-app escreve) ------------------------------------------------")
@@ -207,7 +228,7 @@ def slint():
     w("    in property <bool> blur-supported: true;")
     w("    out property <bool> glass-live: blur-supported && !reduce-transparency;")
     w("")
-    w("    // ---- cor de destaque dinâmica (derivada da capa; calculada em Rust, ver DESIGN.md §3.4) ----")
+    w("    // ---- acento: UM só, discreto (âmbar da marca). `use-dynamic-accent` (opcional) deriva da capa, ver DESIGN.md §3.4 ----")
     w("    in-out property <bool> use-dynamic-accent: false;")
     w("    in-out property <color> dynamic-accent: " + to_hex(brand["ember"]) + ";")
     w("    in-out property <color> dynamic-accent-ink: " + to_hex(brand["ember-ink-on-dark"]) + ";")
@@ -218,52 +239,44 @@ def slint():
     w(f"    out property <color> accent-soft: accent.with-alpha(dark ? {T['color']['dark']['accent-soft-alpha']} : {T['color']['light']['accent-soft-alpha']});")
     w("    out property <color> focus-ring: accent;")
     w("")
-    w("    // ---- palco vivo (fundo ambiente) e matiz do vidro: o Rust escreve as duas variantes a partir do acento da capa")
-    w("    //      (DESIGN.md §3.5: stage = fórmula [L, C, dh] sobre o matiz); sem capa tocando valem os padrões em âmbar.")
+    w("    // ---- paleta neutra (claro/escuro) ------------------------------------------------------------")
     dk, lt = colors("dark"), colors("light")
-    for k in ("stage-a", "stage-b", "stage-c", "stage-d", "glass-tint"):
-        w(f"    in-out property <color> {k}-dark: {to_hex(parse(dk[k]))};")
-        w(f"    in-out property <color> {k}-light: {to_hex(parse(lt[k]))};")
-        w(f"    out property <color> {k}: dark ? {k}-dark : {k}-light;")
-    w("")
-    w("    // ---- paleta (claro/escuro) -----------------------------------------------------------------")
-    SPECIAL = {"stage-a", "stage-b", "stage-c", "stage-d", "glass-tint", "glass-fill", "glass-fill-strong", "glass-fill-3"}
     for k in dk:
-        if k.startswith("_") or k in SPECIAL:
+        if k.startswith("_") or k == "accent-soft-alpha":
             continue
         w(f"    out property <color> {kebab(k)}: dark ? {to_hex(parse(dk[k]))} : {to_hex(parse(lt[k]))};")
-    # preenchimentos do vidro: matiz dinâmico (glass-tint) + alfa fixa por nível
-    for k in ("glass-fill", "glass-fill-strong", "glass-fill-3"):
-        ad, al = parse(dk[k])[3], parse(lt[k])[3]
-        w(f"    out property <color> {k}: glass-tint.with-alpha(dark ? {ad:.2f} : {al:.2f});")
     G = T["glass"]
-    w("    // blur por nível de profundidade (0 quando não há blur: renderer software ou reduzir transparência)")
+    w("")
+    w("    // ---- vidro: 3 materiais. camadas de baixo p/ cima: SOMBREADO neutro (glass-shade) -> TINT claro (glass-tint) -> brilho ->")
+    w("    //      borda de luz. Com blur ao vivo; sem blur (software / reduzir transparência) vale o sólido `glass-solid*`.")
     for n in ("1", "2", "3"):
         w(f"    out property <length> glass-blur-{n}: glass-live ? {G['blur'][n]}px : 0px;")
-    w("    out property <length> glass-blur-radius: glass-blur-1;          // legado v1 = nível 1")
-    w("    out property <length> glass-blur-strong-radius: glass-blur-2;   // legado v1 = nível 2")
     w(f"    out property <length> glass-blur-light-radius: glass-live ? {G['blur-light']}px : 0px;")
-    w("    /// fundo do painel por nível: translúcido com blur ao vivo; sólido sem blur.")
-    w("    out property <color> glass-bg: glass-live ? glass-fill : glass-solid;")
-    w("    out property <color> glass-bg-strong: glass-live ? glass-fill-strong : glass-solid-strong;")
-    w("    out property <color> glass-bg-3: glass-live ? glass-fill-3 : glass-solid-3;")
+    w("    /// fundo do painel por nível: sombreado (ao vivo) ou sólido.")
+    w("    out property <color> glass-bg-1: glass-live ? glass-shade-1 : glass-solid;")
+    w("    out property <color> glass-bg-2: glass-live ? glass-shade-2 : glass-solid-strong;")
+    w("    out property <color> glass-bg-3: glass-live ? glass-shade-3 : glass-solid-3;")
+    w("    /// opacidade da camada de tint (some no fallback sólido).")
+    w("    out property <float> glass-tint-on: glass-live ? 1.0 : 0.0;")
     for n in ("1", "2", "3"):
         w(f"    out property <length> glass-shadow-blur-{n}: {G['shadow'][n]['blur']}px;")
         w(f"    out property <length> glass-shadow-y-{n}: {G['shadow'][n]['y']}px;")
-    w(f"    out property <float> ambient-opacity: dark ? {T['color']['dark']['ambient-opacity']} : {T['color']['light']['ambient-opacity']};")
     w("")
     w("    // ---- imersivo (player em tela cheia): independe do tema --------------------------------------")
     for k, v in colors("immersive").items():
         w(f"    out property <color> im-{kebab(k)}: {to_hex(parse(v))};")
     w(f"    out property <float> im-base-darken: {T['color']['immersive']['base-darken']};")
     w("")
-    w("    // ---- tipografia ----------------------------------------------------------------------------")
+    w("    // ---- tipografia (Inter; `ff-*` = família do estilo: Inter Display nos títulos) -----------------")
     w(f"    out property <string> font-sans: \"{T['font']['sans']}\";")
+    w(f"    out property <string> font-display: \"{T['font']['display']}\";")
     w(f"    out property <string> font-mono: \"{T['font']['mono']}\";")
     for name, t in T["type"].items():
         if name.startswith("_"):
             continue
         k = kebab(name)
+        fam = "font-display" if t.get("display") else ("font-mono" if t.get("mono") else "font-sans")
+        w(f"    out property <string> ff-{k}: {fam};")
         w(f"    out property <length> fs-{k}: {t['size']}px;")
         w(f"    out property <length> lh-{k}: {t['line']}px;")
         w(f"    out property <int> fw-{k}: {t['weight']};")
@@ -283,7 +296,7 @@ def slint():
             continue
         w(f"    out property <length> {k}-blur: {v['blur']}px;")
         w(f"    out property <length> {k}-y: {v['y']}px;")
-        w(f"    out property <color> {k}-color: shadow.with-alpha(dark ? {v['strength'] * 0.5:.2f} : {v['strength'] * 0.28:.2f});")
+        w(f"    out property <color> {k}-color: shadow.with-alpha(dark ? {v['strength'] * 0.5:.2f} : {v['strength'] * 0.8:.2f});")
     w("")
     w("    // ---- movimento (reduzir movimento zera as durações) ----------------------------------------")
     for k in ("micro", "short", "medium", "long"):
@@ -309,29 +322,30 @@ def css():
         return "\n".join(out)
 
     d, l = T["color"]["dark"], T["color"]["light"]
-    def galpha(m):
-        return [f"  --glass-a{n}: {parse(T['color'][m][k])[3]:.2f};" for n, k in (("1", "glass-fill"), ("2", "glass-fill-strong"), ("3", "glass-fill-3"))]
-    dark_extra = galpha("dark") + [f"  --accent: {to_hex(brand['ember'])};", f"  --accent-ink: {to_hex(brand['ember-ink-on-dark'])};",
-                  f"  --accent-soft-alpha: {d['accent-soft-alpha']};", f"  --ambient-opacity: {d['ambient-opacity']};",
-                  "  color-scheme: dark;"]
-    light_extra = galpha("light") + [f"  --accent: {to_hex(brand['ember-on-light'])};", f"  --accent-ink: {to_hex(brand['ember-ink-on-light'])};",
-                   f"  --accent-soft-alpha: {l['accent-soft-alpha']};", f"  --ambient-opacity: {l['ambient-opacity']};",
-                   "  color-scheme: light;"]
+    dark_extra = [f"  --accent: {to_hex(brand['ember'])};", f"  --accent-ink: {to_hex(brand['ember-ink-on-dark'])};",
+                  f"  --accent-soft-alpha: {d['accent-soft-alpha']};", "  color-scheme: dark;"]
+    light_extra = [f"  --accent: {to_hex(brand['ember-on-light'])};", f"  --accent-ink: {to_hex(brand['ember-ink-on-light'])};",
+                   f"  --accent-soft-alpha: {l['accent-soft-alpha']};", "  color-scheme: light;"]
     S = ["/* GERADO por design/tools/gen_tokens.py. NÃO edite à mão. */"]
     S.append(block("dark", ":root, .scope-dark", dark_extra))
-    S.append(block("light", ':root[data-theme="light"]', light_extra))
+    S.append(block("light", ':root[data-theme="light"], .scope-light', light_extra))
     S.append("@media (prefers-color-scheme: light) {\n" + block("light", ':root:not([data-theme="dark"])', light_extra).replace("\n", "\n  ").replace(":root:not", "  :root:not", 1) + "\n}")
     im = ["/* imersivo */", ":root {"]
     for k, v in colors("immersive").items():
         im.append(f"  --im-{k}: {to_hex(parse(v))};")
     im.append(f"  --im-base-darken: {T['color']['immersive']['base-darken']};")
+    for k, v in colors("media").items():
+        im.append(f"  --media-{k}: {to_hex(parse(v))};")
     im.append("}")
     S.append("\n".join(im))
-    g = [":root {", f"  --font-sans: \"{T['font']['sans']}\", system-ui, sans-serif;", f"  --font-mono: \"{T['font']['mono']}\", ui-monospace, monospace;"]
+    g = [":root {", f"  --font-sans: \"{T['font']['sans']}\", system-ui, -apple-system, sans-serif;",
+         f"  --font-display: \"{T['font']['display']}\", \"{T['font']['sans']}\", system-ui, sans-serif;",
+         f"  --font-mono: \"{T['font']['mono']}\", ui-monospace, monospace;"]
     for name, t in T["type"].items():
         if name.startswith("_"):
             continue
-        g.append(f"  --fs-{name}: {t['size']}px; --lh-{name}: {t['line']}px; --fw-{name}: {t['weight']}; --ls-{name}: {t['tracking']}px;")
+        fam = "var(--font-display)" if t.get("display") else ("var(--font-mono)" if t.get("mono") else "var(--font-sans)")
+        g.append(f"  --fs-{name}: {t['size']}px; --lh-{name}: {t['line']}px; --fw-{name}: {t['weight']}; --ls-{name}: {t['tracking']}px; --ff-{name}: {fam};")
     for k, v in T["space"].items():
         g.append(f"  --sp-{k}: {v}px;")
     for k, v in T["radius"].items():
@@ -352,12 +366,10 @@ def css():
     g.append(f"  --glass-sat: {G['sat']};")
     for n in ('1', '2', '3'):
         g.append(f"  --glass-shadow-{n}: 0 {G['shadow'][n]['y']}px {G['shadow'][n]['blur']}px var(--shadow);")
-    stg = T["stage"]
-    g.append(f"  --stage-cover-scale: {stg['cover-layer-scale']}; --stage-cover-blur: {stg['cover-layer-blur']}px;")
-    for k, v in stg["layout"].items():
-        g.append(f"  --stage-{k}-x: {v[0]*100:.0f}%; --stage-{k}-y: {v[1]*100:.0f}%; --stage-{k}-r: {v[2]*100:.0f}%;")
+    pb = T["player-bg"]
+    g.append(f"  --pbg-blur: {pb['blur-css']}px; --pbg-scale: {pb['scale']}; --pbg-sat: {pb['saturate']}; --pbg-bright: {pb['brightness']}; --pbg-fallback: {pb['fallback']};")
     g.append("}")
-    g.append("@media (prefers-reduce-motion: reduce) { :root { --dur-micro: 0ms; --dur-short: 0ms; --dur-medium: 0ms; --dur-long: 0ms; } }")
+    g.append("@media (prefers-reduced-motion: reduce) { :root { --dur-micro: 0ms; --dur-short: 0ms; --dur-medium: 0ms; --dur-long: 0ms; } }")
     S.append("\n".join(g))
     return "\n\n".join(S) + "\n"
 
