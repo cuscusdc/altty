@@ -90,7 +90,7 @@ fi
 # --- ícones/recursos ------------------------------------------------------------------------------------------
 WORK="$REPO/target/android/work"
 rm -rf "$WORK"; mkdir -p "$WORK"
-"$BT/aapt2" compile --dir android/res -o "$WORK/res.zip"
+"/data/data/com.termux/files/usr/bin/aapt2" compile --dir android/res -o "$WORK/res.zip"
 
 for ABI in "${ABIS[@]}"; do
   case "$ABI" in
@@ -113,7 +113,7 @@ for ABI in "${ABIS[@]}"; do
 
   echo "==> empacotando $ABI"
   BASE="$WORK/base-$ABI.apk"
-  "$BT/aapt2" link -o "$BASE" -I "$PLATFORM_JAR" --manifest android/AndroidManifest.xml \
+  "/data/data/com.termux/files/usr/bin/aapt2" link -o "$BASE" -I "$PLATFORM_JAR" --manifest android/AndroidManifest.xml \
     --min-sdk-version "$MIN_SDK" --target-sdk-version 34 --version-code "$VERSION_CODE" --version-name "$VERSION" \
     -R "$WORK/res.zip" --auto-add-overlay
   # biblioteca nativa sem compressão (extractNativeLibs=false); python3 só para escrever o zip

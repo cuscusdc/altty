@@ -251,6 +251,8 @@ fn make_artist(id: &str, name: String, image: Option<CoverRef>) -> Artist {
         provider: PK,
         name,
         image,
+        genres: Vec::new(),
+        popularity: 0,
     }
 }
 

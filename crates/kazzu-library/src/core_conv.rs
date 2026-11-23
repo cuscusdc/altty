@@ -100,6 +100,8 @@ impl Artist {
             provider: core::ProviderKind::Local,
             name: self.name.clone(),
             image: None,
+            genres: Vec::new(),
+            popularity: 0,
         }
     }
 }
