@@ -1,0 +1,36 @@
+[
+ {
+  "scope": "app",
+  "shape": "app screen",
+  "theme": "custom",
+  "axes": "dark/grotesk-sans/warm",
+  "hero": "none (app screens)",
+  "nav": "floating glass capsule of three tabs with a separate search orb, logo top left",
+  "footer": "none",
+  "imagery": "photographs, library 22 (CC0 and public domain), natural; used as stand-in album covers",
+  "photos": [
+   "Bobines fil Rouffignac.jpg"
+  ],
+  "entry": "design/v4/prototypes/home.html",
+  "fingerprint": "app/dock-capsule/cover-led/glass-console",
+  "sections": [
+   "Inicio",
+   "Explorar",
+   "Buscar",
+   "Biblioteca",
+   "Detalhe",
+   "Player",
+   "Fila",
+   "Folhas",
+   "Ajustes",
+   "Estados"
+  ],
+  "signature": "the cover seen through glass: full artwork, its reflection, a glass console",
+  "waived": [
+   "1"
+  ],
+  "prompt": "Kazzu: app de musica mobile-first, Apple-like, glassmorphism real, sem degrade",
+  "date": "2026-11-23",
+  "mode": "build"
+ }
+]

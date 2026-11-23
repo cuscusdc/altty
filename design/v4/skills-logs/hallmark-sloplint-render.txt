@@ -1,0 +1,9 @@
+render tier: 110 screenshots in /home/sacer/Projects/altty/design/v4/prototypes/.hallmark/shots (1280x800, 1440x900, 1920x1080 folds; 1440 and 375 full pages)
+player.html
+  ANSWERED F4 :17 two filled buttons side by side in the hero: "" and ""
+queue.html
+  ANSWERED F4 :17 two filled buttons side by side in the hero: "" and ""
+assets/kazzu.css
+  ANSWERED F7 :64 the pill radius on 14 non-control selectors (.seg, .seg a, .playdot, .tile--round .art)
+  ANSWERED F24 :33 a hairline border under a wide soft shadow on .glass
+sloplint: 0 FAIL, 0 WARN, 4 ANSWERED across 25 file(s).

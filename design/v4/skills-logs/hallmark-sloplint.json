@@ -1,0 +1,52 @@
+{
+  "summary": {
+    "fails": 0,
+    "reflex": 0,
+    "warns": 0,
+    "waived": 0,
+    "rejected": 0,
+    "answered": 4,
+    "dismissed": 0,
+    "notes": 0,
+    "files": 25,
+    "render": "off"
+  },
+  "findings": [
+    {
+      "gate": "F4",
+      "grade": "ANSWERED",
+      "tier": "finish",
+      "file": "player.html",
+      "line": 17,
+      "evidence": "two filled buttons side by side in the hero: \"\" and \"\"",
+      "fix": "One filled primary per screen; the second action is outlined or a typographic link"
+    },
+    {
+      "gate": "F4",
+      "grade": "ANSWERED",
+      "tier": "finish",
+      "file": "queue.html",
+      "line": 17,
+      "evidence": "two filled buttons side by side in the hero: \"\" and \"\"",
+      "fix": "One filled primary per screen; the second action is outlined or a typographic link"
+    },
+    {
+      "gate": "F7",
+      "grade": "ANSWERED",
+      "tier": "finish",
+      "file": "assets/kazzu.css",
+      "line": 64,
+      "evidence": "the pill radius on 14 non-control selectors (.seg, .seg a, .playdot, .tile--round .art)",
+      "fix": "Pills are for controls; boxes and media take the card radius"
+    },
+    {
+      "gate": "F24",
+      "grade": "ANSWERED",
+      "tier": "finish",
+      "file": "assets/kazzu.css",
+      "line": 33,
+      "evidence": "a hairline border under a wide soft shadow on .glass",
+      "fix": "Commit to one: a defined edge, or elevation by shadow"
+    }
+  ]
+}

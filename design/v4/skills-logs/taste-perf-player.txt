@@ -1,0 +1,57 @@
+
+perf prototypes/player.html @ 1440px
+  PASS  host CPU load (before/after)               10/15 %        
+  PASS  total transfer                             1378 KiB       html 2.2K  css 10.3K  js 2.7K  font 1221.6K  img 138.6K  other 2.7K
+  PASS  requests                                   14             13 by load
+  PASS  images bytes                               138.6 KiB      3 files
+  PASS  largest image                              126.1 KiB      covers/05.jpg
+  PASS  JS parsed                                  6 KiB          2 files, 2.7K gz
+  PASS  CSS                                        10.3 KiB       3 files
+  PASS  font families                              2              Inter, Inter Display
+  PASS  font files                                 3              1221.6K
+  FAIL  font bytes                                 1221.6 KiB     
+  PASS  images without width+height                0              
+  PASS  below-fold images not lazy                 0              
+  WARN  above-fold image set lazy                  1              05-blur.jpg
+  PASS  oversized images (natural > 2.2x shown)    0              
+  WARN  upscaled images (natural < 0.75x shown)    1              05-blur.jpg 96px for 1728
+  PASS  WebGL live at load                         0              
+  PASS  WebGL live at bottom                       0              
+  PASS  WebGL peak live                            0              0 contexts made in all
+  PASS  long tasks                                 0              runs 3, 0..0, max 0ms
+  PASS  blocking time                              0 ms           runs 3, 0..0 ms; at load 0ms
+  PASS  FCP (CPU, relative)                        72 ms          runs 3, 60..232
+  PASS  LCP (CPU, relative)                        72 ms          runs 3, 60..232, img.art
+  PASS  layout shift                               0.000          runs 3, 0.000..0.000; at load 0.000
+  PASS  modules loaded, never mounted              0              
+  PASS  broken requests                            0              
+  PASS  page height                                1 screens      DOM 90 nodes
+
+perf prototypes/player.html @ 390px
+  PASS  host CPU load (before/after)               10/15 %        
+  PASS  total transfer                             1376.6 KiB     html 2.2K  css 10.3K  js 2.7K  font 1221.6K  img 137.7K  other 2.2K
+  PASS  requests                                   12             11 by load
+  PASS  images bytes                               137.7 KiB      2 files
+  PASS  largest image                              126.1 KiB      covers/05.jpg
+  PASS  JS parsed                                  6 KiB          2 files, 2.7K gz
+  PASS  CSS                                        10.3 KiB       3 files
+  PASS  font families                              2              Inter, Inter Display
+  PASS  font files                                 3              1221.6K
+  FAIL  font bytes                                 1221.6 KiB     
+  PASS  images without width+height                0              
+  PASS  below-fold images not lazy                 0              
+  PASS  oversized images (natural > 2.2x shown)    0              
+  WARN  upscaled images (natural < 0.75x shown)    1              05-back.jpg 192px for 390
+  PASS  WebGL live at load                         0              
+  PASS  WebGL live at bottom                       0              
+  PASS  WebGL peak live                            0              0 contexts made in all
+  PASS  long tasks                                 0              runs 3, 0..0, max 0ms
+  PASS  blocking time                              0 ms           runs 3, 0..0 ms; at load 0ms
+  PASS  FCP (CPU, relative)                        56 ms          runs 3, 52..56
+  PASS  LCP (CPU, relative)                        56 ms          runs 3, 52..56, img.art
+  PASS  layout shift                               0.000          runs 3, 0.000..0.000; at load 0.000
+  PASS  modules loaded, never mounted              0              
+  PASS  broken requests                            0              
+  PASS  page height                                1.1 screens    DOM 90 nodes
+
+SUMMARY prototypes/player.html: 2 FAIL, 3 WARN  -> FAIL

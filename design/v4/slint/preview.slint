@@ -1,0 +1,65 @@
+// Prévia do design v4: junta as telas (screens.slint) e o cromo (chrome.slint) numa janela, com dados fictícios.
+// Renderizada de verdade por design/v4/tools/slint-shot (FemtoVG, desfoque real via Xvfb). NÃO é o app:
+// serve para provar que o desenho é realizável no Slint 1.19 e para o implementador conferir medidas.
+//
+// `screen`: home | explore | search | library | album | settings | player
+// `state` : ready | first-run | loading | offline | error | results | empty   (conforme a tela)
+// `overlay`: none | queue | menu | new-playlist
+
+import { Theme } from "tokens.slint";
+import { Demo } from "data.slint";
+import { Dock, TopBar } from "chrome.slint";
+import { HomeScreen, ExploreScreen, SearchScreen, LibraryScreen, DetailScreen, SettingsScreen, PlayerScreen, QueueSheet, MenuSheet, NewPlaylistSheet } from "screens.slint";
+export { Theme }
+
+export component Preview inherits Window {
+    in property <string> screen: "home";
+    in property <string> state: "ready";
+    in property <string> overlay: "none";
+    in property <length> scroll-y: 0px;
+    in property <int> cover: 5;
+    in property <length> safe-top: 0px;
+    in property <length> safe-bottom: 0px;
+    in property <bool> chrome: true;     // false: sem doca nem cabeçalho (linha de base da prova de vidro)
+    in property <bool> has-now: true;
+
+    title: "Kazzu v4";
+    background: Theme.paper;
+    default-font-family: Theme.font;
+    default-font-size: Theme.text-lg;
+    preferred-width: 390px;
+    preferred-height: 844px;
+
+    property <int> tab: screen == "explore" ? 1 : screen == "library" ? 2 : screen == "search" ? 3 : 0;
+    property <length> reserve: dock.reserve + Theme.s-md;
+
+    if root.screen == "home" : HomeScreen { scroll: root.scroll-y; safe-top: root.safe-top; reserve: root.reserve; state: root.state; }
+    if root.screen == "explore" : ExploreScreen { scroll: root.scroll-y; safe-top: root.safe-top; reserve: root.reserve; }
+    if root.screen == "search" : SearchScreen { scroll: root.scroll-y; safe-top: root.safe-top; reserve: root.reserve; state: root.state == "ready" ? "idle" : root.state; }
+    if root.screen == "library" : LibraryScreen { scroll: root.scroll-y; safe-top: root.safe-top; reserve: root.reserve; empty: root.state == "empty"; }
+    if root.screen == "album" : DetailScreen { scroll: root.scroll-y; safe-top: root.safe-top; reserve: root.reserve; cover: root.cover; }
+    if root.screen == "settings" : SettingsScreen { scroll: root.scroll-y; safe-top: root.safe-top; reserve: root.reserve; }
+
+    dock := Dock {
+        y: parent.height - self.height;
+        visible: root.chrome && root.screen != "player";
+        tab: root.tab;
+        has-now: root.has-now;
+        now: { title: "Brasa Viva", artist: "Os Tangarás", cover: Demo.thumb[4] };
+        now-tint: Demo.blur[4];
+        now-dim: Demo.mini-dim[4];
+        progress: 0.38;
+        safe-bottom: root.safe-bottom;
+    }
+    if root.chrome && root.screen != "player" : TopBar {
+        y: 0;
+        safe-top: root.safe-top;
+        shown: root.screen == "album" ? root.scroll-y > min(root.width, 520px) - 110px : root.scroll-y > 56px;
+        title: root.screen == "home" ? "" : root.screen == "explore" ? "Explorar" : root.screen == "search" ? "Buscar" : root.screen == "library" ? "Biblioteca" : root.screen == "settings" ? "Ajustes" : Demo.title[root.cover - 1];
+    }
+
+    if root.screen == "player" : PlayerScreen { cover: root.cover; show-console: root.chrome; safe-top: root.safe-top; safe-bottom: root.safe-bottom; origin: root.cover == 5 ? "Pimenta" : Demo.title[root.cover - 1]; }
+    if root.overlay == "queue" : QueueSheet { safe-top: root.safe-top; safe-bottom: root.safe-bottom; }
+    if root.overlay == "menu" : MenuSheet { safe-bottom: root.safe-bottom; cover: 3; }
+    if root.overlay == "new-playlist" : NewPlaylistSheet { safe-bottom: root.safe-bottom; }
+}

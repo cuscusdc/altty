@@ -1,0 +1,75 @@
+
+== album.html  (102 words)  0 FAIL, 0 WARN
+
+== artist.html  (58 words)  0 FAIL, 1 WARN
+  WARN copy-stat-strip      stat strip x1
+       - 2:54 / 3:30 / 4:05 / 3:12 / 2026 / 2025 / 2024
+       fix: a strip only of figures the brief gives (a price, hours, a count); otherwise put each number in the sentence it proves, or leave it out
+
+== explore.html  (97 words)  0 FAIL, 0 WARN
+
+== home-error.html  (45 words)  0 FAIL, 0 WARN
+
+== home-first-run.html  (141 words)  0 FAIL, 0 WARN
+
+== home.html  (135 words)  0 FAIL, 0 WARN
+
+== home-loading.html  (21 words)  0 FAIL, 0 WARN
+
+== home-offline.html  (76 words)  0 FAIL, 0 WARN
+
+== index.html  (97 words)  0 FAIL, 0 WARN
+
+== library-empty.html  (60 words)  0 FAIL, 0 WARN
+
+== library.html  (69 words)  0 FAIL, 0 WARN
+
+== player.html  (21 words)  0 FAIL, 0 WARN
+
+== playlist-empty.html  (45 words)  0 FAIL, 0 WARN
+
+== playlist.html  (83 words)  0 FAIL, 0 WARN
+
+== queue.html  (60 words)  0 FAIL, 0 WARN
+
+== search-empty.html  (41 words)  0 FAIL, 0 WARN
+
+== search.html  (55 words)  0 FAIL, 0 WARN
+
+== search-results.html  (85 words)  0 FAIL, 0 WARN
+
+== settings.html  (128 words)  0 FAIL, 0 WARN
+
+== sheet-menu.html  (41 words)  0 FAIL, 0 WARN
+
+== sheet-new-playlist.html  (16 words)  0 FAIL, 0 WARN
+
+== sheet-playlists.html  (24 words)  0 FAIL, 0 WARN
+
+== across files: the first headings side by side
+  album.html: Delta
+  artist.html: Clara Vento
+  explore.html: Explorar
+  home-error.html: Início
+  home-first-run.html: Início
+  home.html: Início
+  home-loading.html: Início
+  home-offline.html: Início
+  index.html: Protótipos da v4
+  library-empty.html: Biblioteca
+  library.html: Biblioteca
+  player.html: Brasa Viva
+  playlist-empty.html: Domingo
+  playlist.html: Estrada
+  queue.html: Fila
+  search-empty.html: Buscar
+  search.html: Buscar
+  search-results.html: Buscar
+  settings.html: Ajustes
+  sheet-menu.html: Maré de Março
+  sheet-new-playlist.html: Nova playlist
+  sheet-playlists.html: Adicionar à playlist
+== heading phrases shared across files
+  "para ouvir agora" in 2 files: home-first-run.html, home.html
+  "faixas para voc" in 2 files: home-first-run.html, home.html
+  "lbuns em destaque" in 2 files: home-first-run.html, home.html

@@ -1,0 +1,170 @@
+// Cromo do Kazzu v4: o que flutua sobre o conteúdo. Tudo aqui é vidro com desfoque real (são 4 painéis no celular:
+// cabeçalho recolhido, mini-player, barra cápsula e busca). O conteúdo rola por baixo, até a borda da janela.
+
+import { Theme } from "tokens.slint";
+import { Icons } from "data.slint";
+import { Glass, Pressable, Icon, IconButton, Cover, TrackItem } from "atoms.slint";
+
+component TabButton inherits Pressable {
+    in property <string> text;
+    in property <image> icon;
+    in property <image> icon-on;
+    in property <bool> on;
+    accessible-role: tab;
+    accessible-item-selected: on;
+    label: text;
+    ring-radius: 28px;
+    horizontal-stretch: 1;
+    // item ativo: bolha OPACA + ícone preenchido (nunca só cor); o texto continua na tinta principal
+    Rectangle {
+        border-radius: self.height / 2;
+        background: root.on ? Theme.bubble : transparent;
+        drop-shadow-blur: root.on ? 4px : 0px;
+        drop-shadow-offset-y: 1px;
+        drop-shadow-color: Theme.glass-shadow;
+        animate background { duration: Theme.dur-short; }
+    }
+    VerticalLayout {
+        alignment: center;
+        spacing: Theme.s-xxxs;
+        HorizontalLayout { alignment: center; height: 24px; Icon { source: root.on ? root.icon-on : root.icon; } }
+        Text { text: root.text; color: Theme.ink; font-size: Theme.text-xs; font-weight: 600; horizontal-alignment: center; }
+    }
+}
+
+// Mini-player: o console do player em miniatura. A capa da faixa atual, desfocada, tinge a cápsula (55%); o resto é o que
+// rola por trás, desfocado ao vivo; por cima, o escurecimento calculado para a capa (`dim`, do Rust). Texto sempre branco.
+// Assim ele tem cor mesmo sobre o fundo liso, e é a mesma cor que o player vai mostrar ao abrir.
+export component MiniPlayer inherits Rectangle {
+    in property <TrackItem> now;
+    in property <image> tint;            // capa pré-desfocada (o mesmo `backdrop` do player)
+    in property <float> dim: 0.5;
+    in property <bool> playing: true;
+    in property <float> progress: 0;
+    callback open();
+    callback toggle-play();
+    callback next();
+    height: Theme.mini-h;
+    border-radius: Theme.mini-h / 2;
+    clip: true;
+    background: Theme.glass-on ? Theme.media-console.with-alpha(0) : Theme.media-console;
+    backdrop-blur: Theme.glass-on ? Theme.glass-blur : 0px;
+    border-width: 1px;
+    border-color: @linear-gradient(180deg, Theme.media-edge-hi 0%, Theme.media-edge-lo 50%, Theme.media-edge-lo 100%);
+    drop-shadow-blur: 32px;
+    drop-shadow-offset-y: 12px;
+    drop-shadow-color: Theme.glass-shadow;
+    if Theme.glass-on : Image { source: root.tint; width: 100%; height: 100%; image-fit: ImageFit.cover; opacity: 0.55; }
+    if Theme.glass-on : Rectangle { background: Theme.media-console.with-alpha(root.dim); }
+    opener := Pressable {
+        label: "Tocando: " + root.now.title + ", de " + root.now.artist + ". Abrir o player";
+        ring-radius: Theme.mini-h / 2;
+        ring-color: Theme.media-ink;
+        clicked => { root.open(); }
+    }
+    HorizontalLayout {
+        padding-left: Theme.s-xs;
+        padding-right: Theme.s-xxs;
+        spacing: Theme.s-sm;
+        VerticalLayout { alignment: center; Cover { source: root.now.cover; size: 44px; radius: 22px; } }
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            Text { text: root.now.title; color: Theme.media-ink; font-size: Theme.text-md; font-weight: 600; overflow: elide; }
+            Text { text: root.now.artist; color: Theme.media-ink; font-size: Theme.text-sm; overflow: elide; }
+        }
+        VerticalLayout { alignment: center; IconButton { icon: root.playing ? Icons.pause : Icons.play; tint: Theme.media-ink; media: true; ring-color: Theme.media-ink; label: root.playing ? "Pausar" : "Tocar"; clicked => { root.toggle-play(); } } }
+        VerticalLayout { alignment: center; IconButton { icon: Icons.next; tint: Theme.media-ink; media: true; ring-color: Theme.media-ink; label: "Próxima"; clicked => { root.next(); } } }
+    }
+    // progresso: a borda de baixo da cápsula
+    Rectangle { x: Theme.s-xl; y: parent.height - 3px; width: (parent.width - 2 * Theme.s-xl) * root.progress; height: 2px; border-radius: 1px; background: Theme.media-ink; }
+}
+
+export component TabBar inherits Glass {
+    in property <int> tab: 0;      // 0 Início, 1 Explorar, 2 Biblioteca; 3 = Buscar (nenhuma aba ativa)
+    callback go(int);
+    height: Theme.bar-h;
+    radius: Theme.bar-h / 2;
+    accessible-role: tab-list;
+    accessible-label: "Principal";
+    HorizontalLayout {
+        padding: Theme.s-xxs;
+        TabButton { text: "Início"; icon: Icons.home; icon-on: Icons.home-fill; on: root.tab == 0; clicked => { root.go(0); } }
+        TabButton { text: "Explorar"; icon: Icons.explore; icon-on: Icons.explore-fill; on: root.tab == 1; clicked => { root.go(1); } }
+        TabButton { text: "Biblioteca"; icon: Icons.library; icon-on: Icons.library-fill; on: root.tab == 2; clicked => { root.go(2); } }
+    }
+}
+
+// Busca: botão redondo próprio, ao lado da barra (decisão do mapa mental). Ativo = bolha opaca.
+export component SearchOrb inherits Pressable {
+    in property <bool> on;
+    width: Theme.orb;
+    height: Theme.orb;
+    label: "Buscar";
+    if !root.on : Glass { radius: Theme.orb / 2; }
+    if root.on : Rectangle { border-radius: Theme.orb / 2; background: Theme.bubble; border-width: 1px; border-color: Theme.glass-edge-lo; drop-shadow-blur: 24px; drop-shadow-offset-y: 8px; drop-shadow-color: Theme.glass-shadow; }
+    Icon { source: Icons.search; size: 26px; opacity: root.pressed ? 0.6 : 1; }
+}
+
+// A doca: mini-player (se houver faixa), barra cápsula e busca. Fica presa embaixo, acima da área segura.
+export component Dock inherits Rectangle {
+    in property <int> tab: 0;
+    in property <bool> has-now: true;
+    in property <TrackItem> now;
+    in property <image> now-tint;
+    in property <float> now-dim: 0.5;
+    in property <bool> playing: true;
+    in property <float> progress: 0;
+    in property <length> safe-bottom: 0px;
+    callback go(int);
+    callback open-player();
+    callback toggle-play();
+    callback next();
+    // altura total reservada: usada pelas telas como recuo de rolagem
+    out property <length> reserve: (has-now ? Theme.mini-h + Theme.s-xs : 0px) + Theme.bar-h + Theme.s-sm + safe-bottom + Theme.s-md;
+    property <length> inner-w: min(root.width - 2 * Theme.s-md, 520px);
+    property <length> left: (root.width - inner-w) / 2;
+    height: reserve + Theme.s-xxl;
+    // esvaecimento neutro e leve: separa a doca do conteúdo sem roubar a cor que o vidro precisa mostrar
+    // (a prova de vidro mede a transmissão COM este esvaecimento; mais forte que isso e a barra vira cartão escuro)
+    Rectangle { background: @linear-gradient(180deg, Theme.paper.with-alpha(0) 0%, Theme.paper.with-alpha(0) 40%, Theme.paper.with-alpha(0.30) 100%); }
+    if root.has-now : MiniPlayer {
+        x: root.left;
+        y: Theme.s-xxl + Theme.s-xs;
+        width: root.inner-w;
+        now: root.now;
+        tint: root.now-tint;
+        dim: root.now-dim;
+        playing: root.playing;
+        progress: root.progress;
+        open => { root.open-player(); }
+        toggle-play => { root.toggle-play(); }
+        next => { root.next(); }
+    }
+    TabBar {
+        x: root.left;
+        y: root.height - root.safe-bottom - Theme.s-sm - Theme.bar-h;
+        width: root.inner-w - Theme.orb - Theme.s-xs;
+        tab: root.tab;
+        go(i) => { root.go(i); }
+    }
+    SearchOrb {
+        x: root.left + root.inner-w - Theme.orb;
+        y: root.height - root.safe-bottom - Theme.s-sm - Theme.orb;
+        on: root.tab == 3;
+        clicked => { root.go(3); }
+    }
+}
+
+// Cabeçalho recolhido: aparece quando o título grande (ou o logo) sai da tela. Vidro de ponta a ponta, sem sombra.
+export component TopBar inherits Rectangle {
+    in property <string> title;        // vazio = mostra a marca (Início)
+    in property <bool> shown: false;
+    in property <length> safe-top: 0px;
+    height: Theme.header-h + safe-top;
+    opacity: shown ? 1 : 0;
+    animate opacity { duration: Theme.dur-short; }
+    Glass { radius: 0px; shadow: false; }
+    if root.title == "" : Image { x: Theme.gutter; y: root.safe-top + 14px; height: 20px; width: 14px; source: Theme.dark ? @image-url("../assets/kazzu-mark-dark.svg") : @image-url("../assets/kazzu-mark-light.svg"); }
+    if root.title != "" : Text { y: root.safe-top; height: Theme.header-h; text: root.title; color: Theme.ink; font-size: Theme.text-lg; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+}

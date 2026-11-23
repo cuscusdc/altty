@@ -1,0 +1,147 @@
+consistency  /home/sacer/Projects/altty/design/v4/prototypes/player.html
+--quick: not checked: scroll-linked (stepping), scroll-reveal (the reveal walk; IntersectionObserver reveals are read), hover-spill, hidden-visual, loop-pause, forms, reduced-motion, the dead-IntersectionObserver walk (hidden content is read with scripts off and under reduced motion), hover-move. Still told: IntersectionObserver reveals (scroll-reveal), held sections (pinned) and CSS scroll timelines (scroll-linked); faults inside held or [data-big-scene] sections are WARNs
+
+1440x900  1 screens  12 FAIL  9 WARN
+  FAIL hero-fill       main#conteudo > div.stage > section.console  "Brasa Viva"
+       the next section shows on the first screen: it starts at 236px on a 900px screen (the hero ends at 690px)  [1440-01-hero-fill.jpg]
+       fix: let the hero fill the first screen alone (min-height: 100svh, less above it): nothing of the next section on load
+  FAIL flush           main#conteudo > div.stage > div > img.art  "img: Capa de Pimenta"
+       its last line sits -480px above the rule on top of section.console  [1440-02-flush.jpg]
+       fix: give the section its padding at the edge where the ground changes (the closing call keeps a clear gap above the footer)
+  FAIL cta             main#conteudo > div.stage > div
+       the hero has no button (the nav's does not count)  [1440-03-cta.jpg]
+       fix: add the action: a button in the hero, one on every priced item, one in the closing section
+  FAIL copy-headline   section.console > div.now > div > h1.one  "Brasa Viva"
+       "Brasa Viva" does not name what is sold (app de musica, app, musica, from flags)  [1440-04-copy-headline.jpg]
+       fix: put the category noun in the h1 (and who it is for, or where), in 2 to 8 words
+  FAIL photo-upscale   main#conteudo > div.stage > img.backdrop.backdrop--wide  "img: 05-blur.jpg"
+       05-blur.jpg: 96x96 shown at 1728x1080, blown up 18.00x  [1440-05-photo-upscale.jpg]
+       fix: use a source at least as wide as the picture is shown (twice that for sharp screens)
+  WARN copy-buttons    div.stage > section.console > div.extras > button  "Este aparelho"
+       "Este aparelho" does not start with a verb (book, buy, try, start, get, see...) (and 1 more like it: "Fila")  [1440-06-copy-buttons.jpg]
+       fix: label buttons with a verb and what the visitor gets ("Book a room", "Start free trial")
+  WARN copy-actions    (the page)
+       the main action "Tocar" does not read word for word the same in the nav or hero and the closing section
+       fix: few actions, one wording: at most 2 in the hero, the main action word for word in nav, hero and close
+  WARN section-gaps    main#conteudo > div.stage > div / main#conteudo > div.stage > section.console
+       the sections overlap by 454px  [1440-07-section-gaps.jpg]
+       fix: use one gap between sections (all within 25% of each other)
+  WARN fake-button     div.stage > div > div.over > p.ctx.glass--media  "Tocando de Pimenta"
+       "Tocando de Pimenta" looks like a button (pill, fill #0c0d0f, the same look as the page's buttons) but is not a link or a button  [1440-08-fake-button.jpg]
+       fix: make it a real link or button, or drop its button look
+  WARN stranded-action div.stage > section.console > div.extras > button  "Este aparelho"
+       stands 337px down from the nearest text of its block ("Os Tangarás") (and 1 more like it: "Fila")  [1440-09-stranded-action.jpg]
+       fix: put the button under or beside the text it belongs to
+  WARN moment-none     (the page)
+       a software page (--type) deals no moment: every kind carries one, two on a long page (moments.md)
+       fix: deal one (moments.mjs pick --page software) and mount it in its own section
+  WARN empty-area      main#conteudo > div.stage  "Brasa Viva"
+       36% of the section is empty: 144px above its first content, 160px under its last (img.art), in its 836px of rows (WARN over 35%, FAIL over 50%)  [1440-10-empty-area.jpg]
+       fix: fill the section: a picture or a second column beside the words, or more of its own content; the section stays one or two screens tall (T-height)
+  WARN skip-link       a.skip  "Pular para o conteúdo"
+       the first Tab stop is "Pular para o conteúdo", not a skip link: a keyboard user tabs through the whole nav on every visit
+       fix: add the starter's skip link as the header's first child: <a class="skip-link" href="#top">Skip to content</a>
+  WARN share-meta      head
+       the head lacks og:title, og:description, og:image, twitter:card: a shared link shows no picture or title of its own
+       fix: copy the head block of starter.html: og tags, twitter:card, the icon and theme-color (references/system.md, Head)
+  FAIL one-section     main#conteudo > div.stage  "Tocando de PimentaBrasa VivaOs Tangarás1"
+       a <div> sits directly in <main>: every part of <main> is a <section> (SR-4)  [1440-rhythm-01-one-section.jpg]
+       fix: put every block of <main> in a <section>, and give a band its own section instead of a ground inside one
+  FAIL container-edges main#conteudo > div.stage  "Tocando de PimentaBrasa VivaOs Tangarás1"
+       the content of section 1 runs 240px from the left and 240px from the right (read from its outermost blocks: no .wrap): the margin is 64-120px at 1440px (one container, equal margins, 2px either way) (SR-6)  [1440-rhythm-02-container-edges.jpg]
+       fix: use one container on every section and the nav (.wrap): one margin left and right, 64-120px on a desktop, 16-24px on a phone
+  FAIL container-edges a.skip  "Pular para o conteúdo"
+       a <a> at the top of the page, outside header.nav, main, footer.closing and nav.actionbar (SR-6)
+       fix: build the page as header.nav, a main of sections (each one in-flow .wrap plus background layers) and footer.closing
+  FAIL container-edges main#conteudo > div.stage  "Tocando de PimentaBrasa VivaOs Tangarás1"
+       the section needs exactly one in-flow child .wrap (it has 2 in-flow children, 0 .wrap) (SR-6)
+       fix: build the page as header.nav, a main of sections (each one in-flow .wrap plus background layers) and footer.closing
+  FAIL container-edges main#conteudo > div.stage > img.backdrop.backdrop--wide
+       a child of section 1 beside its .wrap is no valid background layer: position fixed, not absolute; does not span the screen from 0 to 1440px; runs outside the section box; z-index auto, not 0 (SR-6)
+       fix: build the page as header.nav, a main of sections (each one in-flow .wrap plus background layers) and footer.closing
+  FAIL container-edges section.console > div.scrub > div.times > span:nth-of-type(3)  "-2:05"
+       "-2:05" starts 395px right of the hero box's padding: the words in a box start on its inner left line, 2px either way (SR-6)
+       fix: start the text on the container's left, or on the one split line every split shares
+  FAIL container-edges section.console > div.scrub > div.times > span.src  "YouTube Music, Opus 160 kbps"
+       "YouTube Music, Opus 160 kbps" starts 120px right of the hero box's padding: the words in a box start on its inner left line, 2px either way (SR-6)
+       fix: start the text on the container's left, or on the one split line every split shares
+
+390x844  2 screens  5 FAIL  2 WARN
+  FAIL hero-fill       main#conteudo > div.stage > div  "Tocando de Pimenta"
+       the next section shows on the first screen: it starts at 0px on a 844px screen (the hero ends at 943px)  [390-01-hero-fill.jpg]
+       fix: let the hero fill the first screen alone (min-height: 100svh, less above it): nothing of the next section on load
+  FAIL nav             (the first screen)
+       no nav bar across the top of the first screen (a header with the brand, the section links and the main action)
+       fix: make the nav one bar from the content's left edge to its right edge, with every link and action inside it
+  FAIL no-visual       main#conteudo > div.stage > img.backdrop:nth-of-type(1)  "img: 05-back.jpg"
+       no picture, effect or mock in this section; a feature section needs a visual  [390-02-no-visual.jpg]
+       fix: give the section a visual: a UI fragment on a ground, real icons, or a photograph that fits
+  FAIL cta             main#conteudo > div.stage > img.backdrop:nth-of-type(1)
+       the hero has no button (the nav's does not count)  [390-03-cta.jpg]
+       fix: add the action: a button in the hero, one on every priced item, one in the closing section
+  FAIL photo-upscale   main#conteudo > div.stage > img.backdrop:nth-of-type(1)  "img: 05-back.jpg"
+       05-back.jpg: 192x464 shown at 390x943, blown up 2.03x  [390-04-photo-upscale.jpg]
+       fix: use a source at least as wide as the picture is shown (twice that for sharp screens)
+  WARN fake-button     div.stage > div > div.over > p.ctx.glass--media  "Tocando de Pimenta"
+       "Tocando de Pimenta" looks like a button (pill, fill #0c0d0f, the same look as the page's buttons) but is not a link or a button  [390-05-fake-button.jpg]
+       fix: make it a real link or button, or drop its button look
+  WARN stranded-action div.stage > section.console > div.extras > button  "Este aparelho"
+       stands 335px down from the nearest text of its block ("Os Tangarás") (and 1 more like it: "Fila")  [390-06-stranded-action.jpg]
+       fix: put the button under or beside the text it belongs to
+
+first screen at 1280, 1152, 1024, 896, 768  0 FAIL  0 WARN
+
+the page at 320x640, walked for what runs past the screen's edge  0 FAIL
+
+checks
+  PASS assets                 PASS shader-lint            PASS gl-fallback            
+  PASS empty-visual           FAIL hero-fill              FAIL flush                  
+  PASS placeholder            PASS sample-label           PASS caption                
+  PASS credit-wall            FAIL nav                    PASS nav-covers             
+  PASS spill                  PASS off-viewport           PASS fold-card              
+  SKIP hover-spill            PASS overlap-text           PASS collide                
+  PASS tap-size               PASS row-gap                PASS cut-text               
+  PASS fold-cut               PASS marquee                SKIP scroll-linked          
+  SKIP scroll-reveal          PASS pinned                 SKIP loop-pause             
+  SKIP reduced-motion         PASS hidden-content         PASS webgl                  
+  FAIL no-visual              PASS text-only              PASS card-visual            
+  SKIP hidden-visual          PASS card-family            PASS card-layout            
+  PASS nesting                PASS effect-repeat          PASS ui-fit                 
+  PASS ui-centre              PASS dark-ground            PASS button-styles          
+  PASS button-shape           PASS same-action            PASS button-picture         
+  FAIL cta                    PASS pricing-tiers          FAIL copy-headline          
+  PASS copy-fact              PASS copy-headings          WARN copy-buttons           
+  WARN copy-actions           PASS heading-scale          PASS stagger                
+  PASS top-stagger            PASS off-grid               PASS col-edge               
+  PASS right-edge             PASS centre-axis            PASS tilt                   
+  PASS contrast               PASS text-contrast          PASS body-size              
+  PASS busy-ground            WARN section-gaps           PASS proximity              
+  PASS hole                   PASS links                  SKIP forms                  
+  FAIL photo-upscale          PASS photo-set              PASS photo-credit           
+  PASS nav-family             PASS nav-labels             PASS link-styles            
+  PASS heading-align          PASS label-centre           WARN fake-button            
+  WARN stranded-action        PASS orphan                 PASS unit-break             
+  PASS tab-wrap               PASS effects-fit            PASS fade-cut               
+  PASS photo-weight           PASS copy-length            PASS nav-current            
+  PASS progress-bar           PASS photo-repeat           PASS button-contrast        
+  PASS photo-print            PASS grounds                PASS split-align            
+  PASS fact-agree             PASS fold-action            PASS action-count           
+  PASS one-screen             SKIP hover                  SKIP hover-move             
+  PASS product-shown          PASS same-object            PASS font-load              
+  PASS visual-caption         PASS visual-empty           PASS effect-kind            
+  PASS hero-enter             WARN moment-none            PASS street-number          
+  PASS postcode               PASS coordinates            PASS company-number         
+  PASS phone-number           PASS hero-screen            PASS section-height         
+  PASS section-air            FAIL one-section            PASS one-heading            
+  FAIL container-edges        PASS row-lines              PASS split-pair             
+  PASS motion-layer           PASS count-text             PASS loop-cycle             
+  PASS section-tile           WARN empty-area             PASS a11y-name              
+  PASS img-alt                PASS field-label            PASS heading-order          
+  PASS tabindex               PASS focus-ring             PASS focus-visible          
+  PASS focus-hidden           WARN skip-link              PASS menu-toggle            
+  PASS lang                   PASS page-meta              WARN share-meta             
+  PASS action-repeat          PASS map-link               PASS open-now               
+  PASS assumed                PASS run-on                 PASS form-fields            
+  PASS form-send              
+
+total  17 FAIL  11 WARN  (crops and report.json in /home/sacer/Projects/altty/design/v4/prototypes/.taste-skill/consistency-player)

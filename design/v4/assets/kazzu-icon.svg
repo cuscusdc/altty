@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Kazzu">
+  <rect width="512" height="512" rx="116" fill="#0b0c0f"/>
+  <rect x="0.75" y="0.75" width="510.5" height="510.5" rx="115.25" fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="1.5"/>
+  <g fill="none" stroke-width="56" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M176 120V392" stroke="#f2f3f6"/>
+    <path d="M352 204 254 298 352 392" stroke="#ff7345"/>
+  </g>
+</svg>
