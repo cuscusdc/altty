@@ -1,0 +1,29 @@
+# Kazzu
+
+Player/cliente de música em **Rust + Slint**: visual Apple-like com glassmorphism, áudio em qualidade original (FLAC/WAV/Opus), sem telemetria.
+
+Repositório: `cuscusdc/altty`. Mapa mental do autor: [`docs/mindmap/Kazzu.canvas`](docs/mindmap/Kazzu.canvas) (abra no Obsidian). Requisitos e regras: [`docs/BRIEF.md`](docs/BRIEF.md).
+
+## Estado
+
+Etapa 1 (Fundação) concluída e Etapa 2 em andamento: motor de áudio bit-perfect, biblioteca local, design system e UI Slint v4 (vidro sobre capas, mobile-first e desktop com barra lateral) com **YouTube Music como provedor padrão, sem login** (Início, busca, reprodução, rádio, curtidas e playlists locais). APK Android: ver [`docs/ANDROID.md`](docs/ANDROID.md). Ver [`docs/BRIEF.md`](docs/BRIEF.md).
+
+> **Atenção ao atualizar:** o banco da biblioteca é agora **v2** (playlists com faixas do YouTube Music). Ele **não abre em versões antigas do app** e não há downgrade; faça backup da pasta de dados antes de atualizar (ver `docs/library.md`).
+
+## Build
+
+```sh
+cargo run -p kazzu-app --release -- --demo-library target/fixtures/kazzu-demo
+cargo test --workspace
+```
+
+Veja `crates/kazzu-app/README.md` para flags (`--null-audio`, `--renderer`, `--snapshot`).
+
+## Material de referência (não versionado, `.refs/`)
+
+Para reconstruir a pasta `.refs/` (somente leitura, inspiração; nada é copiado para o app):
+
+- https://github.com/Leonxlnx/taste-skill (MIT)
+- https://github.com/Nutlope/hallmark (MIT)
+- https://github.com/metrolistgroup/metrolist (GPL-3.0, só inspiração conceitual)
+- Imagens de referência de UI: ver `docs/mindmap/Kazzu.canvas` (screenshots de Bitchord, Umihi Music e Intertune, ficam no vault Obsidian do autor).
