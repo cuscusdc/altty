@@ -293,6 +293,9 @@ impl<V: View> Controller<V> {
             self.request_home(HomeSectionVm::ForYou);
         } else {
             self.home.state = LoadStateVm::Ready;
+            // sem YouTube Music não há feed nem Explorar: o Início mostra a música do aparelho
+            self.explore.state = LoadStateVm::Empty;
+            self.publish_explore();
         }
         self.publish_home();
     }
@@ -341,6 +344,9 @@ impl<V: View> Controller<V> {
                 self.flag_tracks(&mut snap.home.recents);
                 self.recents_ids = snap.home.recents.iter().map(|t| t.id.clone()).collect();
                 self.home.recents = snap.home.recents;
+                if !self.remote_enabled {
+                    self.home.albums = snap.home.albums;
+                }
                 self.library = snap.library;
                 self.settings = snap.settings;
                 self.view.set_loading(false);

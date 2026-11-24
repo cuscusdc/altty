@@ -3,7 +3,7 @@
 // Uso: node tools/capture.mjs <tela|caminho.html> <largura> <altura> <saida.png> [hash] [--probe] [--dpr=N]
 // Com --probe imprime em stdout um JSON com os textos visíveis (cor, caixa) e grava o PNG com os textos escondidos.
 import { spawn } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +20,7 @@ const port = 20000 + Math.floor(Math.random() * 20000);
 const dir = mkdtempSync(join(tmpdir(), 'kz-'));
 const chrome = spawn('chromium', ['--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars', `--remote-debugging-port=${port}`, `--user-data-dir=${dir}`, 'about:blank'], { stdio: 'ignore' });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-setTimeout(() => { chrome.kill('SIGKILL'); console.error('timeout'); process.exit(3); }, 45000);
+setTimeout(() => { chrome.kill('SIGKILL'); try { rmSync(dir, { recursive: true, force: true }); } catch {} console.error('timeout'); process.exit(3); }, 45000);
 async function ws() {
   for (let i = 0; i < 60; i++) {
     try { const r = await fetch(`http://127.0.0.1:${port}/json/list`); const l = await r.json(); const p = l.find(t => t.type === 'page'); if (p) return p.webSocketDebuggerUrl; } catch {}
@@ -63,5 +63,5 @@ if (probe) {
 const shot = await send('Page.captureScreenshot', { format: 'png' });
 writeFileSync(out, Buffer.from(shot.result.data, 'base64'));
 if (items) process.stdout.write(items);
-sock.close(); chrome.kill('SIGKILL');
+sock.close(); chrome.kill('SIGKILL'); await sleep(200); try { rmSync(dir, { recursive: true, force: true }); } catch {}
 process.exit(0);

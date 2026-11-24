@@ -74,6 +74,8 @@ def run_case(case):
     W, H = img.size
     res = []
     for it in items:
+        if it.get("o", 1) < 0.05:  # texto invisível (opacidade 0, ex.: título pequeno do cabeçalho antes de rolar)
+            continue
         try:
             fg = parse_color(it["c"])
             fg = (fg[0], fg[1], fg[2], fg[3] * it.get("o", 1))

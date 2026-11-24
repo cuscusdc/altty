@@ -200,19 +200,29 @@ pub struct PlaybackVm {
     pub error_action: String,
 }
 
+/// Sem capa o console fica sólido (SLINT_SPEC v4 §6).
+pub const PLAYER_DIM_NO_COVER: f32 = 0.64;
+pub const MINI_DIM_NO_COVER: f32 = 0.70;
+
 #[derive(Clone)]
 pub struct NowArtVm {
     /// Capa grande (≤ 640 px) do player.
     pub cover: Option<Pixels>,
     /// Miniatura (≤ 192 px) do mini player, da NowBar e da fila.
     pub thumb: Option<Pixels>,
+    /// 192x464: capa, reflexo e topo da capa (atrás do console do player).
     pub backdrop: Option<Pixels>,
+    /// 96x96 muito desfocada: tinge o mini-player e fica atrás do player em janelas largas.
+    pub backdrop_wide: Option<Pixels>,
+    /// Escurecimento do console do player (0,24 a 0,64) e do mini-player (0,30 a 0,70).
+    pub player_dim: f32,
+    pub mini_dim: f32,
     pub accent: Accent,
 }
 
 impl Default for NowArtVm {
     fn default() -> Self {
-        Self { cover: None, thumb: None, backdrop: None, accent: Accent::BRAND }
+        Self { cover: None, thumb: None, backdrop: None, backdrop_wide: None, player_dim: PLAYER_DIM_NO_COVER, mini_dim: MINI_DIM_NO_COVER, accent: Accent::BRAND }
     }
 }
 

@@ -1,0 +1,259 @@
+// Moléculas do Kazzu v3 (Slint 1.19): cromo flutuante de VIDRO (barra em cápsula, mini player, NowBar, barra lateral, cabeçalho de
+// rolagem) e blocos de conteúdo (linha de faixa, cartão-herói com legenda de vidro, título de seção).
+// Depende de tokens.slint e atoms.slint. Mesma regra: o vidro só existe onde algo colorido passa por trás.
+
+import { Theme } from "tokens.slint";
+import { GlassPanel, IconButton, GlassIconButton, CoverImage, KSlider, FormatBadge, SourceTag, Divider } from "atoms.slint";
+
+// ---------------------------------------------------------------------------------------------
+// Item da barra em cápsula / da barra lateral. Ativo = ícone PREENCHIDO no acento + rótulo em negrito + cápsula (três sinais).
+// ---------------------------------------------------------------------------------------------
+component NavTab inherits Rectangle {
+    in property <image> icon;
+    in property <image> icon-fill;
+    in property <string> label;
+    in property <bool> active: false;
+    callback clicked();
+    accessible-role: tab; accessible-label: label; accessible-checked: active;
+    accessible-action-default => { root.clicked(); }
+    VerticalLayout {
+        alignment: center; spacing: 2px;
+        Rectangle { height: 24px; Image { source: root.active ? root.icon-fill : root.icon; width: 24px; height: 24px; colorize: root.active ? Theme.accent : Theme.ink-glass-2; x: (parent.width - self.width) / 2; } }
+        Text { text: root.label; horizontal-alignment: center; font-family: Theme.font-sans; font-size: Theme.fs-caption; font-weight: root.active ? 700 : 500; color: root.active ? Theme.ink : Theme.ink-glass-2; }
+    }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
+    Rectangle { visible: fs.has-focus; border-radius: 26px; border-width: Theme.focus-ring-w; border-color: Theme.focus-ring; }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Barra inferior em CÁPSULA (compact): 3 destinos. Vidro nível 2, raio = metade da altura, indicador deslizante.
+// ---------------------------------------------------------------------------------------------
+export component NavDock inherits GlassPanel {
+    in property <int> current: 0;       // 0 Início | 1 Explorar | 2 Biblioteca | -1 nenhum (Buscar ativo)
+    callback selected(int);
+    height: Theme.dock-h; radius: Theme.dock-radius; level: 2;
+    property <length> cell: (root.width - 12px) / 3;
+    // indicador deslizante: cápsula neutra atrás do item ativo
+    Rectangle {
+        visible: root.current >= 0;
+        x: 6px + root.current * root.cell; y: 6px; width: root.cell; height: parent.height - 12px; border-radius: 26px;
+        background: Theme.fill-2;
+        animate x { duration: Theme.dur-medium; easing: cubic-bezier(0.22, 0.9, 0.28, 1); }
+    }
+    HorizontalLayout {
+        padding: 6px; spacing: 0px;
+        NavTab { icon: @image-url("../assets/icons/home.svg"); icon-fill: @image-url("../assets/icons/home-fill.svg"); label: "Início"; active: root.current == 0; clicked => { root.selected(0); } }
+        NavTab { icon: @image-url("../assets/icons/explore.svg"); icon-fill: @image-url("../assets/icons/explore-fill.svg"); label: "Explorar"; active: root.current == 1; clicked => { root.selected(1); } }
+        NavTab { icon: @image-url("../assets/icons/library.svg"); icon-fill: @image-url("../assets/icons/library-fill.svg"); label: "Biblioteca"; active: root.current == 2; clicked => { root.selected(2); } }
+    }
+}
+
+// Botão Buscar (círculo de vidro 56 ao lado da barra). Ativo: cápsula neutra + ícone no acento (mesma linguagem das abas).
+export component SearchButton inherits GlassPanel {
+    in property <bool> active: false;
+    callback clicked();
+    width: Theme.dock-search; height: Theme.dock-search; radius: Theme.dock-search / 2; level: 2;
+    accessible-role: button; accessible-label: "Buscar";
+    accessible-action-default => { root.clicked(); }
+    Rectangle { visible: root.active; x: 5px; y: 5px; width: parent.width - 10px; height: parent.height - 10px; border-radius: self.width / 2; background: Theme.fill-2; }
+    Image { source: @image-url("../assets/icons/search.svg"); width: 26px; height: 26px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; colorize: root.active ? Theme.accent : Theme.ink; }
+    TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Mini player (compact): cápsula de vidro nível 2 sobre a barra. Capa 48, título/artista, pausar e próxima, fio de progresso.
+// ---------------------------------------------------------------------------------------------
+export component MiniPlayer inherits GlassPanel {
+    in property <image> cover;
+    in property <string> title;
+    in property <string> artist;
+    in property <float> progress: 0.31;
+    in property <bool> playing: true;
+    callback open();
+    callback toggle();
+    callback next();
+    height: Theme.mini-h; radius: Theme.mini-h / 2; level: 2;
+    accessible-role: button; accessible-label: "Abrir o player: " + title + ", " + artist;
+    accessible-action-default => { root.open(); }
+    TouchArea { mouse-cursor: pointer; clicked => { root.open(); } }
+    CoverImage { x: 8px; y: 8px; width: 48px; height: 48px; source: root.cover; radius: 24px; }
+    VerticalLayout {
+        x: 68px; y: 0px; width: parent.width - 68px - 112px; height: parent.height; alignment: center; spacing: 1px;
+        Text { text: root.title; font-family: Theme.font-sans; font-size: Theme.fs-callout; font-weight: 600; letter-spacing: Theme.ls-callout; color: Theme.ink; overflow: elide; }
+        Text { text: root.artist; font-family: Theme.font-sans; font-size: Theme.fs-footnote; color: Theme.ink-glass-2; overflow: elide; }
+    }
+    IconButton { x: parent.width - 108px; y: 8px; icon: root.playing ? @image-url("../assets/icons/pause.svg") : @image-url("../assets/icons/play.svg"); label: root.playing ? "Pausar" : "Tocar"; glyph: 28px; clicked => { root.toggle(); } }
+    IconButton { x: parent.width - 58px; y: 8px; icon: @image-url("../assets/icons/next.svg"); label: "Próxima faixa"; clicked => { root.next(); } }
+    // fio de progresso: 3 px, recuado 28 px de cada lado e 5 px acima do fundo
+    Rectangle { x: 28px; y: parent.height - 8px; width: parent.width - 56px; height: 3px; border-radius: 2px; background: Theme.fill-2;
+        Rectangle { width: parent.width * clamp(root.progress, 0.0, 1.0); height: parent.height; border-radius: 2px; background: Theme.ink; } }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Cabeçalho de rolagem (Apple: "scroll edge"): invisível em repouso; ao rolar o conteúdo, vira vidro nível 2 com fio inferior e o
+// título pequeno aparece no centro. `p` 0..1 = quanto o título grande já saiu (0 = topo). Marca à esquerda, Ajustes à direita.
+// ---------------------------------------------------------------------------------------------
+export component ScrollHeader inherits Rectangle {
+    in property <float> p: 0.0;
+    in property <string> title;
+    in property <length> safe-top: 0px;
+    in property <bool> back: false;       // telas internas: seta Voltar no lugar da marca
+    in property <bool> brand: true;       // false no desktop (a marca já está na barra lateral)
+    callback settings();
+    callback go-back();
+    height: safe-top + Theme.header-h;
+    backdrop-blur: p > 0.02 ? Theme.glass-blur-2 : 0px;
+    background: Theme.glass-bg-2.transparentize(1 - clamp(root.p, 0.0, 1.0));
+    clip: true;
+    Rectangle { background: Theme.glass-tint-2; opacity: clamp(root.p, 0.0, 1.0) * Theme.glass-tint-on; }
+    Rectangle { background: @linear-gradient(180deg, Theme.edge-fade.with-alpha(0.45) 0%, Theme.edge-fade.with-alpha(0.0) 100%); opacity: clamp(root.p, 0.0, 1.0); }
+    Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; opacity: clamp(root.p, 0.0, 1.0); }
+    if !root.back && root.brand : Image { x: Theme.gutter-mobile; y: root.safe-top + (Theme.header-h - self.height) / 2; height: 28px; width: self.height * 152 / 40;
+        source: Theme.dark ? @image-url("../assets/kazzu-wordmark-dark.svg") : @image-url("../assets/kazzu-wordmark-light.svg"); }
+    if root.back : GlassIconButton { x: Theme.gutter-mobile - 4px; y: root.safe-top + 4px; icon: @image-url("../assets/icons/back.svg"); label: "Voltar"; clicked => { root.go-back(); } }
+    Text { x: 0px; y: root.safe-top; width: parent.width; height: Theme.header-h; text: root.title; horizontal-alignment: center; vertical-alignment: center;
+        font-family: Theme.font-display; font-size: Theme.fs-headline; font-weight: 600; letter-spacing: Theme.ls-headline; color: Theme.ink; opacity: clamp((root.p - 0.55) * 2.2, 0.0, 1.0); }
+    GlassIconButton { x: parent.width - Theme.gutter-mobile - Theme.hit + 4px; y: root.safe-top + 4px; icon: @image-url("../assets/icons/gear.svg"); label: "Ajustes"; clicked => { root.settings(); } }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Título de seção (title-2 em Inter Display) com etiqueta de fonte ou ação de texto à direita.
+// ---------------------------------------------------------------------------------------------
+export component SectionHeader inherits Rectangle {
+    in property <string> title;
+    in property <string> tag;            // "Do YouTube Music" (vazio = sem)
+    in property <string> action;         // "Ver mais" (vazio = sem)
+    height: 40px;
+    Text { x: 0px; y: 0px; height: parent.height; text: root.title; vertical-alignment: center; font-family: Theme.font-display; font-size: Theme.fs-title-2; font-weight: Theme.fw-title-2; letter-spacing: Theme.ls-title-2; color: Theme.ink; }
+    if root.tag != "" : SourceTag { x: parent.width - self.width; y: (parent.height - self.height) / 2; text: root.tag; }
+    if root.action != "" : Text { x: parent.width - self.width; y: 0px; height: parent.height; text: root.action; vertical-alignment: center; font-family: Theme.font-sans; font-size: Theme.fs-subhead; font-weight: 600; color: Theme.accent; }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Linha de faixa (dentro de GroupCard): capa 52, título 17 semibold, artista, motivo, selo, mais. Altura 64, separador recuado em 80.
+// ---------------------------------------------------------------------------------------------
+export component TrackRow inherits Rectangle {
+    in property <image> cover;
+    in property <string> title;
+    in property <string> artist;
+    in property <string> why;            // motivo ("Em alta hoje"), vazio = sem
+    in property <string> codec;          // "OPUS" (vazio = sem selo)
+    in property <string> detail;
+    in property <bool> playing: false;
+    in property <bool> divider: true;
+    callback clicked();
+    callback more();
+    height: Theme.row-h + 4px;
+    background: ta.has-hover ? Theme.cell-hover : transparent;
+    accessible-role: button; accessible-label: title + ", " + artist;
+    accessible-action-default => { root.clicked(); }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    CoverImage { x: 14px; y: (parent.height - self.height) / 2; width: Theme.row-cover; height: Theme.row-cover; source: root.cover; radius: Theme.thumb-radius; }
+    VerticalLayout {
+        x: Theme.row-inset - 8px; y: 0px; width: parent.width - (Theme.row-inset - 8px) - (root.codec != "" ? 112px : 56px); height: parent.height; alignment: center; spacing: 1px;
+        Text { text: root.title; font-family: Theme.font-sans; font-size: Theme.fs-body; font-weight: root.playing ? 700 : 600; letter-spacing: Theme.ls-body; color: Theme.ink; overflow: elide; }
+        Text { text: root.artist; font-family: Theme.font-sans; font-size: Theme.fs-subhead; letter-spacing: Theme.ls-subhead; color: Theme.ink-2; overflow: elide; }
+        if root.why != "" : Text { text: root.why; font-family: Theme.font-sans; font-size: Theme.fs-footnote; color: Theme.ink-3; overflow: elide; }
+    }
+    if root.codec != "" : FormatBadge { x: parent.width - 52px - self.width - 4px; y: (parent.height - self.height) / 2; codec: root.codec; detail: root.detail; }
+    IconButton { x: parent.width - 52px; y: (parent.height - self.height) / 2; icon: @image-url("../assets/icons/more.svg"); label: "Mais opções para " + root.title; tint: Theme.ink-2; clicked => { root.more(); } }
+    if root.divider : Divider { x: 0px; y: parent.height - 1px; width: parent.width; inset: Theme.row-inset - 8px; }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Cartão-herói (carrossel "Continue por aqui"): capa em sangria total e LEGENDA DE VIDRO (nível 1) no pé, sobre um degradê escuro
+// que garante o contraste do texto mesmo com capa clara. O botão tocar é a única peça opaca (neutra).
+// ---------------------------------------------------------------------------------------------
+export component HeroCard inherits Rectangle {
+    in property <image> cover;
+    in property <string> caption;
+    in property <string> title;
+    in property <string> subtitle;
+    callback clicked();
+    width: Theme.hero-card-w-mobile; height: Theme.hero-card-h-mobile;
+    border-radius: Theme.hero-radius; clip: true;
+    accessible-role: button; accessible-label: title + ", " + subtitle;
+    accessible-action-default => { root.clicked(); }
+    background: Theme.surface-2;
+    Image { source: root.cover; width: 100%; height: 100%; image-fit: ImageFit.cover; }
+    Rectangle { y: parent.height * 0.42; height: parent.height * 0.58; background: @linear-gradient(180deg, #00000000 0%, #000000b3 100%); }
+    TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    GlassPanel {
+        x: 10px; y: parent.height - self.height - 10px; width: parent.width - 20px; height: 76px; radius: Theme.hero-plate-radius + 2px; level: 1; elevated: false;
+        VerticalLayout {
+            x: 16px; y: 0px; width: parent.width - 16px - 72px; height: parent.height; alignment: center; spacing: 1px;
+            Text { text: root.caption; font-family: Theme.font-sans; font-size: Theme.fs-caption; font-weight: 600; color: Theme.ink-glass-2; overflow: elide; }
+            Text { text: root.title; font-family: Theme.font-display; font-size: Theme.fs-title-3; font-weight: 600; letter-spacing: Theme.ls-title-3; color: Theme.ink; overflow: elide; }
+            Text { text: root.subtitle; font-family: Theme.font-sans; font-size: Theme.fs-footnote; color: Theme.ink-glass-2; overflow: elide; }
+        }
+        Rectangle { x: parent.width - 60px; y: (parent.height - self.height) / 2; width: 44px; height: 44px; border-radius: 22px; background: #ffffff;
+            Image { source: @image-url("../assets/icons/play.svg"); width: 22px; height: 22px; x: (parent.width - self.width) / 2 + 1px; y: (parent.height - self.height) / 2; colorize: #000000; } }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Barra lateral (≥ 1200) e trilho: material FINO e discreto (vidro nível 1) flutuando 12 px da borda. Marca no topo, destinos, Ajustes
+// no pé. Sem vibrancy do SO: o desfoque é só do conteúdo da própria janela (as capas que rolam por baixo).
+// ---------------------------------------------------------------------------------------------
+component SideItem inherits Rectangle {
+    in property <image> icon;
+    in property <image> icon-fill;
+    in property <string> label;
+    in property <bool> active: false;
+    callback clicked();
+    height: 48px; border-radius: 14px;
+    background: active ? Theme.fill-2 : (ta.has-hover ? Theme.fill : transparent);
+    accessible-role: tab; accessible-label: label; accessible-checked: active;
+    accessible-action-default => { root.clicked(); }
+    Image { x: 14px; y: (parent.height - self.height) / 2; width: 22px; height: 22px; source: root.active ? root.icon-fill : root.icon; colorize: root.active ? Theme.accent : Theme.ink-glass-2; }
+    Text { x: 50px; y: 0px; height: parent.height; text: root.label; vertical-alignment: center; font-family: Theme.font-sans; font-size: Theme.fs-callout; font-weight: root.active ? 700 : 500; letter-spacing: Theme.ls-callout; color: root.active ? Theme.ink : Theme.ink-glass-2; }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    fs := FocusScope { focus-on-click: false; key-pressed(e) => { if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; } return reject; } }
+    Rectangle { visible: fs.has-focus; border-radius: 14px; border-width: Theme.focus-ring-w; border-color: Theme.focus-ring; }
+}
+
+export component Sidebar inherits GlassPanel {
+    in property <int> current: 0;       // 0 Início | 1 Explorar | 2 Biblioteca | 3 Buscar | 4 Ajustes
+    callback selected(int);
+    radius: 24px; level: 1; elevated: false;
+    Image { x: 22px; y: 22px; height: 30px; width: self.height * 152 / 40; source: Theme.dark ? @image-url("../assets/kazzu-wordmark-dark.svg") : @image-url("../assets/kazzu-wordmark-light.svg"); }
+    VerticalLayout {
+        x: 10px; y: 76px; width: parent.width - 20px; spacing: 2px;
+        SideItem { icon: @image-url("../assets/icons/home.svg"); icon-fill: @image-url("../assets/icons/home-fill.svg"); label: "Início"; active: root.current == 0; clicked => { root.selected(0); } }
+        SideItem { icon: @image-url("../assets/icons/explore.svg"); icon-fill: @image-url("../assets/icons/explore-fill.svg"); label: "Explorar"; active: root.current == 1; clicked => { root.selected(1); } }
+        SideItem { icon: @image-url("../assets/icons/library.svg"); icon-fill: @image-url("../assets/icons/library-fill.svg"); label: "Biblioteca"; active: root.current == 2; clicked => { root.selected(2); } }
+        SideItem { icon: @image-url("../assets/icons/search.svg"); icon-fill: @image-url("../assets/icons/search.svg"); label: "Buscar"; active: root.current == 3; clicked => { root.selected(3); } }
+    }
+    SideItem { x: 10px; y: parent.height - self.height - 12px; width: parent.width - 20px; icon: @image-url("../assets/icons/gear.svg"); icon-fill: @image-url("../assets/icons/gear.svg"); label: "Ajustes"; active: root.current == 4; clicked => { root.selected(4); } }
+}
+
+// ---------------------------------------------------------------------------------------------
+// NowBar (≥ 1200): cápsula de vidro nível 2 flutuando sobre o conteúdo, com controles, progresso fino e volume.
+// ---------------------------------------------------------------------------------------------
+export component NowBar inherits GlassPanel {
+    in property <image> cover;
+    in property <string> title;
+    in property <string> artist;
+    in property <float> progress: 0.31;
+    in property <string> elapsed: "1:02";
+    in property <string> remaining: "3:21";
+    in property <bool> playing: true;
+    callback open();
+    height: Theme.nowbar-h; radius: Theme.nowbar-h / 2; level: 2;
+    CoverImage { x: 12px; y: 12px; width: 52px; height: 52px; source: root.cover; radius: 26px; }
+    VerticalLayout {
+        x: 78px; y: 0px; width: 220px; height: parent.height; alignment: center; spacing: 1px;
+        Text { text: root.title; font-family: Theme.font-sans; font-size: Theme.fs-callout; font-weight: 600; color: Theme.ink; overflow: elide; }
+        Text { text: root.artist; font-family: Theme.font-sans; font-size: Theme.fs-footnote; color: Theme.ink-glass-2; overflow: elide; }
+    }
+    IconButton { x: 318px; y: (parent.height - self.height) / 2; icon: @image-url("../assets/icons/prev.svg"); label: "Faixa anterior"; }
+    IconButton { x: 366px; y: (parent.height - self.height) / 2; icon: root.playing ? @image-url("../assets/icons/pause.svg") : @image-url("../assets/icons/play.svg"); label: root.playing ? "Pausar" : "Tocar"; glyph: 30px; }
+    IconButton { x: 414px; y: (parent.height - self.height) / 2; icon: @image-url("../assets/icons/next.svg"); label: "Próxima faixa"; }
+    Text { x: 480px; y: (parent.height - self.height) / 2; text: root.elapsed; font-family: Theme.font-mono; font-size: Theme.fs-timecode; color: Theme.ink-glass-2; }
+    KSlider { x: 530px; y: (parent.height - self.height) / 2; width: parent.width - 530px - 60px - 220px - 72px; value: root.progress; immersive: false; label: "Progresso"; value-text: root.elapsed + " de " + root.remaining; }
+    Text { x: parent.width - 60px - 220px - 52px; y: (parent.height - self.height) / 2; text: root.remaining; font-family: Theme.font-mono; font-size: Theme.fs-timecode; color: Theme.ink-glass-2; }
+    Image { x: parent.width - 60px - 206px; y: (parent.height - self.height) / 2; width: 22px; height: 22px; source: @image-url("../assets/icons/vol-low.svg"); colorize: Theme.ink-glass-2; }
+    KSlider { x: parent.width - 60px - 176px; y: (parent.height - self.height) / 2; width: 128px; value: 0.7; immersive: false; label: "Volume"; value-text: "70%"; }
+    IconButton { x: parent.width - 56px; y: (parent.height - self.height) / 2; icon: @image-url("../assets/icons/queue.svg"); label: "Fila"; }
+}

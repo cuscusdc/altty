@@ -1,0 +1,55 @@
+
+perf prototypes/home.html @ 1440px
+  PASS  host CPU load (before/after)               9/13 %         
+  WARN  total transfer                             2081.2 KiB     html 3.5K  css 10.3K  js 2.7K  font 1221.6K  img 839.3K  other 4K
+  PASS  requests                                   36             35 by load
+  PASS  images bytes                               839.3 KiB      25 files
+  PASS  largest image                              137.8 KiB      covers/01.jpg
+  PASS  JS parsed                                  6 KiB          2 files, 2.7K gz
+  PASS  CSS                                        10.3 KiB       3 files
+  PASS  font families                              2              Inter, Inter Display
+  PASS  font files                                 3              1221.6K
+  FAIL  font bytes                                 1221.6 KiB     
+  PASS  images without width+height                0              
+  FAIL  below-fold images not lazy                 11             13-m.jpg, 14-m.jpg, 20-m.jpg
+  PASS  oversized images (natural > 2.2x shown)    0              
+  PASS  WebGL live at load                         0              
+  PASS  WebGL live at bottom                       0              
+  PASS  WebGL peak live                            0              0 contexts made in all
+  PASS  long tasks                                 0              runs 3, 0..0, max 0ms
+  PASS  blocking time                              0 ms           runs 3, 0..0 ms; at load 0ms
+  PASS  FCP (CPU, relative)                        108 ms         runs 3, 76..296
+  PASS  LCP (CPU, relative)                        108 ms         runs 3, 76..296, img
+  PASS  layout shift                               0.000          runs 3, 0.000..0.000; at load 0.000
+  PASS  modules loaded, never mounted              0              
+  PASS  broken requests                            0              
+  PASS  page height                                1.8 screens    DOM 346 nodes
+
+perf prototypes/home.html @ 390px
+  PASS  host CPU load (before/after)               9/13 %         
+  WARN  total transfer                             2080.7 KiB     html 3.5K  css 10.3K  js 2.7K  font 1221.6K  img 839.3K  other 3.5K
+  PASS  requests                                   35             34 by load
+  PASS  images bytes                               839.3 KiB      25 files
+  PASS  largest image                              137.8 KiB      covers/01.jpg
+  PASS  JS parsed                                  6 KiB          2 files, 2.7K gz
+  PASS  CSS                                        10.3 KiB       3 files
+  PASS  font families                              2              Inter, Inter Display
+  PASS  font files                                 3              1221.6K
+  FAIL  font bytes                                 1221.6 KiB     
+  PASS  images without width+height                0              
+  FAIL  below-fold images not lazy                 8              13-m.jpg, 14-m.jpg, 20-m.jpg
+  FAIL  oversized images (natural > 2.2x shown)    16             03.jpg 640px for 264; 01.jpg 640px for 264; 09.jpg 640px for 264
+  WARN  upscaled images (natural < 0.75x shown)    1              05-blur.jpg 96px for 356
+  PASS  WebGL live at load                         0              
+  PASS  WebGL live at bottom                       0              
+  PASS  WebGL peak live                            0              0 contexts made in all
+  PASS  long tasks                                 0              runs 3, 0..0, max 0ms
+  PASS  blocking time                              0 ms           runs 3, 0..0 ms; at load 0ms
+  PASS  FCP (CPU, relative)                        72 ms          runs 3, 68..80
+  PASS  LCP (CPU, relative)                        72 ms          runs 3, 68..80, img
+  PASS  layout shift                               0.000          runs 3, 0.000..0.000; at load 0.000
+  PASS  modules loaded, never mounted              0              
+  PASS  broken requests                            0              
+  PASS  page height                                1.8 screens    DOM 346 nodes
+
+SUMMARY prototypes/home.html: 5 FAIL, 3 WARN  -> FAIL

@@ -3,7 +3,6 @@
 
 use std::path::{Path, PathBuf};
 
-use image::{Rgb, RgbImage};
 use lofty::config::WriteOptions;
 use lofty::file::TaggedFileExt;
 use lofty::tag::{Accessor, ItemKey, Tag, TagExt, TagType};
@@ -33,23 +32,35 @@ struct AlbumSpec {
     artist: &'static str,
     genre: &'static str,
     year: u32,
-    colors: ([u8; 3], [u8; 3]),
-    shape: u8,
+    /// Capa fotográfica (1 a 22) de `assets/demo-covers`: fotos CC0 ou de domínio público (créditos em CREDITS.md).
+    photo: u8,
     tracks: &'static [&'static str],
     fmt: Fmt,
 }
 
 const ALBUMS: &[AlbumSpec] = &[
-    AlbumSpec { title: "Maré Alta", artist: "Aurora Vento", genre: "Eletrônica", year: 2024, colors: ([18, 110, 124], [240, 150, 90]), shape: 0, tracks: &["Maré Alta", "Linha d'Água", "Horizonte Baixo", "Sal na Pele"], fmt: Fmt::Flac { bits: 24, rate: 96_000 } },
-    AlbumSpec { title: "Nove Horas", artist: "Doma", genre: "Pop", year: 2023, colors: ([232, 120, 110], [250, 200, 170]), shape: 1, tracks: &["Hora do Café", "Nove Horas", "Fio de Luz", "Última Linha"], fmt: Fmt::Flac { bits: 16, rate: 44_100 } },
-    AlbumSpec { title: "Bruma", artist: "Lia Cantos", genre: "Indie", year: 2022, colors: ([160, 190, 225], [245, 190, 170]), shape: 2, tracks: &["Mapa de Neblina", "Bruma", "Janela Aberta"], fmt: Fmt::Flac { bits: 16, rate: 44_100 } },
-    AlbumSpec { title: "Quadra 7", artist: "Os Faróis", genre: "Rock", year: 2021, colors: ([238, 190, 50], [40, 80, 170]), shape: 0, tracks: &["Canal Sete", "Quadra 7", "Rádio de Esquina"], fmt: Fmt::Wav { bits: 16, rate: 44_100 } },
-    AlbumSpec { title: "Sal e Cinza", artist: "Tomás Reis", genre: "Jazz", year: 2020, colors: ([200, 198, 192], [90, 88, 84]), shape: 2, tracks: &["Escada de Sal", "Cinza Claro", "Sem Pressa"], fmt: Fmt::Flac { bits: 24, rate: 88_200 } },
-    AlbumSpec { title: "Linha de Fuga", artist: "Kaito e Vê", genre: "Eletrônica", year: 2024, colors: ([16, 70, 48], [150, 240, 180]), shape: 1, tracks: &["Linha de Fuga", "Ponto Cego", "Radar", "Eco Verde"], fmt: Fmt::Flac { bits: 24, rate: 96_000 } },
-    AlbumSpec { title: "Calor de Março", artist: "Nina Sabiá", genre: "MPB", year: 2025, colors: ([240, 160, 90], [210, 80, 70]), shape: 1, tracks: &["Quase Verão", "Calor de Março", "Sol de Quina", "Terra Firme", "Vento Sul"], fmt: Fmt::Flac { bits: 16, rate: 44_100 } },
-    AlbumSpec { title: "Vidro Líquido", artist: "Kaito e Vê", genre: "Ambiente", year: 2023, colors: ([30, 100, 200], [110, 170, 240]), shape: 2, tracks: &["Respiração de Vidro", "Vidro Líquido", "Corrente"], fmt: Fmt::Lossy },
-    AlbumSpec { title: "Papel de Seda", artist: "Ilha Branca", genre: "Folk", year: 2022, colors: ([246, 228, 216], [217, 119, 106]), shape: 0, tracks: &["Seda e Sal", "Papel de Seda", "Ilha"], fmt: Fmt::Flac { bits: 16, rate: 44_100 } },
-    AlbumSpec { title: "Fita Magnética", artist: "Rádio Cobre", genre: "Experimental", year: 2019, colors: ([43, 33, 24], [233, 184, 106]), shape: 1, tracks: &["Fita Magnética", "Cobre", "Loop de Domingo"], fmt: Fmt::Wav { bits: 16, rate: 44_100 } },
+    AlbumSpec { title: "Maré Alta", artist: "Aurora Vento", genre: "Eletrônica", year: 2024, photo: 3, tracks: &["Maré Alta", "Linha d'Água", "Horizonte Baixo", "Sal na Pele"], fmt: Fmt::Flac { bits: 24, rate: 96_000 } },
+    AlbumSpec { title: "Nove Horas", artist: "Doma", genre: "Pop", year: 2023, photo: 1, tracks: &["Hora do Café", "Nove Horas", "Fio de Luz", "Última Linha"], fmt: Fmt::Flac { bits: 16, rate: 44_100 } },
+    AlbumSpec { title: "Bruma", artist: "Lia Cantos", genre: "Indie", year: 2022, photo: 22, tracks: &["Mapa de Neblina", "Bruma", "Janela Aberta"], fmt: Fmt::Flac { bits: 16, rate: 44_100 } },
+    AlbumSpec { title: "Quadra 7", artist: "Os Faróis", genre: "Rock", year: 2021, photo: 6, tracks: &["Canal Sete", "Quadra 7", "Rádio de Esquina"], fmt: Fmt::Wav { bits: 16, rate: 44_100 } },
+    AlbumSpec { title: "Sal e Cinza", artist: "Tomás Reis", genre: "Jazz", year: 2020, photo: 13, tracks: &["Escada de Sal", "Cinza Claro", "Sem Pressa"], fmt: Fmt::Flac { bits: 24, rate: 88_200 } },
+    AlbumSpec { title: "Linha de Fuga", artist: "Kaito e Vê", genre: "Eletrônica", year: 2024, photo: 18, tracks: &["Linha de Fuga", "Ponto Cego", "Radar", "Eco Verde"], fmt: Fmt::Flac { bits: 24, rate: 96_000 } },
+    AlbumSpec { title: "Calor de Março", artist: "Nina Sabiá", genre: "MPB", year: 2025, photo: 5, tracks: &["Quase Verão", "Calor de Março", "Sol de Quina", "Terra Firme", "Vento Sul"], fmt: Fmt::Flac { bits: 16, rate: 44_100 } },
+    AlbumSpec { title: "Vidro Líquido", artist: "Kaito e Vê", genre: "Ambiente", year: 2023, photo: 7, tracks: &["Respiração de Vidro", "Vidro Líquido", "Corrente"], fmt: Fmt::Lossy },
+    AlbumSpec { title: "Papel de Seda", artist: "Ilha Branca", genre: "Folk", year: 2022, photo: 16, tracks: &["Seda e Sal", "Papel de Seda", "Ilha"], fmt: Fmt::Flac { bits: 16, rate: 44_100 } },
+    AlbumSpec { title: "Fita Magnética", artist: "Rádio Cobre", genre: "Experimental", year: 2019, photo: 20, tracks: &["Fita Magnética", "Cobre", "Loop de Domingo"], fmt: Fmt::Wav { bits: 16, rate: 44_100 } },
+    AlbumSpec { title: "Plataforma 9", artist: "Estação Lume", genre: "Eletrônica", year: 2024, photo: 2, tracks: &["Plataforma 9", "Último Metrô", "Trilho Vermelho"], fmt: Fmt::Flac { bits: 16, rate: 44_100 } },
+    AlbumSpec { title: "Chuva na Janela", artist: "Dona Aurora", genre: "MPB", year: 2023, photo: 4, tracks: &["Chuva na Janela", "Vidraça", "Gota Grossa"], fmt: Fmt::Flac { bits: 16, rate: 44_100 } },
+    AlbumSpec { title: "Duna Rosa", artist: "Sertão Sideral", genre: "Eletrônica", year: 2022, photo: 8, tracks: &["Duna Rosa", "Vento de Areia", "Horizonte Rosa"], fmt: Fmt::Flac { bits: 16, rate: 44_100 } },
+    AlbumSpec { title: "Salto", artist: "Orquestra do Cais", genre: "Clássica", year: 2021, photo: 9, tracks: &["Salto", "Ponta de Pé", "Pas de Deux"], fmt: Fmt::Flac { bits: 16, rate: 44_100 } },
+    AlbumSpec { title: "Mesa de Som", artist: "Caio Fader", genre: "Eletrônica", year: 2024, photo: 10, tracks: &["Fader no Talo", "Mesa de Som", "Ganho"], fmt: Fmt::Wav { bits: 16, rate: 44_100 } },
+    AlbumSpec { title: "Fruta Miúda", artist: "Trio Cambuci", genre: "Folk", year: 2023, photo: 11, tracks: &["Mirtilo", "Fruta Miúda", "Amora do Mato"], fmt: Fmt::Flac { bits: 16, rate: 44_100 } },
+    AlbumSpec { title: "Prisma", artist: "Vidro Fumê", genre: "Pop", year: 2022, photo: 12, tracks: &["Prisma", "Arco-Íris de Plástico", "Faca e Garfo"], fmt: Fmt::Flac { bits: 16, rate: 44_100 } },
+    AlbumSpec { title: "Poltrona Verde", artist: "Irmãos Veludo", genre: "Jazz", year: 2020, photo: 14, tracks: &["Poltrona Verde", "Veludo", "Dois Violões"], fmt: Fmt::Flac { bits: 16, rate: 44_100 } },
+    AlbumSpec { title: "Limão Seco", artist: "Banda Azeda", genre: "Indie", year: 2021, photo: 15, tracks: &["Limão Seco", "Casca", "Rodela"], fmt: Fmt::Flac { bits: 16, rate: 44_100 } },
+    AlbumSpec { title: "Neblina Dourada", artist: "Serra Mansa", genre: "Folk", year: 2024, photo: 17, tracks: &["Neblina Dourada", "Colina", "Manhã de Roça"], fmt: Fmt::Flac { bits: 16, rate: 44_100 } },
+    AlbumSpec { title: "Cavaquinho às Três", artist: "Zé do Traste", genre: "Samba", year: 2019, photo: 19, tracks: &["Cavaquinho às Três", "Roda de Samba", "Pandeiro"], fmt: Fmt::Wav { bits: 16, rate: 44_100 } },
+    AlbumSpec { title: "Pedal", artist: "Helena Marfim", genre: "Clássica", year: 2025, photo: 21, tracks: &["Pedal", "Marfim", "Surdina"], fmt: Fmt::Flac { bits: 16, rate: 44_100 } },
 ];
 
 /// Cria (se faltar) a pasta `dir/music` com os álbuns de demonstração e devolve o caminho dela.
@@ -71,7 +82,7 @@ pub fn ensure_demo_music(dir: &Path) -> Result<PathBuf, DemoError> {
 fn write_album(music: &Path, index: usize, a: &AlbumSpec) -> Result<(), DemoError> {
     let dir = music.join(format!("{} - {}", a.artist, a.title));
     std::fs::create_dir_all(&dir).map_err(|e| DemoError::Io(dir.clone(), e))?;
-    cover(a).save(dir.join("cover.jpg"))?;
+    std::fs::write(dir.join("cover.jpg"), photo_bytes(a.photo)).map_err(|e| DemoError::Io(dir.join("cover.jpg"), e))?;
     for (n, title) in a.tracks.iter().enumerate() {
         let seed = (index * 16 + n) as u64 + 1;
         let secs = 14 + (seed * 7 % 19) as u32;
@@ -197,36 +208,13 @@ fn write_flac(path: &Path, rate: u32, bits: u16, secs: u32, seed: u64) -> Result
     std::fs::write(path, sink.as_slice()).map_err(|e| DemoError::Io(path.to_path_buf(), e))
 }
 
-/// Capa abstrata 600x600: degradê diagonal, mais uma forma (sol, ondas ou barras).
-fn cover(a: &AlbumSpec) -> RgbImage {
-    const N: u32 = 600;
-    let (c1, c2) = a.colors;
-    let mut img = RgbImage::new(N, N);
-    for (x, y, p) in img.enumerate_pixels_mut() {
-        let t = ((x + y) as f32 / (2.0 * N as f32)).clamp(0.0, 1.0);
-        let mut px = [0u8; 3];
-        for k in 0..3 {
-            px[k] = (f32::from(c1[k]) * (1.0 - t) + f32::from(c2[k]) * t) as u8;
-        }
-        let (fx, fy) = (x as f32, y as f32);
-        let hit = match a.shape {
-            // sol
-            0 => (fx - 400.0).hypot(fy - 210.0) < 80.0,
-            // arcos concêntricos na base
-            1 => {
-                let d = (fx - 300.0).hypot(fy - 620.0);
-                d < 380.0 && ((d / 55.0) as u32).is_multiple_of(2)
-            }
-            // ondas
-            _ => (fy - (380.0 + 40.0 * (fx / 60.0).sin() + 70.0 * ((fy - 380.0) / 70.0).floor())).abs() < 10.0 && fy > 330.0,
-        };
-        if hit {
-            let [r, g, b] = c2;
-            px = [r.saturating_add(30), g.saturating_add(30), b.saturating_add(30)];
-        }
-        *p = Rgb(px);
+/// As 22 capas fotográficas (640x640) embutidas no binário.
+fn photo_bytes(n: u8) -> &'static [u8] {
+    macro_rules! covers {
+        ($($n:literal),*) => { [$(include_bytes!(concat!("../assets/demo-covers/", $n, ".jpg")).as_slice()),*] };
     }
-    img
+    const PHOTOS: [&[u8]; 22] = covers!("01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22");
+    PHOTOS[usize::from(n.clamp(1, 22)) - 1]
 }
 
 /// Lê de volta as tags de um arquivo gerado (usado nos testes).

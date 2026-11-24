@@ -5,7 +5,7 @@ capas fictícias (design/prototypes/covers) e a cor de destaque derivada de cada
 
 Requer: rsvg-convert, Pillow, ImageMagick (`magick`). Uso: python3 design/tools/make_assets.py
 """
-import json, math, subprocess, sys
+import tempfile, json, math, subprocess, sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -146,6 +146,9 @@ ICON_DEFS = {
     "home": ("stroke", '<path d="M4 11.2 12 4l8 7.2V19a1.5 1.5 0 0 1-1.5 1.5H15V15H9v5.5H5.5A1.5 1.5 0 0 1 4 19z"/>'),
     "explore": ("stroke", '<circle cx="12" cy="12" r="8.75"/><path d="m15.6 8.4-1.9 5.3-5.3 1.9 1.9-5.3z"/>'),
     "library": ("stroke", '<rect x="4" y="9.5" width="16" height="10.5" rx="2.5"/><path d="M7 6h10M9.5 2.75h5"/>'),
+    "home-fill": ("fillstroke", '<path d="M4 11.2 12 4l8 7.2V19a1.5 1.5 0 0 1-1.5 1.5H15V15H9v5.5H5.5A1.5 1.5 0 0 1 4 19z"/>'),
+    "explore-fill": ("fill", '<path fill-rule="evenodd" d="M12 3.25a8.75 8.75 0 1 0 0 17.5 8.75 8.75 0 0 0 0-17.5zM15.6 8.4l-1.9 5.3-5.3 1.9 1.9-5.3z"/>'),
+    "library-fill": ("fillstroke", '<rect x="4" y="9.5" width="16" height="10.5" rx="2.5"/><path d="M7 6h10M9.5 2.75h5"/>'),
     "search": ("stroke", '<circle cx="10.5" cy="10.5" r="6.25"/><path d="m15.2 15.2 4.8 4.8"/>'),
     "back": ("stroke", '<path d="M19 12H5M11 6l-6 6 6 6"/>'),
     "chevron-right": ("stroke", '<path d="m9.5 6 6 6-6 6"/>'),
@@ -388,7 +391,7 @@ css = ["/* GERADO por design/tools/make_assets.py */"]
 for cid, title, artist, body in COVERS_DEF:
     svg_path = COVERS / f"cover-{cid}.svg"
     write(svg_path, body)
-    png = Path("/tmp/claude-0/-home-sacer-Projects-altty/52e6e71f-b349-48e3-b32f-2cb12b39091b/scratchpad") / f"c{cid}.png"
+    png = Path(tempfile.gettempdir()) / f"kazzu-c{cid}.png"
     subprocess.run(["rsvg-convert", "-w", "64", "-h", "64", str(svg_path), "-o", str(png)], check=True)
     base = derive_accent(png)
     ad, ad_ink = accent_for("dark", base)

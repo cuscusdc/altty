@@ -4,3 +4,4 @@
 .taste-skill/
 *.log
 .DS_Store
+.claude/skills/

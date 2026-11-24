@@ -1,4 +1,4 @@
-/* Kazzu protótipos v2 — interações mínimas (tema, transparência, saturação, capa, estados, folhas, gesto de arrastar para fechar).
+/* Kazzu protótipos v3 — interações mínimas (tema, transparência, saturação, capa, estados, folhas, gesto de arrastar para fechar).
    Sem rede, sem telemetria, sem armazenamento além da preferência de tema. */
 (function () {
   var root = document.documentElement;
@@ -134,17 +134,30 @@
     });
   }
 
+  // cabeçalho de rolagem (Apple): vira vidro ao rolar; o título pequeno entra quando o título grande sai
+  var hdr = document.querySelector("[data-hdr]");
+  if (hdr) {
+    var lt = document.querySelector(".lt");
+    var upd = function () {
+      var y = window.scrollY || 0;
+      hdr.classList.toggle("scrolled", y > 4);
+      hdr.classList.toggle("title-in", lt ? lt.getBoundingClientRect().bottom < 64 : y > 40);
+    };
+    window.addEventListener("scroll", upd, { passive: true }); upd();
+  }
+
   // ---- ferramentas de verificação (tools/check_render.py): #scroll=N rola a página; #probe=1 lista os textos; #probe=2 esconde os textos
   var pp = params();
   if (pp.get("scroll")) window.addEventListener("load", function () { window.scrollTo(0, +pp.get("scroll")); });
   if (pp.get("probe") === "2") { var st2 = document.createElement("style"); st2.textContent = "*{color:transparent!important;text-shadow:none!important;-webkit-text-fill-color:transparent!important} svg,.nowbars{visibility:hidden!important} input::placeholder{color:transparent!important}"; document.head.appendChild(st2); }
   if (pp.get("probe") === "1") window.addEventListener("load", function () {
-    (document.fonts ? Promise.all(["400 16px Hanken Grotesk","600 16px Hanken Grotesk","700 16px Hanken Grotesk","400 12px Geist Mono","500 12px Geist Mono"].map(function (f) { return document.fonts.load(f); })) : Promise.resolve()).then(function () { setTimeout(function () {
+    (document.fonts ? Promise.all(["400 16px Inter","500 16px Inter","600 16px Inter","700 16px Inter","700 16px Inter Display","600 16px Inter Display","400 12px Geist Mono","500 12px Geist Mono"].map(function (f) { return document.fonts.load(f); })) : Promise.resolve()).then(function () { setTimeout(function () {
       if (pp.get("probe") === "1") {
         var out = [], w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT), n;
         while ((n = w.nextNode())) {
           var t = n.nodeValue.trim(); if (!t) continue; var el = n.parentElement; if (!el || el.closest("script,style,[hidden],.sr-only")) continue;
           var cs = getComputedStyle(el); if (cs.visibility === "hidden" || cs.display === "none") continue;
+          var eo = 1, an = el; while (an && an !== document.documentElement) { eo *= parseFloat(getComputedStyle(an).opacity); an = an.parentElement; } if (eo < 0.05) continue;
           var r = document.createRange(); r.selectNodeContents(n); var b = r.getBoundingClientRect(); if (b.width < 2 || b.height < 2) continue;
           if (b.bottom < 0 || b.top > innerHeight || b.right < 0 || b.left > innerWidth) continue;
           var hit = document.elementFromPoint(Math.min(innerWidth - 1, Math.max(0, b.left + b.width / 2)), Math.min(innerHeight - 1, Math.max(0, b.top + b.height / 2)));

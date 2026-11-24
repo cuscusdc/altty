@@ -1,0 +1,138 @@
+// Peças compartilhadas pelas telas: rolagem com posição guardada, prateleira horizontal, título grande, cabeçalho das abas,
+// grade de álbuns, esqueletos e coluna estreita (Ajustes).
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { Metrics } from "../theme/metrics.slint";
+import { Tab, AppState, Album } from "../theme/app-contract.slint";
+import { Nav } from "../theme/nav-state.slint";
+import { IconButton, Skeleton, Tile } from "atoms.slint";
+
+// Rolagem vertical de uma aba: cada aba guarda a posição (Metrics.scroll-*); tocar na aba ativa volta ao topo.
+// O conteúdo rola por baixo do cromo, até a borda da janela: quem usa põe o recuo (safe-top, Metrics.reserve) no layout.
+export component Screen inherits Flickable {
+    in property <Tab> tab: Tab.home;
+    property <int> top-seq: Metrics.scroll-top-seq;
+    init => { root.content-y = Metrics.saved-scroll(root.tab); }
+    changed content-y => { Metrics.save-scroll(root.tab, self.content-y); }
+    changed top-seq => { root.content-y = 0px; }
+    interactive: true;
+}
+
+// Prateleira horizontal: rola livre (o Slint não tem encaixe; o próximo cartão aparece cortado pela borda). Em janelas
+// maiores que o celular entram setas, porque a roda do mouse só rola na vertical.
+export component Rail inherits Rectangle {
+    in property <length> card-h;
+    in property <string> label;
+    height: card-h;
+    accessible-role: list;
+    accessible-label: label;
+    function scroll-by(dx: length) { fl.content-x = clamp(fl.content-x + dx, min(0px, fl.width - fl.content-width), 0px); }
+    property <bool> overflows: fl.content-width > fl.width + 1px;
+    fl := Flickable {
+        width: parent.width;
+        height: parent.height;
+        content-width: row.preferred-width;
+        content-height: parent.height;
+        interactive: true;
+        row := HorizontalLayout {
+            x: 0px;
+            y: 0px;
+            height: fl.height;
+            width: self.preferred-width;
+            padding-left: Theme.gutter;
+            padding-right: Theme.gutter;
+            spacing: Theme.s-md;
+            alignment: start;
+            @children
+        }
+    }
+    if !Theme.compact && root.overflows && fl.content-x > fl.width - fl.content-width + 1px : IconButton {
+        x: parent.width - 56px;
+        y: (parent.height - 48px) / 2;
+        icon: Icons.chevron-right;
+        tonal: true;
+        label: "Ver mais itens: " + root.label;
+        clicked => { root.scroll-by(-fl.width * 0.8); }
+    }
+    if !Theme.compact && root.overflows && fl.content-x < -1px : IconButton {
+        x: 8px;
+        y: (parent.height - 48px) / 2;
+        icon: Icons.chevron-left;
+        tonal: true;
+        label: "Ver itens anteriores: " + root.label;
+        clicked => { root.scroll-by(fl.width * 0.8); }
+    }
+}
+
+export component LargeTitle inherits Rectangle {
+    in property <string> text;
+    height: 52px;
+    Text { x: Theme.gutter; width: parent.width - 2 * Theme.gutter; text: root.text; color: Theme.ink; font-family: Theme.font-display; font-size: Theme.text-xxxl; font-weight: 700; letter-spacing: -0.68px; vertical-alignment: center; overflow: elide; accessible-role: AccessibleRole.text; }
+}
+
+// Linha do topo das abas: logo no canto superior esquerdo (no desktop o logo vive na barra lateral); Ajustes à direita.
+// Telas empilhadas (Ajustes) trocam o logo pelo Voltar.
+export component RootHeader inherits Rectangle {
+    in property <bool> logo: true;
+    in property <bool> back: false;
+    in property <bool> gear: true;
+    callback back-clicked();
+    height: Theme.header-h;
+    if root.logo && !Theme.wide : Image {
+        x: Theme.gutter;
+        width: 26px * 153 / 40;
+        height: 26px;
+        source: Theme.dark ? @image-url("../assets/kazzu-wordmark-dark.svg") : @image-url("../assets/kazzu-wordmark-light.svg");
+        accessible-role: AccessibleRole.text;
+        accessible-label: "Kazzu";
+    }
+    if root.back : IconButton { x: Theme.gutter - 12px; icon: Icons.chevron-left; label: "Voltar"; clicked => { root.back-clicked(); } }
+    if root.gear : IconButton { x: parent.width - Theme.gutter - 40px; icon: Icons.gear; tonal: true; label: "Ajustes"; clicked => { Nav.go(Tab.settings); } }
+}
+
+// Linhas de faixa: recuo lateral; o botão Mais (48) encosta 12 na margem para o ícone alinhar com ela.
+export component Rows inherits VerticalLayout {
+    padding-left: Theme.gutter;
+    padding-right: Theme.gutter - 12px;
+}
+
+export component Gutters inherits HorizontalLayout {
+    padding-left: Theme.gutter;
+    padding-right: Theme.gutter;
+}
+
+// Coluna estreita e centralizada (Ajustes no desktop).
+export component Narrow inherits HorizontalLayout {
+    alignment: center;
+    VerticalLayout { max-width: 720px; horizontal-stretch: 1; @children }
+}
+
+// Grade de álbuns (resultado de busca, detalhe): colunas conforme a largura, ladrilhos de ~150 a 190.
+export component AlbumGrid inherits Rectangle {
+    in property <[Album]> albums;
+    property <length> gap: Theme.s-md;
+    property <int> cols: max(2, floor((root.width - 2 * Theme.gutter + gap) / (160px + gap)));
+    property <length> side: max(120px, (root.width - 2 * Theme.gutter - (cols - 1) * gap) / cols);
+    height: ceil(root.albums.length / root.cols) * (root.side + 52px + root.gap);
+    for a[i] in root.albums : Tile {
+        x: Theme.gutter + mod(i, root.cols) * (root.side + root.gap);
+        y: floor(i / root.cols) * (root.side + 52px + root.gap);
+        size: root.side;
+        cover: a.cover;
+        title: a.title;
+        subtitle: a.artist;
+        clicked => { AppState.open-album(a.id); }
+    }
+}
+
+// Esqueletos com a forma das linhas de faixa (o cabeçalho da tela continua igual enquanto carrega).
+export component SkeletonRows inherits VerticalLayout {
+    in property <int> count: 4;
+    for i in root.count : Rectangle {
+        height: Theme.row-h;
+        accessible-role: none;
+        Skeleton { x: Theme.gutter; width: 48px; height: 48px; y: 8px; }
+        Skeleton { x: Theme.gutter + 60px; y: 16px; width: (parent.width - 2 * Theme.gutter - 60px) * 0.58; height: 14px; }
+        Skeleton { x: Theme.gutter + 60px; y: 38px; width: (parent.width - 2 * Theme.gutter - 60px) * 0.34; height: 14px; }
+    }
+}

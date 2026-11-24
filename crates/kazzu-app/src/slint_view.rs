@@ -5,9 +5,9 @@ use std::rc::Rc;
 
 use slint::{ComponentHandle, Image, Model, ModelRc, SharedString, VecModel, Weak};
 
-use crate::accent::{Accent, stage_palette};
+use crate::accent::Accent;
 use crate::art::Pixels;
-use crate::config::{AccentPref, ThemePref};
+use crate::config::ThemePref;
 use crate::ui;
 use crate::view::View;
 use crate::vm::*;
@@ -73,13 +73,14 @@ fn load_state(s: LoadStateVm) -> ui::LoadState {
     }
 }
 
-pub fn home_section(s: ui::HomeSection) -> HomeSectionVm {
-    match s {
-        ui::HomeSection::ForYou => HomeSectionVm::ForYou,
-        ui::HomeSection::Discover => HomeSectionVm::Discover,
-        ui::HomeSection::Mixes => HomeSectionVm::Mixes,
-        ui::HomeSection::Focus => HomeSectionVm::Focus,
-        ui::HomeSection::Workout => HomeSectionVm::Workout,
+/// "YouTube Music, OPUS 160 kbps" / "Neste aparelho, FLAC 24/96": de onde vem e em que formato (linha do meio do console).
+fn source_line(source: &str, quality: &str) -> String {
+    let source = source.strip_prefix("Do ").unwrap_or(source);
+    match (source.is_empty(), quality.is_empty()) {
+        (true, true) => String::new(),
+        (false, true) => source.to_owned(),
+        (true, false) => quality.to_owned(),
+        (false, false) => format!("{source}, {quality}"),
     }
 }
 
@@ -209,6 +210,7 @@ impl View for SlintView {
             s.set_now_origin(p.origin.as_str().into());
             s.set_now_source(p.source.as_str().into());
             s.set_quality_label(p.quality_label.as_str().into());
+            s.set_now_source_line(source_line(&p.source, &p.quality_label).into());
             s.set_player_error(p.error.as_str().into());
             s.set_player_error_action(p.error_action.as_str().into());
         });
@@ -228,42 +230,18 @@ impl View for SlintView {
             let s = w.global::<ui::AppState>();
             s.set_now_art(img(&art.cover));
             s.set_backdrop(img(&art.backdrop));
+            s.set_backdrop_wide(img(&art.backdrop_wide));
+            s.set_player_dim(art.player_dim);
+            s.set_mini_dim(art.mini_dim);
         });
     }
 
-    fn set_ambient(&self, backdrop: Option<&Pixels>) {
-        // sem faixa tocando, o palco usa a capa de uma faixa da biblioteca; com faixa, `set_now_art` manda
-        self.with(|w| {
-            let s = w.global::<ui::AppState>();
-            if !s.get_has_now() {
-                s.set_backdrop(backdrop.map(|p| Image::from_rgba8(p.clone())).unwrap_or_default());
-            }
-        });
+    fn set_ambient(&self, _backdrop: Option<&Pixels>) {
+        // v4: o fundo é liso; a única arte "viva" é a da faixa atual (mini-player e player). Nada a fazer.
     }
 
-    fn set_accent(&self, accent: &Accent, dynamic: bool) {
-        self.with(|w| {
-            let s = w.global::<ui::AppState>();
-            s.set_accent_dark(color(accent.dark.accent));
-            s.set_accent_dark_ink(color(accent.dark.ink));
-            s.set_accent_light(color(accent.light.accent));
-            s.set_accent_light_ink(color(accent.light.ink));
-            let t = w.global::<ui::Theme>();
-            t.set_use_dynamic_accent(dynamic);
-            // O palco herda o matiz da capa em qualquer modo de acento (é ambiente, não "cor de destaque").
-            let stage = stage_palette(accent.hue);
-            t.set_stage_a_dark(color(stage.dark[0]));
-            t.set_stage_b_dark(color(stage.dark[1]));
-            t.set_stage_c_dark(color(stage.dark[2]));
-            t.set_stage_d_dark(color(stage.dark[3]));
-            t.set_stage_a_light(color(stage.light[0]));
-            t.set_stage_b_light(color(stage.light[1]));
-            t.set_stage_c_light(color(stage.light[2]));
-            t.set_stage_d_light(color(stage.light[3]));
-            t.set_glass_tint_dark(color(stage.tint_dark));
-            t.set_glass_tint_light(color(stage.tint_light));
-            w.invoke_apply_accent();
-        });
+    fn set_accent(&self, _accent: &Accent, _dynamic: bool) {
+        // v4: acento fixo (Brasa). A cor da capa não pinta a interface.
     }
 
     fn set_home(&self, home: &HomeVm) {
@@ -275,17 +253,9 @@ impl View for SlintView {
         self.with(|w| {
             let s = w.global::<ui::AppState>();
             s.set_home_state(load_state(home.state));
-            s.set_home_section(match home.section {
-                HomeSectionVm::ForYou => ui::HomeSection::ForYou,
-                HomeSectionVm::Discover => ui::HomeSection::Discover,
-                HomeSectionVm::Mixes => ui::HomeSection::Mixes,
-                HomeSectionVm::Focus => ui::HomeSection::Focus,
-                HomeSectionVm::Workout => ui::HomeSection::Workout,
-            });
             s.set_home_stale(home.stale);
             s.set_home_error_title(home.error_title.as_str().into());
             s.set_home_error_text(home.error_text.as_str().into());
-            s.set_home_error_code(home.error_code.as_str().into());
             s.set_source_label(home.source_label.as_str().into());
             s.set_first_run_banner(home.banner);
         });
@@ -457,10 +427,6 @@ impl View for SlintView {
                 ThemePref::Auto => ui::ThemeMode::Auto,
                 ThemePref::Light => ui::ThemeMode::Light,
                 ThemePref::Dark => ui::ThemeMode::Dark,
-            });
-            s.set_accent_mode(match prefs.accent {
-                AccentPref::Cover => ui::AccentMode::FromCover,
-                AccentPref::Brand => ui::AccentMode::Brand,
             });
             s.set_stream_quality(prefs.stream_quality.index());
             s.set_autoplay_radio(prefs.autoplay_radio);

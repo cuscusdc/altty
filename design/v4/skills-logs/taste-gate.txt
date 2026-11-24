@@ -1,0 +1,108 @@
+gate: build started for home.html (software), 1 round; finish with: node "/home/sacer/Projects/altty/.claude/skills/design-taste-frontend/scripts/gate.mjs"
+gate: checking home.html (software); this takes a few minutes on a CPU Chrome
+gate: rounds used up; 34 FAIL open
+  FAIL hero-fill        main#conteudo > section.shelf:nth-of-type(2) "Faixas para você"  [1440, 390]
+       the next section shows on the first screen: it starts at 546px on a 900px screen (the hero ends at 514px)
+       fix: let the hero fill the first screen alone (min-height: 100svh, less above it): nothing of the next section on load
+  FAIL flush            section.shelf:nth-of-type(1) > div.rail > a.pick:nth-of-type(1) > img "img: 03.jpg"  [1440, 390]
+       its button sits 0px above the lower edge of section.shelf:nth-of-type(1), where the ground changes to section.shelf:nth-of-type(2)
+       fix: give the section its padding at the edge where the ground changes (the closing call keeps a clear gap above the footer)
+  FAIL no-visual        main#conteudo > section.shelf:nth-of-type(2) "Faixas para você"  [1440, 390]
+       no picture, effect or mock in this section; a feature section needs a visual
+       fix: give the section a visual: a UI fragment on a ground, real icons, or a photograph that fits
+  FAIL card-layout      main#conteudo > section.shelf:nth-of-type(1) > div.rail "Delta Álbum, Maré Alta Trio"  [1440, 390]
+       5 of 5 cards drawn one way (one panel, ground, placement and fragment): copies of one card
+       fix: a card layout at most twice on a page: build the other sections another way
+  FAIL card-layout      main#conteudo > section.shelf:nth-of-type(3) > div.rail "Mix da Manhã Serra Mansa e mais"  [1440, 390]
+       5 of 5 cards drawn one way (one panel, ground, placement and fragment): copies of one card
+       fix: a card layout at most twice on a page: build the other sections another way
+  FAIL card-layout      main#conteudo > section.shelf:nth-of-type(4) > div.rail "Lado B Selo Amarelo"  [1440, 390]
+       6 of 6 cards drawn one way (one panel, ground, placement and fragment): copies of one card
+       fix: a card layout at most twice on a page: build the other sections another way
+  FAIL cta              main#conteudo > section.shelf:nth-of-type(1)  [1440, 390]
+       the hero has no button (the nav's does not count)
+       fix: add the action: a button in the hero, one on every priced item, one in the closing section
+  FAIL cta              main#conteudo > section.shelf:nth-of-type(4) "Álbuns em destaque"  [1440, 390]
+       the last section before the footer ends with no button
+       fix: add the action: a button in the hero, one on every priced item, one in the closing section
+  FAIL copy-headline    (the page)  [1440]
+       the page has no visible h1
+       fix: put the category noun in the h1 (and who it is for, or where), in 2 to 8 words
+  FAIL copy-fact        (the page)  [1440]
+       the first screen holds no number, price, date, place, platform or genre
+       fix: put one hard fact from the brief on the first screen: a number, a price, a date, the place, the platforms it runs on or a game's genre; take it from the brief or remove the claim
+  FAIL copy-headings    h2#s-mixes "Mixes"  [1440]
+       "Mixes" names no product, part, place or section (2 headings like it; at most one brand line per page) (and 1 more like it: "Álbuns em destaque")
+       fix: name the thing in every heading: the product, a part, the place or a section noun
+  FAIL moment-none      (the page)  [1440]
+       a software page (--type) deals no moment: every kind carries one, two on a long page (moments.md)
+       fix: deal one (moments.mjs pick --page software) and mount it in its own section
+  FAIL hero-screen      main#conteudo > section.shelf:nth-of-type(1) "Para ouvir agoraDeltaÁlbum, Maré Alta Tr"  [1440]
+       the hero ends at 514px on a 900px screen, 386px above the fold: it ends at the fold, 1px either way (SR-1)
+       fix: make the hero exactly one screen (height: 100svh, its content fitted inside), never taller or shorter
+  FAIL hero-screen      main#conteudo > section.shelf:nth-of-type(2) "Faixas para vocêVer tudoFio SoltoClara V"  [1440]
+       354px of the next section shows on the first screen (from 546px on a 900px screen): nothing below the hero shows at load (SR-1)
+       fix: end the hero at the fold so nothing of the next section shows at load (hero height: 100svh)
+  FAIL section-height   main#conteudo > section.shelf:nth-of-type(3) "MixesMix da ManhãSerra Mansa e maisMix F"  [1440]
+       the section is 278px tall (0.3 screens), 622px short of one screen (900px): every section after the hero is one screen or two, 2px either way (SR-2)
+       fix: set the section to one screen or two (height: calc(var(--h,1) * 100vh), --h 1 or 2) and cut or split its content to fit
+  FAIL section-air      main#conteudo > section.shelf:nth-of-type(3) / main#conteudo > section.shelf:nth-of-type(4  [1440]
+       32px of air between the content of these two sections: 128-480px (64-600px WARN) (every gap out of the band at 1440px, top to bottom: 43px after "Faixas para vocêVer ", 32px after "MixesMix da ManhãSer") (SR-3)
+       fix: keep 128-480px of air between the content of neighbouring sections (112-420px on a phone): the sections' padding (--padt, --padb)
+  FAIL section-air      main#conteudo > section.shelf:nth-of-type(2) / main#conteudo > section.shelf:nth-of-type(3  [1440]
+       43px of air between the content of these two sections: 128-480px (64-600px WARN) (SR-3)
+       fix: keep 128-480px of air between the content of neighbouring sections (112-420px on a phone): the sections' padding (--padt, --padb)
+  FAIL one-section      h2#s-rapidas "Faixas para você"  [1440]
+       the screen at scroll 0px (stride 0) shows 316px of section 2 and the heading of section 2 whole and the content of 2 sections, over 24px each beside section 1: a screen shows one section (another may peek 8px, 24px WARN)
+       fix: make each section exactly one screen or two, so a screen shows one section and no neighbour peeks
+  FAIL one-section      h2#s-mixes "Mixes"  [1440]
+       the screen at scroll 546px (the top of section 2) shows 278px of section 3 and the heading of section 3 whole and the content of 3 sections, over 24px each beside section 2: a screen shows one section (another may peek 8
+       fix: make each section exactly one screen or two, so a screen shows one section and no neighbour peeks
+  FAIL one-section      main#conteudo > h1.visually-hidden "Início"  [1440]
+       a <h1> sits directly in <main>: every part of <main> is a <section> (SR-4)
+       fix: put every block of <main> in a <section>, and give a band its own section instead of a ground inside one
+  FAIL one-heading      h2#s-agora "Para ouvir agora"  [1440]
+       the hero holds an h2 (1): its heading is the h1, and an h2 opens the next section (SR-5)
+       fix: give each section one h2, first in its .wrap, and the hero only its h1
+  FAIL one-heading      h2#s-rapidas "Faixas para você"  [1440]
+       headings of two sections show whole on one screen at 14 of 14 scroll positions (100%; at scroll 0, 50, 100, 150px), here with "Para ouvir agora": at most 3% on a desktop (SR-5)
+       fix: make the sections one screen tall so their headings sit a screen apart and two never share one
+  FAIL container-edges  header.top  [1440]
+       the nav's content runs 1368px from the left and 24px from the right (read from its outermost blocks: no .wrap): the page's container starts at 280px; 1368 and 24px are not one margin; the margin is 64-120px at 1440px (on
+       fix: use one container on every section and the nav (.wrap): one margin left and right, 64-120px on a desktop, 16-24px on a phone
+  FAIL container-edges  main#conteudo > section.shelf:nth-of-type(1) "Para ouvir agoraDeltaÁlbum, Maré Alta Tr"  [1440]
+       the content of section 1 runs 280px from the left and 16px from the right (read from its outermost blocks: no .wrap): 280 and 16px are not one margin; the margin is 64-120px at 1440px (one container, equal margins, 2px e
+       fix: use one container on every section and the nav (.wrap): one margin left and right, 64-120px on a desktop, 16-24px on a phone
+  FAIL container-edges  a.skip "Pular para o conteúdo"  [1440]
+       a <a> at the top of the page, outside header.nav, main, footer.closing and nav.actionbar (SR-6)
+       fix: build the page as header.nav, a main of sections (each one in-flow .wrap plus background layers) and footer.closing
+  FAIL container-edges  h2#s-agora "Para ouvir agora"  [1440]
+       4 text blocks start on a left line at x 312, 32px from the container's left: text starts on the container's left, or on one split line (x 767, 864, 961) (also "Faixas para você", "Mixes", "Álbuns em destaque") (SR-6)
+       fix: start the text on the container's left, or on the one split line every split shares
+  FAIL container-edges  section.shelf:nth-of-type(2) > ul.rows > li.row:nth-of-type(2) > div.rbody "TrilhoLinha No  [1440]
+       a box over half the container wide runs 372-1392px, not on the container's lines at 280-1424px (SR-6)
+       fix: run the picture or box from the container's left line to its right line, or put it in a row or a split
+  FAIL container-edges  section.shelf:nth-of-type(2) > ul.rows > li.row:nth-of-type(3) > div.rbody "GaroaGaroa Fin  [1440]
+       a box over half the container wide runs 372-1392px, not on the container's lines at 280-1424px (and 1 more like it: "VeludoIrmãos Veludo") (SR-6)
+       fix: run the picture or box from the container's left line to its right line, or put it in a row or a split
+  FAIL row-lines        main#conteudo > section.shelf:nth-of-type(1) > div.rail "DeltaÁlbum, Maré Alta TrioNoveloÁ  [1440]
+       a row of 5 items: its first item starts at 312px, the container's left line at 280px; its last item ends at 1892px, the container's right line at 1424px (2px either way) (SR-7)
+       fix: start the row's first item on the container's left line and end its last on the right line, every item one height
+  FAIL row-lines        main#conteudo > section.shelf:nth-of-type(3) > div.rail "Mix da ManhãSerra Mansa e maisMix  [1440]
+       a row of 5 items: its first item starts at 312px, the container's left line at 280px; its last item ends at 1252px, the container's right line at 1424px (2px either way) (SR-7)
+       fix: start the row's first item on the container's left line and end its last on the right line, every item one height
+  FAIL row-lines        main#conteudo > section.shelf:nth-of-type(4) > div.rail "Lado BSelo AmareloPoltrona VerdeI  [1440]
+       a row of 6 items: its first item starts at 312px, the container's left line at 280px; its last item ends at 1444px, the container's right line at 1424px (2px either way) (SR-7)
+       fix: start the row's first item on the container's left line and end its last on the right line, every item one height
+  FAIL row-lines        main#conteudo > section.shelf:nth-of-type(1) > div.rail > a.pick:nth-of-type(4) "PrismaÁlb  [1440]
+       a row item is cut by a frame round it: 152 x 386px of its 300 x 386px shows (SR-7)
+       fix: show the row item whole: no frame cutting it
+  FAIL row-lines        main#conteudo > section.shelf:nth-of-type(4) > div.rail > a.tile:nth-of-type(6) "Cavaquinh  [1440]
+       a row item is cut by a frame round it: 152 x 218px of its 172 x 218px shows (SR-7)
+       fix: show the row item whole: no frame cutting it
+  FAIL container        page  [1440, 390]
+       no .wrap
+       fix: put the content in one .wrap
+  11 WARN (not blocking), first: copy-buttons aside.side > nav > a.nv:nth-of-type(1) "; copy-actions (the page); heading-scale (the page); photo-set div.rail > a.tile:nth-of-type(5) > div.a; label-centre aside.side > nav > a.nv:nth-of-type(1) "
+Stop fixing: put these open FAILs and the waivers in your report, then finish.
+GATE: OPEN 34 (rounds used up)

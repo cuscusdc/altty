@@ -1,0 +1,923 @@
+// Telas do Kazzu v4 em Slint 1.19, com os dados fictícios de data.slint. São a referência do implementador:
+// as medidas, a ordem e os estados valem; os dados de verdade vêm do Rust pelo contrato do app (SLINT_SPEC.md).
+//
+// Convenção de cada tela: `safe-top` e `reserve` (altura da doca) entram como recuos do conteúdo; `scroll` posiciona
+// a rolagem (as capturas usam isso); o conteúdo rola por baixo do cromo.
+
+import { Theme } from "tokens.slint";
+import { Icons, Demo } from "data.slint";
+import { Glass, MediaGlass, Pressable, Icon, IconButton, MediaIconButton, Button, TextButton, Switch, Segmented, Tag, Cover, Mosaic, EqBars,
+    TrackItem, TrackRow, GroupItem, Group, PickCard, Tile, LibraryTile, MoodTile, SectionHeader, Scrubber, Skeleton, StateCard, Banner } from "atoms.slint";
+
+component Rail inherits Flickable {
+    // prateleira horizontal: rola livre (o Slint não tem encaixe); o próximo cartão aparece cortado pela borda
+    in property <length> card-h;
+    height: card-h;
+}
+
+component LargeTitle inherits Rectangle {
+    in property <string> text;
+    height: 52px;
+    Text { x: Theme.gutter; width: parent.width - 2 * Theme.gutter; text: root.text; color: Theme.ink; font-family: Theme.font-display; font-size: Theme.text-xxxl; font-weight: 700; letter-spacing: -0.68px; vertical-alignment: center; overflow: elide; }
+}
+
+component RootHeader inherits Rectangle {
+    // linha do topo das abas: logo no canto superior esquerdo (em todas as abas); Ajustes à direita.
+    // Telas empilhadas (Ajustes) trocam o logo pelo Voltar.
+    in property <bool> logo: true;
+    in property <bool> back: false;
+    in property <bool> gear: true;
+    callback settings();
+    callback back-clicked();
+    height: Theme.header-h;
+    if root.logo : Image {
+        x: Theme.gutter;
+        width: 26px * 153 / 40;
+        height: 26px;
+        source: Theme.dark ? @image-url("../assets/kazzu-wordmark-dark.svg") : @image-url("../assets/kazzu-wordmark-light.svg");
+        accessible-role: text;
+        accessible-label: "Kazzu";
+    }
+    if root.back : IconButton { x: Theme.gutter - 12px; icon: Icons.chevron-left; label: "Voltar"; clicked => { root.back-clicked(); } }
+    if root.gear : IconButton { x: parent.width - Theme.gutter - 40px; icon: Icons.gear; tonal: true; label: "Ajustes"; clicked => { root.settings(); } }
+}
+
+component Rows inherits VerticalLayout {
+    padding-left: Theme.gutter;
+    padding-right: Theme.gutter - 12px;   // o botão Mais (48) encosta 12 px na margem para o ícone alinhar com ela
+}
+
+// ------------------------------------------------------------------------------------------------ Início
+export component HomeScreen inherits Rectangle {
+    in property <length> scroll: 0px;
+    in property <length> safe-top: 0px;
+    in property <length> reserve: 160px;
+    in property <string> state: "ready";   // ready | first-run | loading | offline | error
+    callback open(string, int);
+    property <[int]> picks: [3, 1, 9, 12, 8];
+    property <[TrackItem]> quick: [
+        { title: "Fio Solto", artist: "Clara Vento", cover: Demo.thumb[0] },
+        { title: "Trilho", artist: "Linha Noturna", cover: Demo.thumb[17] },
+        { title: "Garoa", artist: "Garoa Fina", cover: Demo.thumb[21] },
+        { title: "Veludo", artist: "Irmãos Veludo", cover: Demo.thumb[13] },
+    ];
+    property <[TrackItem]> local: [
+        { title: "Cavaquinho às Três", artist: "Zé do Traste", cover: Demo.thumb[18] },
+        { title: "Pedal", artist: "Helena Marfim", cover: Demo.thumb[20] },
+        { title: "Lado B", artist: "Selo Amarelo", cover: Demo.thumb[12] },
+    ];
+    Flickable {
+        content-y: -root.scroll;
+        VerticalLayout {
+            padding-top: root.safe-top + Theme.s-xs;
+            padding-bottom: root.reserve;
+            spacing: Theme.s-sm;
+            alignment: start;
+            RootHeader { logo: true; settings => { root.open("settings", 0); } }
+            if root.state == "first-run" : HorizontalLayout {
+                padding-left: Theme.gutter;
+                padding-right: Theme.gutter;
+                Banner { icon: Icons.badge-check; title: "Pronto para tocar"; text: "O YouTube Music já vem ligado. Não precisa de conta."; action: "Entendi"; }
+            }
+            if root.state == "offline" : HorizontalLayout {
+                padding-left: Theme.gutter;
+                padding-right: Theme.gutter;
+                Banner { icon: Icons.cloud-off; title: "Sem conexão"; text: "A música do aparelho continua aqui."; action: "Tentar de novo"; }
+            }
+            if root.state == "error" : HorizontalLayout {
+                padding-left: Theme.gutter;
+                padding-right: Theme.gutter;
+                StateCard {
+                    icon: Icons.cloud-off;
+                    title: "Não deu para carregar o Início";
+                    text: "O YouTube Music não respondeu. Sua música do aparelho continua na Biblioteca.";
+                    primary: "Tentar de novo";
+                    secondary: "Abrir a Biblioteca";
+                }
+            }
+            if root.state == "loading" : VerticalLayout {
+                spacing: Theme.s-xxl;
+                VerticalLayout {
+                    spacing: Theme.s-sm;
+                    Rectangle { height: 48px; Skeleton { x: Theme.gutter; width: 160px; height: 22px; } }
+                    Rectangle { height: 340px; clip: true; Skeleton { x: Theme.gutter; width: 264px; height: 340px; border-radius: Theme.r-card; } Skeleton { x: Theme.gutter + 264px + Theme.s-md; width: 264px; height: 340px; border-radius: Theme.r-card; } }
+                }
+                VerticalLayout {
+                    spacing: Theme.s-sm;
+                    Rectangle { height: 48px; Skeleton { x: Theme.gutter; width: 180px; height: 22px; } }
+                    for i in 4 : Rectangle {
+                        height: Theme.row-h;
+                        Skeleton { x: Theme.gutter; width: 48px; height: 48px; }
+                        Skeleton { x: Theme.gutter + 60px; y: 16px; width: (parent.width - 2 * Theme.gutter - 60px) * 0.58; height: 14px; }
+                        Skeleton { x: Theme.gutter + 60px; y: 38px; width: (parent.width - 2 * Theme.gutter - 60px) * 0.34; height: 14px; }
+                    }
+                }
+            }
+            if root.state == "ready" || root.state == "first-run" : VerticalLayout {
+                spacing: Theme.s-xxl;
+                VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Para ouvir agora"; }
+                    Rail {
+                        card-h: Theme.compact ? 340px : 386px;
+                        HorizontalLayout {
+                            padding-left: Theme.gutter;
+                            padding-right: Theme.gutter;
+                            spacing: Theme.s-md;
+                            for c in root.picks : PickCard {
+                                cover: Demo.cover[c - 1];
+                                title: Demo.title[c - 1];
+                                subtitle: Demo.kind[c - 1] + ", " + Demo.artist[c - 1];
+                                clicked => { root.open("album", c); }
+                                play => { root.open("player", c); }
+                            }
+                        }
+                    }
+                }
+                VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Faixas para você"; action: "Ver tudo"; }
+                    Rows { for t[i] in root.quick : TrackRow { t: t; separator: i > 0; clicked => { root.open("player", 5); } more-clicked => { root.open("menu", 0); } } }
+                }
+                VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Mixes"; }
+                    Rail {
+                        card-h: (Theme.compact ? 148px : 172px) + 52px;
+                        HorizontalLayout {
+                            padding-left: Theme.gutter;
+                            padding-right: Theme.gutter;
+                            spacing: Theme.s-md;
+                            Tile { cover: Demo.cover[16]; title: "Mix da Manhã"; subtitle: "Serra Mansa e mais"; }
+                            Tile { cover: Demo.cover[20]; title: "Mix Foco"; subtitle: "Helena Marfim e mais"; }
+                            Tile { cover: Demo.cover[7]; title: "Mix Estrada"; subtitle: "Sertão Sideral e mais"; }
+                            Tile { cover: Demo.cover[9]; title: "Mix Festa"; subtitle: "Caio Fader e mais"; }
+                        }
+                    }
+                }
+                VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Álbuns em destaque"; action: "Ver tudo"; }
+                    Rail {
+                        card-h: (Theme.compact ? 148px : 172px) + 52px;
+                        HorizontalLayout {
+                            padding-left: Theme.gutter;
+                            padding-right: Theme.gutter;
+                            spacing: Theme.s-md;
+                            for c in [13, 14, 20, 11, 6, 19] : Tile { cover: Demo.cover[c - 1]; title: Demo.title[c - 1]; subtitle: Demo.artist[c - 1]; clicked => { root.open("album", c); } }
+                        }
+                    }
+                }
+            }
+            if root.state == "offline" : VerticalLayout {
+                spacing: Theme.s-xxl;
+                VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Neste aparelho"; action: "Ver tudo"; }
+                    Rows { for t[i] in root.local : TrackRow { t: t; separator: i > 0; } }
+                }
+                VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Álbuns do aparelho"; }
+                    Rail {
+                        card-h: 200px;
+                        HorizontalLayout {
+                            padding-left: Theme.gutter;
+                            padding-right: Theme.gutter;
+                            spacing: Theme.s-md;
+                            for c in [19, 21, 13, 20] : Tile { cover: Demo.cover[c - 1]; title: Demo.title[c - 1]; subtitle: Demo.artist[c - 1]; }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------------------------------------ Explorar
+export component ExploreScreen inherits Rectangle {
+    in property <length> scroll: 0px;
+    in property <length> safe-top: 0px;
+    in property <length> reserve: 160px;
+    property <[string]> moods: ["Foco", "Treino", "Festa", "Calma", "Estrada", "Samba", "Rock", "Sertanejo"];
+    property <int> cols: Theme.compact ? 2 : 4;
+    property <length> mood-w: (root.width - 2 * Theme.gutter - (cols - 1) * Theme.s-sm) / cols;
+    property <[TrackItem]> hot: [
+        { title: "Plataforma 9", artist: "Estação Lume", cover: Demo.thumb[1] },
+        { title: "Fader no Talo", artist: "Caio Fader", cover: Demo.thumb[9] },
+        { title: "Prisma", artist: "Vidro Fumê", cover: Demo.thumb[11] },
+        { title: "Chuva na Janela", artist: "Dona Aurora", cover: Demo.thumb[3] },
+        { title: "Limão Seco", artist: "Banda Azeda", cover: Demo.thumb[14] },
+    ];
+    Flickable {
+        content-y: -root.scroll;
+        VerticalLayout {
+            padding-top: root.safe-top + Theme.s-xs;
+            padding-bottom: root.reserve;
+            spacing: Theme.s-xxl;
+            alignment: start;
+            VerticalLayout { RootHeader { } LargeTitle { text: "Explorar"; } }
+            VerticalLayout {
+                spacing: Theme.s-sm;
+                SectionHeader { title: "Lançamentos"; }
+                Rail {
+                    card-h: Theme.compact ? 340px : 386px;
+                    HorizontalLayout {
+                        padding-left: Theme.gutter;
+                        padding-right: Theme.gutter;
+                        spacing: Theme.s-md;
+                        for c in [2, 10, 12, 19, 15, 4] : PickCard { cover: Demo.cover[c - 1]; title: Demo.title[c - 1]; subtitle: Demo.kind[c - 1] + ", " + Demo.artist[c - 1]; }
+                    }
+                }
+            }
+            VerticalLayout {
+                spacing: Theme.s-sm;
+                SectionHeader { title: "Momentos e gêneros"; }
+                Rectangle {
+                    height: (8 / root.cols) * 56px + (8 / root.cols - 1) * Theme.s-sm;
+                    for m[i] in root.moods : MoodTile {
+                        x: Theme.gutter + mod(i, root.cols) * (root.mood-w + Theme.s-sm);
+                        y: floor(i / root.cols) * (56px + Theme.s-sm);
+                        width: root.mood-w;
+                        title: m;
+                    }
+                }
+            }
+            VerticalLayout {
+                spacing: Theme.s-sm;
+                SectionHeader { title: "Em alta"; }
+                Rows { for t[i] in root.hot : TrackRow { t: t; number: i + 1; ranked: true; separator: i > 0; } }
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------------------------------------ Buscar
+export component SearchField inherits Rectangle {
+    in-out property <string> text;
+    in property <string> placeholder: "Músicas, artistas, álbuns";
+    in property <bool> plain: false;       // sem lupa (campo de nome)
+    in property <color> fill: Theme.paper-3;
+    callback edited(string);
+    height: Theme.control-h;
+    border-radius: Theme.r-group;
+    background: fill;
+    border-width: 1px;
+    border-color: Theme.muted;       // borda de campo a 3:1
+    if !root.plain : Icon { x: Theme.s-sm; source: Icons.search; tint: Theme.ink-2; }
+    input := TextInput {
+        x: root.plain ? Theme.s-md : 48px;
+        width: parent.width - self.x - 48px;
+        text <=> root.text;
+        color: Theme.ink;
+        font-size: Theme.text-lg;
+        vertical-alignment: center;
+        single-line: true;
+        accessible-label: root.placeholder;
+        edited => { root.edited(self.text); }
+    }
+    if root.text == "" : Text { x: input.x; width: input.width; text: root.placeholder; color: Theme.ink-2; font-size: Theme.text-lg; vertical-alignment: center; overflow: elide; }
+    if root.text != "" && !root.plain : IconButton { x: parent.width - 48px; icon: Icons.close; label: "Limpar a busca"; clicked => { root.text = ""; root.edited(""); } }
+    // anel de foco por dentro: a borda nunca muda de largura
+    if input.has-focus : Rectangle { x: 1px; y: 1px; width: parent.width - 2px; height: parent.height - 2px; border-radius: Theme.r-group - 1px; border-width: 2px; border-color: Theme.focus; }
+}
+
+export component SearchScreen inherits Rectangle {
+    in property <length> scroll: 0px;
+    in property <length> safe-top: 0px;
+    in property <length> reserve: 160px;
+    in property <string> state: "idle";   // idle | results | empty
+    property <[string]> recent: ["aurora", "lo-fi para estudar", "Clara Vento", "samba de roda"];
+    property <[TrackItem]> songs: [
+        { title: "Novelo", artist: "Clara Vento", cover: Demo.thumb[0], duration: "3:12" },
+        { title: "Fio Solto", artist: "Clara Vento", cover: Demo.thumb[0], duration: "2:54" },
+        { title: "Novelo de Flor", artist: "Nina Pomar", cover: Demo.thumb[15], duration: "4:01" },
+        { title: "Nó e Novelo", artist: "Irmãos Veludo", cover: Demo.thumb[13], duration: "3:37" },
+    ];
+    Flickable {
+        content-y: -root.scroll;
+        VerticalLayout {
+            padding-top: root.safe-top + Theme.s-xs;
+            padding-bottom: root.reserve;
+            spacing: Theme.s-xl;
+            alignment: start;
+            VerticalLayout { RootHeader { } LargeTitle { text: "Buscar"; } }
+            HorizontalLayout {
+                padding-left: Theme.gutter;
+                padding-right: Theme.gutter;
+                SearchField { text: root.state == "results" ? "novelo" : root.state == "empty" ? "xyzzq" : ""; }
+            }
+            if root.state == "idle" : HorizontalLayout {
+                padding-left: Theme.gutter;
+                padding-right: Theme.gutter;
+                // recurso que ainda não existe: linha esmaecida com "Em breve", sem interruptor falso
+                Group { GroupItem { separator: false; has-icon: true; icon: Icons.wave; title: "Reconhecer pelo som"; note: "Descubra a música que está tocando perto de você."; dimmed: true; VerticalLayout { alignment: center; Tag { text: "Em breve"; } } } }
+            }
+            if root.state == "idle" : VerticalLayout {
+                spacing: Theme.s-sm;
+                SectionHeader { title: "Buscas recentes"; action: "Limpar"; }
+                VerticalLayout {
+                    padding-left: Theme.gutter;
+                    padding-right: Theme.gutter - 12px;
+                    for r[i] in root.recent : Pressable {
+                        height: Theme.row-h;
+                        ring-radius: Theme.r-thumb;
+                        label: "Buscar " + r;
+                        HorizontalLayout {
+                            spacing: Theme.s-sm;
+                            Rectangle { width: 48px; Icon { source: Icons.clock; tint: Theme.ink-2; } }
+                            Rectangle {
+                                if i > 0 : Rectangle { x: 0; y: 0; width: parent.width - 12px; height: 1px; background: Theme.rule; }
+                                HorizontalLayout {
+                                    Text { text: r; color: Theme.ink; font-size: Theme.text-lg; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+                                    VerticalLayout { alignment: center; IconButton { icon: Icons.close; label: "Tirar " + r + " das buscas recentes"; } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if root.state == "empty" : HorizontalLayout {
+                padding-left: Theme.gutter;
+                padding-right: Theme.gutter;
+                StateCard { icon: Icons.search; title: "Nada para “xyzzq”"; text: "Confira a grafia ou tente o nome do artista."; }
+            }
+            if root.state == "results" : HorizontalLayout {
+                padding-left: Theme.gutter;
+                padding-right: Theme.gutter;
+                Segmented { options: ["Tudo", "Músicas", "Álbuns", "Artistas"]; }
+            }
+            if root.state == "results" : VerticalLayout {
+                spacing: Theme.s-sm;
+                SectionHeader { title: "Melhor resultado"; }
+                HorizontalLayout {
+                    padding-left: Theme.gutter;
+                    padding-right: Theme.gutter;
+                    Group {
+                        Pressable {
+                            height: 72px;
+                            ring-radius: Theme.r-group;
+                            label: "Novelo, álbum de Clara Vento";
+                            HorizontalLayout {
+                                padding-left: Theme.s-md;
+                                padding-right: Theme.s-sm;
+                                spacing: Theme.s-sm;
+                                VerticalLayout { alignment: center; Cover { source: Demo.thumb[0]; } }
+                                VerticalLayout {
+                                    alignment: center;
+                                    horizontal-stretch: 1;
+                                    Text { text: "Novelo"; color: Theme.ink; font-size: Theme.text-lg; font-weight: 600; overflow: elide; }
+                                    Text { text: "Álbum, Clara Vento"; color: Theme.ink-2; font-size: Theme.text-sm; overflow: elide; }
+                                }
+                                VerticalLayout { alignment: center; IconButton { icon: Icons.play; label: "Tocar Novelo"; } }
+                            }
+                        }
+                    }
+                }
+            }
+            if root.state == "results" : VerticalLayout {
+                spacing: Theme.s-sm;
+                SectionHeader { title: "Músicas"; }
+                Rows { for t[i] in root.songs : TrackRow { t: t; separator: i > 0; } }
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------------------------------------ Biblioteca
+export component LibraryScreen inherits Rectangle {
+    in property <length> scroll: 0px;
+    in property <length> safe-top: 0px;
+    in property <length> reserve: 160px;
+    in property <bool> empty: false;
+    callback open(string, int);
+    property <int> cols: Theme.compact ? 2 : 4;
+    property <length> tile-w: (min(root.width, 920px) - 2 * Theme.gutter - (cols - 1) * Theme.s-md) / cols;
+    property <length> step-x: tile-w + Theme.s-md;
+    property <length> step-y: cols == 2 ? tile-w + 56px + Theme.s-lg : 0px;
+    property <[{ name: string, count: string, covers: [image] }]> playlists: [
+        { name: "Estrada", count: "42 músicas", covers: [Demo.thumb[7], Demo.thumb[16], Demo.thumb[17], Demo.thumb[1]] },
+        { name: "Domingo de manhã", count: "18 músicas", covers: [Demo.thumb[15], Demo.thumb[21], Demo.thumb[13], Demo.thumb[19]] },
+        { name: "Para cozinhar", count: "27 músicas", covers: [Demo.thumb[4], Demo.thumb[14], Demo.thumb[10], Demo.thumb[5]] },
+        { name: "Foco", count: "61 músicas", covers: [Demo.thumb[20], Demo.thumb[6], Demo.thumb[2], Demo.thumb[11]] },
+    ];
+    Flickable {
+        content-y: -root.scroll;
+        VerticalLayout {
+            padding-top: root.safe-top + Theme.s-xs;
+            padding-bottom: root.reserve;
+            spacing: Theme.s-xxl;
+            alignment: start;
+            VerticalLayout {
+                RootHeader { settings => { root.open("settings", 0); } }
+                Rectangle {
+                    height: 52px;
+                    Text { x: Theme.gutter; text: "Biblioteca"; color: Theme.ink; font-family: Theme.font-display; font-size: Theme.text-xxxl; font-weight: 700; letter-spacing: -0.68px; vertical-alignment: center; }
+                    Button { x: parent.width - Theme.gutter - self.width; y: 2px; width: 172px; text: "Criar playlist"; has-icon: true; icon: Icons.plus; clicked => { root.open("new-playlist", 0); } }
+                }
+            }
+            Rectangle {
+                height: root.cols == 2 ? 2 * (root.tile-w + 56px) + Theme.s-lg : root.tile-w + 56px;
+                LibraryTile { x: Theme.gutter; y: 0; width: root.tile-w; icon: Icons.download; title: "Baixados"; count: "Em breve"; soon: true; }
+                LibraryTile { x: Theme.gutter + root.step-x; y: 0; width: root.tile-w; covers: root.empty ? [] : [Demo.cover[10]]; icon: root.empty ? Icons.heart : Icons.heart-fill; liked: true; title: "Curtidos"; count: root.empty ? "0 músicas" : "128 músicas"; }
+                LibraryTile { x: Theme.gutter + (root.cols == 2 ? 0px : 2 * root.step-x); y: root.step-y; width: root.tile-w; covers: root.empty ? [] : [Demo.thumb[12], Demo.thumb[13], Demo.thumb[19], Demo.thumb[20]]; icon: Icons.disc; title: "Álbuns"; count: root.empty ? "0 álbuns" : "24 álbuns"; }
+                LibraryTile { x: Theme.gutter + (root.cols == 2 ? root.step-x : 3 * root.step-x); y: root.step-y; width: root.tile-w; covers: root.empty ? [] : [Demo.thumb[7], Demo.thumb[15], Demo.thumb[1], Demo.thumb[5]]; icon: Icons.queue; title: "Playlists"; count: root.empty ? "0 playlists" : "6 playlists"; }
+            }
+            if root.empty : HorizontalLayout {
+                padding-left: Theme.gutter;
+                padding-right: Theme.gutter;
+                StateCard { icon: Icons.folder; title: "Traga a música do aparelho"; text: "Escolha uma pasta e o Kazzu toca FLAC, WAV, Opus e MP3 como são, sem mexer no som."; primary: "Adicionar pasta"; }
+            }
+            if !root.empty : VerticalLayout {
+                spacing: Theme.s-sm;
+                SectionHeader { title: "Suas playlists"; }
+                VerticalLayout {
+                    padding-left: Theme.gutter;
+                    padding-right: Theme.gutter - 12px;
+                    for p[i] in root.playlists : Pressable {
+                        height: Theme.row-h;
+                        ring-radius: Theme.r-thumb;
+                        label: p.name + ", " + p.count;
+                        HorizontalLayout {
+                            spacing: Theme.s-sm;
+                            VerticalLayout { alignment: center; Mosaic { width: 48px; height: 48px; radius: Theme.r-thumb; sources: p.covers; } }
+                            Rectangle {
+                                if i > 0 : Rectangle { x: 0; y: 0; width: parent.width - 12px; height: 1px; background: Theme.rule; }
+                                HorizontalLayout {
+                                    VerticalLayout {
+                                        alignment: center;
+                                        horizontal-stretch: 1;
+                                        Text { text: p.name; color: Theme.ink; font-size: Theme.text-lg; overflow: elide; }
+                                        Text { text: p.count; color: Theme.ink-2; font-size: Theme.text-md; overflow: elide; }
+                                    }
+                                    VerticalLayout { alignment: center; IconButton { icon: Icons.more; label: "Mais ações para a playlist " + p.name; } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if !root.empty : VerticalLayout {
+                spacing: Theme.s-sm;
+                SectionHeader { title: "Neste aparelho"; }
+                HorizontalLayout {
+                    padding-left: Theme.gutter;
+                    padding-right: Theme.gutter;
+                    Group {
+                        GroupItem { separator: false; has-icon: true; icon: Icons.folder; title: "Music/FLAC"; note: "312 músicas, lida hoje"; }
+                        GroupItem { has-icon: true; icon: Icons.plus; title: "Adicionar pasta"; chevron: true; }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------------------------------------ Detalhe (álbum, playlist, artista)
+export component DetailScreen inherits Rectangle {
+    in property <length> scroll: 0px;
+    in property <length> safe-top: 0px;
+    in property <length> reserve: 160px;
+    in property <int> cover: 3;
+    callback back();
+    callback open(string, int);
+    property <[TrackItem]> tracks: [
+        { title: "Maré de Março", artist: Demo.artist[root.cover - 1], duration: "3:48", playing: true },
+        { title: "Foz", artist: Demo.artist[root.cover - 1], duration: "4:12" },
+        { title: "Sedimento", artist: Demo.artist[root.cover - 1], duration: "3:05" },
+        { title: "Água Doce", artist: Demo.artist[root.cover - 1], duration: "2:59" },
+        { title: "Mangue", artist: Demo.artist[root.cover - 1], duration: "4:30" },
+        { title: "Correnteza", artist: Demo.artist[root.cover - 1], duration: "3:33" },
+        { title: "Banco de Areia", artist: Demo.artist[root.cover - 1], duration: "3:51" },
+        { title: "Estuário", artist: Demo.artist[root.cover - 1], duration: "5:14" },
+    ];
+    property <length> hero: min(root.width, 520px);
+    Flickable {
+        content-y: -root.scroll;
+        VerticalLayout {
+            padding-bottom: root.reserve;
+            spacing: Theme.s-xl;
+            alignment: start;
+            // a capa de ponta a ponta; por cima dela, botões e a placa do título, todos de vidro
+            Rectangle {
+                height: root.hero;
+                Rectangle {
+                    x: (parent.width - root.hero) / 2;
+                    width: root.hero;
+                    clip: true;
+                    background: Theme.paper-2;
+                    Image { source: Demo.cover[root.cover - 1]; width: 100%; height: 100%; image-fit: ImageFit.cover; accessible-role: none; }
+                    MediaIconButton { x: Theme.s-xs; y: root.safe-top + Theme.s-xs; icon: Icons.chevron-left; label: "Voltar"; clicked => { root.back(); } }
+                    MediaIconButton { x: parent.width - Theme.s-xs - 104px; y: root.safe-top + Theme.s-xs; icon: Icons.heart; label: "Salvar na Biblioteca"; }
+                    MediaIconButton { x: parent.width - Theme.s-xs - 48px; y: root.safe-top + Theme.s-xs; icon: Icons.more; label: "Mais ações"; clicked => { root.open("menu", 0); } }
+                    MediaGlass {
+                        x: Theme.gutter;
+                        y: parent.height - self.height - Theme.s-md;
+                        width: parent.width - 2 * Theme.gutter;
+                        height: 88px;
+                        radius: Theme.r-card;
+                        VerticalLayout {
+                            padding-left: Theme.s-lg;
+                            padding-right: Theme.s-lg;
+                            alignment: center;
+                            spacing: Theme.s-xxxs;
+                            Text { text: Demo.title[root.cover - 1]; color: Theme.media-ink; font-family: Theme.font-display; font-size: Theme.text-xxl; font-weight: 700; letter-spacing: -0.56px; overflow: elide; accessible-role: text; }
+                            Text { text: Demo.kind[root.cover - 1] + " de " + Demo.artist[root.cover - 1] + ", 2026"; color: Theme.media-ink; font-size: Theme.text-md; overflow: elide; }
+                        }
+                    }
+                }
+            }
+            HorizontalLayout {
+                padding-left: Theme.gutter;
+                padding-right: Theme.gutter;
+                spacing: Theme.s-sm;
+                Button { text: "Tocar"; has-icon: true; icon: Icons.play; primary: true; horizontal-stretch: 1; clicked => { root.open("player", root.cover); } }
+                Button { text: "Aleatório"; has-icon: true; icon: Icons.shuffle; horizontal-stretch: 1; }
+            }
+            Rows { for t[i] in root.tracks : TrackRow { t: t; number: i + 1; separator: i > 0; more-clicked => { root.open("menu", 0); } } }
+            HorizontalLayout { padding-left: Theme.gutter; padding-right: Theme.gutter; Text { text: "10 músicas, 40 min. Do YouTube Music."; color: Theme.ink-2; font-size: Theme.text-sm; } }
+        }
+    }
+}
+
+// ------------------------------------------------------------------------------------------------ Player
+// A capa INTEIRA de ponta a ponta; logo abaixo, o reflexo dela (a capa espelhada, que o Rust prepara); e UM console de vidro
+// sobre o reflexo, que sobe 24 px sobre a base da capa. Não há degradê desenhado: toda a cor do fundo é a própria capa,
+// e o desfoque do console é ao vivo e moderado (24 px) para as formas grandes da capa continuarem reconhecíveis.
+// `dim` vem do Rust (regra em make_covers.py / SLINT_SPEC).
+export component PlayerScreen inherits Rectangle {
+    in property <int> cover: 5;
+    in property <string> title: "Brasa Viva";
+    in property <string> origin: "Pimenta";
+    in property <string> source-line: "YouTube Music, Opus 160 kbps";
+    in property <bool> playing: true;
+    in property <bool> liked: false;
+    in property <float> progress: 0.38;
+    in property <length> safe-top: 0px;
+    in property <length> safe-bottom: 0px;
+    in property <bool> show-console: true;   // false só na linha de base da prova de vidro
+    callback close();
+    callback open(string, int);
+    property <float> dim: Demo.dim[root.cover - 1];
+    property <length> art: min(root.width, 520px);
+    property <length> left: (root.width - art) / 2;
+    background: Theme.media-console;
+    clip: true;
+    // 1. fundo: em janelas mais largas que a capa, a capa pré-desfocada cobre a janela, bem escurecida; por cima, sempre,
+    //    a capa + o reflexo (uma imagem de 192 x 464 do Rust) desenhados na largura da capa, a partir do topo
+    if Theme.glass-on && root.width > root.art : Image { width: 100%; height: 100%; source: Demo.blur[root.cover - 1]; image-fit: ImageFit.cover; }
+    if Theme.glass-on && root.width > root.art : Rectangle { background: Theme.media-console.with-alpha(0.6); }
+    if Theme.glass-on : Image { x: root.left; y: 0; width: root.art; height: root.art * 464 / 192; source: Demo.back[root.cover - 1]; image-fit: ImageFit.fill; }
+    // 2. a capa nítida, inteira
+    Image { x: root.left; y: 0; width: root.art; height: root.art; source: Demo.cover[root.cover - 1]; image-fit: ImageFit.cover; accessible-label: "Capa de " + root.origin; }
+    // 3. controles do topo, em vidro sobre a capa
+    MediaIconButton { x: root.left + Theme.s-xs; y: root.safe-top + Theme.s-xs; icon: Icons.chevron-down; label: "Fechar o player"; clicked => { root.close(); } }
+    MediaGlass {
+        x: (root.width - self.width) / 2;
+        y: root.safe-top + Theme.s-xs + 2px;
+        width: min(ctx.preferred-width + 2 * Theme.s-md, root.art - 128px);
+        height: 44px;
+        radius: 22px;
+        ctx := HorizontalLayout {
+            alignment: center;
+            spacing: 4px;
+            Text { text: "Tocando de"; color: Theme.media-ink; font-size: Theme.text-sm; vertical-alignment: center; }
+            Text { text: root.origin; color: Theme.media-ink; font-size: Theme.text-sm; font-weight: 600; vertical-alignment: center; overflow: elide; }
+        }
+    }
+    MediaIconButton { x: root.left + root.art - Theme.s-xs - 48px; y: root.safe-top + Theme.s-xs; icon: Icons.more; label: "Mais ações"; clicked => { root.open("menu", 0); } }
+    // 4. o console
+    console := Rectangle {
+        visible: root.show-console;
+        x: root.left;
+        y: root.art - Theme.s-xl;
+        width: root.art;
+        height: root.height - self.y;
+        border-top-left-radius: Theme.r-sheet;
+        border-top-right-radius: Theme.r-sheet;
+        clip: true;
+        background: Theme.glass-on ? Theme.media-console.with-alpha(root.dim) : Theme.media-console;
+        backdrop-blur: Theme.glass-on ? Theme.glass-blur-console : 0px;
+        border-width: 1px;
+        border-color: @linear-gradient(180deg, Theme.media-edge-hi 0%, Theme.media-edge-lo 12%, Theme.media-edge-lo.with-alpha(0) 30%);
+        Rectangle { y: 0; height: 96px; background: @linear-gradient(180deg, Theme.media-edge-hi.with-alpha(0.10) 0%, Theme.media-edge-hi.with-alpha(0) 100%); }
+        VerticalLayout {
+            padding-left: root.width < 368px ? Theme.s-md : Theme.s-xl;    // 320 de largura: o transporte (280) precisa caber
+            padding-right: root.width < 368px ? Theme.s-md : Theme.s-xl;
+            padding-top: Theme.s-xl + Theme.s-xs;
+            padding-bottom: Theme.s-lg + root.safe-bottom;
+            alignment: space-between;
+            // título, artista, curtir. Todo texto do console é branco puro: a hierarquia vem do tamanho e do peso.
+            HorizontalLayout {
+                spacing: Theme.s-sm;
+                VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 1;
+                    Text { text: root.title; color: Theme.media-ink; font-family: Theme.font-display; font-size: Theme.text-xl; font-weight: 700; letter-spacing: -0.44px; overflow: elide; }
+                    Text { text: Demo.artist[root.cover - 1]; color: Theme.media-ink; font-size: Theme.text-lg; overflow: elide; }
+                }
+                VerticalLayout { alignment: center; IconButton { icon: root.liked ? Icons.heart-fill : Icons.heart; tint: Theme.media-ink; media: true; label: root.liked ? "Curtida" : "Curtir"; ring-color: Theme.media-ink; } }
+            }
+            // posição: tempo decorrido, de onde vem e em que formato, tempo que falta
+            VerticalLayout {
+                Scrubber { height: 28px; value: root.progress; label: "Posição"; value-text: "1 minuto e 16 segundos de 3 minutos e 21 segundos"; }
+                HorizontalLayout {
+                    height: 24px;
+                    spacing: Theme.s-xs;
+                    Text { width: 40px; text: "1:16"; color: Theme.media-ink; font-size: Theme.text-sm; vertical-alignment: center; }
+                    Text { text: root.source-line; color: Theme.media-ink; font-size: Theme.text-xs; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                    Text { width: 40px; text: "-2:05"; color: Theme.media-ink; font-size: Theme.text-sm; horizontal-alignment: right; vertical-alignment: center; accessible-label: "Faltam 2 minutos e 5 segundos"; }
+                }
+            }
+            HorizontalLayout {
+                alignment: space-between;
+                VerticalLayout { alignment: center; IconButton { icon: Icons.shuffle; tint: Theme.media-ink; media: true; label: "Aleatório"; ring-color: Theme.media-ink; } }
+                VerticalLayout { alignment: center; IconButton { width: 56px; height: 56px; visual: 56px; icon: Icons.prev; icon-size: 36px; tint: Theme.media-ink; media: true; label: "Anterior"; ring-color: Theme.media-ink; } }
+                Pressable {
+                    width: 72px;
+                    height: 72px;
+                    label: root.playing ? "Pausar" : "Tocar";
+                    ring-color: Theme.media-ink;
+                    Rectangle { border-radius: 36px; background: Theme.media-ink; opacity: parent.pressed ? 0.85 : 1; }
+                    Icon { source: root.playing ? Icons.pause : Icons.play; tint: Theme.media-console; size: 32px; }
+                }
+                VerticalLayout { alignment: center; IconButton { width: 56px; height: 56px; visual: 56px; icon: Icons.next; icon-size: 36px; tint: Theme.media-ink; media: true; label: "Próxima"; ring-color: Theme.media-ink; } }
+                VerticalLayout { alignment: center; IconButton { icon: Icons.repeat; tint: Theme.media-ink; media: true; label: "Repetir"; ring-color: Theme.media-ink; } }
+            }
+            HorizontalLayout {
+                spacing: Theme.s-sm;
+                Icon { source: Icons.vol-low; tint: Theme.media-ink; size: 20px; }
+                Scrubber { height: 48px; value: 0.7; label: "Volume"; value-text: "70 por cento"; }
+                Icon { source: Icons.vol-high; tint: Theme.media-ink; size: 20px; }
+            }
+            // saída atual e Fila: dois botões com caixa (um poço mais escuro dentro do vidro; nunca vidro dentro de vidro)
+            HorizontalLayout {
+                spacing: Theme.s-sm;
+                for a[i] in [{ icon: Icons.device, text: "Este aparelho", label: "Saída: este aparelho" }, { icon: Icons.queue, text: "Fila", label: "Fila" }] : Pressable {
+                    height: Theme.control-h;
+                    horizontal-stretch: 1;
+                    ring-color: Theme.media-ink;
+                    label: a.label;
+                    clicked => { if (i == 1) { root.open("queue", 0); } }
+                    Rectangle { border-radius: parent.height / 2; background: Theme.media-well; border-width: 1px; border-color: Theme.media-edge-lo; opacity: parent.pressed ? 0.7 : 1; }
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: Theme.s-xs;
+                        Icon { source: a.icon; tint: Theme.media-ink; size: 20px; }
+                        Text { text: a.text; color: Theme.media-ink; font-size: Theme.text-md; font-weight: 600; vertical-alignment: center; }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------------------------------------ Folhas
+component SheetHeader inherits Rectangle {
+    in property <string> title;
+    in property <string> action;
+    callback close();
+    height: 76px;
+    Rectangle { y: 8px; width: 36px; height: 5px; border-radius: 2.5px; background: Theme.muted; }
+    Text { x: Theme.s-lg; y: 22px; height: 48px; text: root.title; color: Theme.ink; font-family: Theme.font-display; font-size: Theme.text-xl; font-weight: 700; letter-spacing: -0.44px; vertical-alignment: center; }
+    if root.action != "" : TextButton { x: parent.width - 56px - self.width - Theme.s-sm; y: 22px; width: 64px; text: root.action; ink: Theme.ink; }
+    IconButton { x: parent.width - 56px; y: 22px; icon: Icons.close; label: "Fechar"; clicked => { root.close(); } }
+}
+
+export component QueueSheet inherits Rectangle {
+    in property <length> safe-top: 0px;
+    in property <length> safe-bottom: 0px;
+    callback close();
+    property <[TrackItem]> next: [
+        { title: "Dedo-de-Moça", artist: "Os Tangarás", cover: Demo.thumb[4] },
+        { title: "Malagueta", artist: "Os Tangarás", cover: Demo.thumb[4] },
+        { title: "Tigela Azul", artist: "Os Tangarás", cover: Demo.thumb[4] },
+        { title: "Ardência", artist: "Os Tangarás", cover: Demo.thumb[4] },
+        { title: "Feira de Sábado", artist: "Os Tangarás", cover: Demo.thumb[4] },
+        { title: "Maré de Março", artist: "Maré Alta Trio", cover: Demo.thumb[2] },
+        { title: "Fio Solto", artist: "Clara Vento", cover: Demo.thumb[0] },
+    ];
+    Rectangle { background: Theme.media-scrim; TouchArea { clicked => { root.close(); } } }
+    Glass {
+        x: (parent.width - self.width) / 2;
+        y: root.safe-top + Theme.s-xxxl;
+        width: min(parent.width, 552px);
+        height: parent.height - self.y;
+        sheet: true;
+        flat-bottom: true;
+        accessible-role: groupbox;
+        accessible-label: "Fila";
+        VerticalLayout {
+            padding-bottom: root.safe-bottom + Theme.s-lg;
+            alignment: start;
+            SheetHeader { title: "Fila"; action: "Limpar"; close => { root.close(); } }
+            Text { x: Theme.s-lg; width: parent.width - 2 * Theme.s-lg; height: 32px; text: "Tocando agora"; color: Theme.ink; font-size: Theme.text-md; font-weight: 600; vertical-alignment: center; }
+            VerticalLayout { padding-left: Theme.s-lg; padding-right: Theme.s-lg; TrackRow { t: { title: "Brasa Viva", artist: "Os Tangarás", cover: Demo.thumb[4], playing: true }; separator: false; more: false; on-glass: true; } }
+            Rectangle { height: Theme.s-sm; }
+            Text { x: Theme.s-lg; width: parent.width - 2 * Theme.s-lg; height: 32px; text: "A seguir, de Pimenta"; color: Theme.ink; font-size: Theme.text-md; font-weight: 600; vertical-alignment: center; }
+            VerticalLayout {
+                padding-left: Theme.s-lg;
+                padding-right: Theme.s-lg - 12px;
+                for t[i] in root.next : TrackRow {
+                    t: t;
+                    separator: i > 0;
+                    more: false;
+                    on-glass: true;
+                    line: Theme.ink.with-alpha(0.14);
+                    VerticalLayout { alignment: center; IconButton { icon: Icons.arrow-up; label: "Mover " + t.title + " para cima"; } }
+                    VerticalLayout { alignment: center; IconButton { icon: Icons.close; label: "Tirar " + t.title + " da fila"; } }
+                }
+            }
+            Rectangle { height: Theme.s-sm; }
+            Text { x: Theme.s-lg; width: parent.width - 2 * Theme.s-lg; text: "Quando a fila acabar, o Kazzu continua com músicas parecidas. Você pode desligar isso em Ajustes."; color: Theme.ink; font-size: Theme.text-sm; wrap: word-wrap; }
+        }
+    }
+}
+
+component SheetAction inherits Pressable {
+    in property <image> icon;
+    in property <string> text;
+    in property <bool> soon: false;
+    height: 52px;
+    enabled: !soon;
+    ring-radius: Theme.r-group;
+    label: soon ? text + ", em breve" : text;
+    Rectangle { border-radius: Theme.r-group; background: root.pressed || root.hovered ? Theme.ink.with-alpha(0.10) : transparent; }
+    HorizontalLayout {
+        padding-left: Theme.s-sm;
+        padding-right: Theme.s-sm;
+        spacing: Theme.s-md;
+        Icon { source: root.icon; opacity: root.soon ? 0.6 : 1; }
+        Text { text: root.text; color: Theme.ink; font-size: Theme.text-lg; vertical-alignment: center; horizontal-stretch: 1; opacity: root.soon ? 0.6 : 1; }
+        if root.soon : VerticalLayout { alignment: center; Tag { text: "Em breve"; } }
+    }
+}
+
+export component MenuSheet inherits Rectangle {
+    in property <length> safe-bottom: 0px;
+    in property <int> cover: 3;
+    callback close();
+    Rectangle { background: Theme.media-scrim; TouchArea { clicked => { root.close(); } } }
+    Glass {
+        x: (parent.width - self.width) / 2;
+        y: parent.height - self.height;
+        width: min(parent.width, 552px);
+        height: 96px + 9 * 52px + 2 * 17px + Theme.s-lg + root.safe-bottom;
+        sheet: true;
+        flat-bottom: true;
+        accessible-role: groupbox;
+        accessible-label: "Ações da música";
+        VerticalLayout {
+            padding-bottom: root.safe-bottom + Theme.s-lg;
+            alignment: start;
+            Rectangle {
+                height: 96px;
+                Rectangle { y: 8px; width: 36px; height: 5px; border-radius: 2.5px; background: Theme.muted; }
+                HorizontalLayout {
+                    y: 24px;
+                    height: 64px;
+                    padding-left: Theme.s-lg;
+                    padding-right: Theme.s-xs;
+                    spacing: Theme.s-sm;
+                    VerticalLayout { alignment: center; Cover { source: Demo.thumb[root.cover - 1]; } }
+                    VerticalLayout {
+                        alignment: center;
+                        horizontal-stretch: 1;
+                        Text { text: "Maré de Março"; color: Theme.ink; font-size: Theme.text-lg; font-weight: 600; overflow: elide; }
+                        Text { text: Demo.artist[root.cover - 1]; color: Theme.ink; font-size: Theme.text-md; overflow: elide; }
+                    }
+                    VerticalLayout { alignment: center; IconButton { icon: Icons.close; label: "Fechar"; clicked => { root.close(); } } }
+                }
+            }
+            VerticalLayout {
+                padding-left: Theme.s-sm;
+                padding-right: Theme.s-sm;
+                SheetAction { icon: Icons.next; text: "Tocar em seguida"; }
+                SheetAction { icon: Icons.queue; text: "Adicionar à fila"; }
+                SheetAction { icon: Icons.playlist-add; text: "Adicionar à playlist"; }
+                SheetAction { icon: Icons.heart; text: "Curtir"; }
+                Rectangle { height: 17px; Rectangle { x: Theme.s-sm; width: parent.width - 2 * Theme.s-sm; height: 1px; background: Theme.ink.with-alpha(0.14); } }
+                SheetAction { icon: Icons.disc; text: "Ir para o álbum"; }
+                SheetAction { icon: Icons.user; text: "Ir para o artista"; }
+                Rectangle { height: 17px; Rectangle { x: Theme.s-sm; width: parent.width - 2 * Theme.s-sm; height: 1px; background: Theme.ink.with-alpha(0.14); } }
+                SheetAction { icon: Icons.lyrics; text: "Ver a letra"; soon: true; }
+                SheetAction { icon: Icons.timer; text: "Timer para dormir"; soon: true; }
+                SheetAction { icon: Icons.download; text: "Baixar"; soon: true; }
+            }
+        }
+    }
+}
+
+export component NewPlaylistSheet inherits Rectangle {
+    in property <length> safe-bottom: 0px;
+    callback close();
+    Rectangle { background: Theme.media-scrim; TouchArea { clicked => { root.close(); } } }
+    Glass {
+        x: (parent.width - self.width) / 2;
+        y: parent.height - self.height;
+        width: min(parent.width, 552px);
+        height: 76px + 28px + 48px + 34px + 48px + Theme.s-xl + root.safe-bottom;
+        sheet: true;
+        flat-bottom: true;
+        accessible-role: groupbox;
+        accessible-label: "Nova playlist";
+        VerticalLayout {
+            padding-bottom: root.safe-bottom + Theme.s-lg;
+            alignment: start;
+            SheetHeader { title: "Nova playlist"; close => { root.close(); } }
+            Text { x: Theme.s-lg; width: parent.width - 2 * Theme.s-lg; height: 28px; text: "Nome da playlist"; color: Theme.ink; font-size: Theme.text-md; font-weight: 600; }
+            HorizontalLayout { padding-left: Theme.s-lg; padding-right: Theme.s-lg; SearchField { plain: true; text: "Estrada"; placeholder: "Nome da playlist"; fill: Theme.ink.with-alpha(0.10); } }
+            Text { x: Theme.s-lg; width: parent.width - 2 * Theme.s-lg; height: 34px; text: "Fica guardada neste aparelho."; color: Theme.ink; font-size: Theme.text-sm; vertical-alignment: center; }
+            HorizontalLayout {
+                padding-left: Theme.s-lg;
+                padding-right: Theme.s-lg;
+                spacing: Theme.s-sm;
+                Button { text: "Cancelar"; horizontal-stretch: 1; clicked => { root.close(); } }
+                Button { text: "Criar playlist"; primary: true; horizontal-stretch: 1; }
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------------------------------------ Ajustes
+component GroupHead inherits Rectangle {
+    in property <string> text;
+    height: 28px;
+    Text { x: Theme.gutter + Theme.s-md; text: root.text; color: Theme.ink-2; font-size: Theme.text-md; font-weight: 600; }
+}
+
+component SegItem inherits Rectangle {
+    in property <string> title;
+    in property <[string]> options;
+    in property <int> current;
+    in property <bool> separator: true;
+    height: 104px;
+    if root.separator : Rectangle { y: 0; height: 1px; background: Theme.rule; }
+    Text { x: Theme.s-md; y: Theme.s-sm; text: root.title; color: Theme.ink; font-size: Theme.text-lg; }
+    Segmented { x: Theme.s-md; y: 44px; width: parent.width - 2 * Theme.s-md; options: root.options; current: root.current; }
+}
+
+export component SettingsScreen inherits Rectangle {
+    in property <length> scroll: 0px;
+    in property <length> safe-top: 0px;
+    in property <length> reserve: 160px;
+    callback back();
+    Flickable {
+        content-y: -root.scroll;
+        VerticalLayout {
+            padding-top: root.safe-top + Theme.s-xs;
+            padding-bottom: root.reserve;
+            spacing: Theme.s-xl;
+            alignment: start;
+            VerticalLayout { RootHeader { logo: false; back: true; gear: false; back-clicked => { root.back(); } } LargeTitle { text: "Ajustes"; } }
+            VerticalLayout {
+                GroupHead { text: "Reprodução"; }
+                HorizontalLayout {
+                    padding-left: Theme.gutter;
+                    padding-right: Theme.gutter;
+                    Group {
+                        SegItem { separator: false; title: "Qualidade do streaming"; options: ["Original", "Alta", "Econômica"]; current: 0; }
+                        GroupItem { title: "Continuar com músicas parecidas"; note: "Quando a fila acabar."; VerticalLayout { alignment: center; Switch { checked: true; label: "Continuar com músicas parecidas"; } } }
+                    }
+                }
+            }
+            VerticalLayout {
+                GroupHead { text: "Aparência"; }
+                HorizontalLayout {
+                    padding-left: Theme.gutter;
+                    padding-right: Theme.gutter;
+                    Group {
+                        SegItem { separator: false; title: "Tema"; options: ["Automático", "Claro", "Escuro"]; current: Theme.dark ? 2 : 1; }
+                        GroupItem { title: "Reduzir transparência"; note: "Troca o vidro por superfícies sólidas."; VerticalLayout { alignment: center; Switch { checked <=> Theme.reduce-transparency; label: "Reduzir transparência"; } } }
+                        GroupItem { title: "Reduzir movimento"; note: "Tira os deslocamentos das transições."; VerticalLayout { alignment: center; Switch { checked <=> Theme.reduce-motion; label: "Reduzir movimento"; } } }
+                    }
+                }
+            }
+            VerticalLayout {
+                GroupHead { text: "Fontes de música"; }
+                HorizontalLayout {
+                    padding-left: Theme.gutter;
+                    padding-right: Theme.gutter;
+                    Group {
+                        GroupItem { separator: false; has-icon: true; icon: Icons.badge-check; title: "YouTube Music"; note: "Sem conta."; value: "Ligado"; }
+                        GroupItem { title: "Spotify"; value: "Em breve"; }
+                        GroupItem { title: "Tidal"; value: "Em breve"; }
+                        GroupItem { title: "Qobuz"; value: "Em breve"; }
+                    }
+                }
+            }
+            VerticalLayout {
+                GroupHead { text: "Privacidade"; }
+                HorizontalLayout {
+                    padding-left: Theme.gutter;
+                    padding-right: Theme.gutter;
+                    Group {
+                        GroupItem { separator: false; has-icon: true; icon: Icons.shield; title: "Sem telemetria"; note: "O Kazzu não coleta nada. Não há conta."; }
+                        GroupItem { has-icon: true; icon: Icons.trash; title: "Apagar histórico"; note: "Buscas e reprodução deste aparelho."; chevron: true; }
+                        GroupItem { has-icon: true; icon: Icons.info; title: "Relatar um problema"; note: "Gera um arquivo aqui. Você decide se envia."; chevron: true; }
+                    }
+                }
+            }
+        }
+    }
+}

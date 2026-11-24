@@ -1,0 +1,13 @@
+{
+  "scanned": "2026-11-22",
+  "findings": {
+    "fonts": "Inter e Inter Display, TTF estáticos em design/v4/fonts (pedido do autor: 'tipografia SF-like livre como Inter'; o Slint 1.19 não tem fontes variáveis)",
+    "palette": "nenhuma herdada: v2 e v3 foram reprovadas pelo autor e são material de estudo, não sistema travado (design/DESIGN.md NÃO foi tratado como design.md travado, por instrução explícita)",
+    "motion": "nenhuma biblioteca; CSS puro nos protótipos, animate do Slint no app",
+    "spacing": "escala própria em design/v4/tokens.json (2, 4, 8, 12, 16, 20, 24, 32, 48, 64)",
+    "framework": "protótipos em HTML e CSS estáticos; produto em Rust + Slint 1.19",
+    "product": "o app existe (crates/kazzu-app), mas a interface dele é o que está sendo refeito: capturar a UI atual seria mostrar o que foi reprovado; as telas novas são construídas e também renderizadas no Slint real"
+  },
+  "preserve": ["Inter", "marca K (haste + chevron)", "conjunto de 57 ícones próprios do projeto"],
+  "introduce": ["direção custom (app screens)", "tokens em OKLCH", "portões do hallmark", "capas fotográficas CC0 da biblioteca do hallmark"]
+}

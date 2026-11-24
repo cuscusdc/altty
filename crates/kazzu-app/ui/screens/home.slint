@@ -1,127 +1,147 @@
-// Início (SLINT_SPEC §4.1): TopBar, banner de primeiro uso, chips, "Continue por aqui", "Escolhas rápidas", mixes, álbuns.
+// Início (v4): logo e Ajustes, "Para ouvir agora" (cartões grandes), "Faixas para você", Mixes e Álbuns em destaque.
+// Sem chips: as prateleiras têm nomes próprios (decisão A1/A11). Estados: carregando, vazio, erro, sem conexão, primeiro uso.
 import { Theme } from "../theme/tokens.slint";
 import { Icons } from "../theme/icons.slint";
 import { Metrics } from "../theme/metrics.slint";
-import { AppState, Tab, LoadState, HomeSection } from "../theme/app-contract.slint";
+import { AppState, Tab, LoadState } from "../theme/app-contract.slint";
 import { Nav } from "../theme/nav-state.slint";
-import { Chip } from "../theme/atoms.slint";
-import { ScreenScroll, Gutter, PageTitle, HRail, AlbumGrid } from "../components/layout.slint";
-import { SectionHeader, Banner, EmptyState, SkeletonRow, SkeletonTile, OfflineBar, StaleBar, PillKind } from "../components/basics.slint";
-import { TrackRow, HeroCard, MediaTile } from "../components/media.slint";
-import { TopBar } from "../components/nav.slint";
+import { PickCard, Tile, TrackRow, SectionHeader, Skeleton, StateCard, Banner } from "../components/atoms.slint";
+import { Screen, Rail, RootHeader, Rows, Gutters, SkeletonRows } from "../components/shared.slint";
 
 export component HomeScreen inherits Rectangle {
-    property <[string]> section-names: ["Para você", "Descobrir", "Mixes", "Foco", "Treino"];
-    property <[HomeSection]> sections: [HomeSection.for-you, HomeSection.discover, HomeSection.mixes, HomeSection.focus, HomeSection.workout];
-    property <bool> showing-content: AppState.home-state == LoadState.ready || (AppState.home-state == LoadState.error && AppState.home-stale);
-
-    ScreenScroll {
-        tab: Tab.home; width: parent.width; height: parent.height;
-        Gutter { TopBar { horizontal-stretch: 1; } }
-        PageTitle { text: "Início"; }
-        // ---- aviso de primeiro uso (nunca volta depois de dispensado)
-        if AppState.first-run-banner && AppState.home-state != LoadState.loading : Gutter {
-            padding-bottom: 12px;
-            Banner {
-                title: "O YouTube Music já está ativo";
-                text: "Sem conta e sem configuração. O Kazzu só usa a rede quando você pede algo.";
-                dismissed => { AppState.dismiss-first-run-banner(); }
+    property <LoadState> st: AppState.home-state;
+    property <bool> stale: st == LoadState.error && AppState.home-stale;
+    property <bool> content: st == LoadState.ready || root.stale;
+    property <bool> offline: st == LoadState.offline;
+    // sem YouTube Music (--no-youtube) ou sem feed: o Início mostra a música do aparelho, com os mesmos componentes
+    property <bool> local-only: AppState.highlights.length == 0 && AppState.quick-picks.length == 0 && AppState.mixes.length == 0;
+    Screen {
+        tab: Tab.home;
+        VerticalLayout {
+            padding-top: AppState.safe-top + Theme.s-xs;
+            padding-bottom: Metrics.reserve;
+            spacing: Theme.s-sm;
+            alignment: start;
+            RootHeader { logo: true; }
+            if AppState.first-run-banner && root.st != LoadState.loading : Gutters {
+                Banner { icon: Icons.badge-check; title: "Pronto para tocar"; text: "O YouTube Music já vem ligado. Não precisa de conta."; action: "Entendi"; action-clicked => { AppState.dismiss-first-run-banner(); } }
             }
-        }
-        if !AppState.online || AppState.home-state == LoadState.offline : Gutter { padding-bottom: 12px; OfflineBar { } }
-        if AppState.home-state == LoadState.error && AppState.home-stale : Gutter { padding-bottom: 12px; StaleBar { action => { AppState.retry-home(); } } }
-
-        // ---- chips de seção
-        if root.showing-content || AppState.home-state == LoadState.loading : HRail {
-            label: "Seções do Início"; spacing: 8px;
-            for name[i] in root.section-names : Chip {
-                text: name; selected: AppState.home-section == root.sections[i]; y: (parent.height - self.height) / 2;
-                clicked => { AppState.home-section = root.sections[i]; AppState.home-section-changed(root.sections[i]); }
+            if root.offline || (!AppState.online && root.st != LoadState.error) : Gutters {
+                Banner { icon: Icons.cloud-off; title: "Sem conexão"; text: "A música do aparelho continua aqui."; action: "Tentar de novo"; action-clicked => { AppState.retry-home(); } }
             }
-        }
-
-        // ---- carregando: esqueletos ESTÁTICOS (sem spinner antes de 300 ms)
-        if AppState.home-state == LoadState.loading : VerticalLayout {
-            spacing: 0px;
-            Rectangle { height: 28px; }
-            HRail { rail-h: Metrics.hero-h;
-                Rectangle { width: Metrics.hero-w; height: Metrics.hero-h; border-radius: 28px; background: Theme.ink.with-alpha(0.14); }
-                Rectangle { width: Metrics.hero-w; height: Metrics.hero-h; border-radius: 28px; background: Theme.ink.with-alpha(0.14); }
+            if root.stale : Gutters {
+                Banner { icon: Icons.info; title: "Não deu para atualizar"; text: "Mostrando o que já estava aqui."; action: "Tentar de novo"; action-clicked => { AppState.retry-home(); } }
             }
-            Rectangle { height: 28px; }
-            Gutter { VerticalLayout { SkeletonRow { } SkeletonRow { } SkeletonRow { } SkeletonRow { } } }
-        }
-
-        // ---- erro sem cache
-        if AppState.home-state == LoadState.error && !AppState.home-stale : Gutter {
-            padding-top: 16px;
-            EmptyState {
-                icon: Icons.cloud-off; title: AppState.home-error-title != "" ? AppState.home-error-title : "O YouTube Music não respondeu";
-                message: AppState.home-error-text != "" ? AppState.home-error-text : "Sua conexão parece ok. O serviço pode estar fora do ar. Tente de novo em instantes.";
-                code: AppState.home-error-code; action-label: "Tentar de novo"; action => { AppState.retry-home(); }
-            }
-        }
-        // ---- vazio
-        if AppState.home-state == LoadState.empty : Gutter {
-            padding-top: 16px;
-            EmptyState { icon: Icons.disc; title: "Nada por aqui ainda"; message: "Quando o YouTube Music tiver sugestões para você, elas aparecem aqui."; action-label: "Atualizar"; action => { AppState.retry-home(); } }
-        }
-
-        // ---- offline: cartão "Suas músicas do aparelho" (o protótipo diz "Seus baixados estão aqui", mas Baixados ainda é "Em breve":
-        // o cartão aponta para a biblioteca local, ver docs/UI_NOTES.md) + locais recentes no lugar do feed
-        if AppState.home-state == LoadState.offline : VerticalLayout {
-            Rectangle { height: 4px; }
-            Gutter {
-                EmptyState {
-                    icon: Icons.library; title: "Suas músicas do aparelho";
-                    message: AppState.has-library && AppState.library-summary != "" ? AppState.library-summary : "Nenhuma música no aparelho ainda. Adicione uma pasta";
-                    action-kind: PillKind.quiet;
-                    action-label: AppState.has-library ? "Ver biblioteca" : "Adicionar pasta";
-                    action => { if (AppState.has-library) { Nav.go(Tab.library); } else { AppState.add-folder(); } }
+            if root.st == LoadState.error && !AppState.home-stale : Gutters {
+                StateCard {
+                    icon: Icons.cloud-off;
+                    title: AppState.home-error-title != "" ? AppState.home-error-title : "Não deu para carregar o Início";
+                    text: AppState.home-error-text != "" ? AppState.home-error-text : "O YouTube Music não respondeu. Sua música do aparelho continua na Biblioteca.";
+                    primary: "Tentar de novo";
+                    secondary: "Abrir a Biblioteca";
+                    primary-clicked => { AppState.retry-home(); }
+                    secondary-clicked => { Nav.go(Tab.library); }
                 }
             }
-            if AppState.recents.length > 0 : VerticalLayout {
-                Rectangle { height: 28px; }
-                Gutter { SectionHeader { horizontal-stretch: 1; title: "Neste aparelho"; } }
-                for t in AppState.recents : Gutter { TrackRow { horizontal-stretch: 1; track: t; show-format: true; clicked => { AppState.play-track(t.id); } } }
+            if root.st == LoadState.empty : Gutters {
+                StateCard { icon: Icons.disc; title: "Nada por aqui ainda"; text: "Quando o YouTube Music tiver sugestões para você, elas aparecem aqui."; primary: "Atualizar"; primary-clicked => { AppState.retry-home(); } }
             }
-        }
-
-        // ---- conteúdo
-        if root.showing-content : VerticalLayout {
-            Rectangle { height: 28px; }
-            if AppState.highlights.length > 0 : VerticalLayout {
-                Gutter { SectionHeader { horizontal-stretch: 1; title: "Continue por aqui"; source-tag: AppState.source-label; } }
-                Rectangle { height: 8px; }
-                HRail { rail-h: Metrics.hero-h + 8px; label: "Continue por aqui"; spacing: 12px;
-                    for h in AppState.highlights : HeroCard {
-                        item: h; card-w: Metrics.hero-w; height: Metrics.hero-h;
-                        clicked => { AppState.open-item(h.kind, h.id); }
-                        play => { AppState.play-item(h.kind, h.id); }
+            if root.st == LoadState.loading : VerticalLayout {
+                spacing: Theme.s-xxl;
+                VerticalLayout {
+                    spacing: Theme.s-sm;
+                    Rectangle { height: 48px; Skeleton { x: Theme.gutter; width: 160px; height: 22px; y: 13px; } }
+                    Rectangle {
+                        height: Theme.compact ? 340px : 386px;
+                        clip: true;
+                        Skeleton { x: Theme.gutter; width: Theme.compact ? 264px : 300px; height: parent.height; border-radius: Theme.r-card; }
+                        Skeleton { x: Theme.gutter + (Theme.compact ? 264px : 300px) + Theme.s-md; width: Theme.compact ? 264px : 300px; height: parent.height; border-radius: Theme.r-card; }
+                        Skeleton { x: Theme.gutter + 2 * ((Theme.compact ? 264px : 300px) + Theme.s-md); width: Theme.compact ? 264px : 300px; height: parent.height; border-radius: Theme.r-card; }
                     }
                 }
-                Rectangle { height: 28px; }
+                VerticalLayout {
+                    spacing: Theme.s-sm;
+                    Rectangle { height: 48px; Skeleton { x: Theme.gutter; width: 180px; height: 22px; y: 13px; } }
+                    SkeletonRows { }
+                }
             }
-            if AppState.quick-picks.length > 0 : VerticalLayout {
-                Gutter { SectionHeader { horizontal-stretch: 1; title: "Escolhas rápidas"; } }
-                for t in AppState.quick-picks : Gutter { TrackRow { horizontal-stretch: 1; track: t; show-format: true; clicked => { AppState.play-track(t.id); } } }
-                Rectangle { height: 28px; }
-            }
-            if AppState.mixes.length > 0 : VerticalLayout {
-                Gutter { SectionHeader { horizontal-stretch: 1; title: "Mixes para você"; source-tag: AppState.source-label; } }
-                Rectangle { height: 8px; }
-                HRail { rail-h: (Theme.expanded ? 168px : 148px) + 64px; label: "Mixes para você";
-                    for m in AppState.mixes : MediaTile {
-                        side: Theme.expanded ? 168px : 148px; cover: m.cover; tint: m.tint; title: m.title; subtitle: m.subtitle;
-                        clicked => { AppState.open-item(m.kind, m.id); }
+            if root.content : VerticalLayout {
+                spacing: Theme.s-xxl;
+                if AppState.highlights.length > 0 : VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Para ouvir agora"; }
+                    Rail {
+                        label: "Para ouvir agora";
+                        card-h: Theme.compact ? 340px : 386px;
+                        for h in AppState.highlights : PickCard {
+                            cover: h.cover;
+                            title: h.title;
+                            subtitle: h.subtitle;
+                            clicked => { AppState.open-item(h.kind, h.id); }
+                            play => { AppState.play-item(h.kind, h.id); }
+                        }
                     }
                 }
-                Rectangle { height: 28px; }
+                if AppState.quick-picks.length > 0 : VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Faixas para você"; }
+                    Rows { for t[i] in AppState.quick-picks : TrackRow { t: t; separator: i > 0; clicked => { AppState.play-track(t.id); } more-clicked => { Nav.open-menu(t); } } }
+                }
+                if AppState.mixes.length > 0 : VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Mixes"; }
+                    Rail {
+                        label: "Mixes";
+                        card-h: (Theme.compact ? 148px : 172px) + 52px;
+                        for m in AppState.mixes : Tile { cover: m.cover; title: m.title; subtitle: m.subtitle; clicked => { AppState.open-item(m.kind, m.id); } }
+                    }
+                }
+                if root.local-only && AppState.albums.length > 0 : VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Álbuns do aparelho"; }
+                    Rail {
+                        label: "Álbuns do aparelho";
+                        card-h: Theme.compact ? 340px : 386px;
+                        for a in AppState.albums : PickCard {
+                            cover: a.cover;
+                            title: a.title;
+                            subtitle: a.artist;
+                            clicked => { AppState.open-album(a.id); }
+                            play => { AppState.play-item("album", a.id); }
+                        }
+                    }
+                }
+                if root.local-only && AppState.recents.length > 0 : VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Tocadas recentemente"; }
+                    Rows { for t[i] in AppState.recents : TrackRow { t: t; separator: i > 0; clicked => { AppState.play-track(t.id); } more-clicked => { Nav.open-menu(t); } } }
+                }
+                if !root.local-only && AppState.albums.length > 0 : VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Álbuns em destaque"; }
+                    Rail {
+                        label: "Álbuns em destaque";
+                        card-h: (Theme.compact ? 148px : 172px) + 52px;
+                        for a in AppState.albums : Tile { cover: a.cover; title: a.title; subtitle: a.artist; clicked => { AppState.open-album(a.id); } }
+                    }
+                }
             }
-            if AppState.albums.length > 0 : VerticalLayout {
-                Gutter { SectionHeader { horizontal-stretch: 1; title: "Álbuns em destaque"; source-tag: AppState.source-label; } }
-                Rectangle { height: 8px; }
-                Gutter { AlbumGrid { albums: AppState.albums; } }
+            if root.offline : VerticalLayout {
+                spacing: Theme.s-xxl;
+                if AppState.recents.length > 0 : VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Neste aparelho"; }
+                    Rows { for t[i] in AppState.recents : TrackRow { t: t; separator: i > 0; clicked => { AppState.play-track(t.id); } more-clicked => { Nav.open-menu(t); } } }
+                }
+                if AppState.recents.length == 0 : Gutters {
+                    StateCard {
+                        icon: Icons.folder;
+                        title: AppState.has-library ? "Sua música do aparelho" : "Traga a música do aparelho";
+                        text: AppState.has-library && AppState.library-summary != "" ? AppState.library-summary : "Escolha uma pasta e o Kazzu toca sem internet.";
+                        primary: AppState.has-library ? "Abrir a Biblioteca" : "Adicionar pasta";
+                        primary-clicked => { if (AppState.has-library) { Nav.go(Tab.library); } else { AppState.add-folder(); } }
+                    }
+                }
             }
         }
     }

@@ -22,34 +22,72 @@ pub fn load(path: &Path) -> Option<RgbaImage> {
     }
 }
 
-/// Lado do fundo pré-desfocado.
+/// Lado do fundo largo (mini-player e player em janelas largas).
 pub const BACKDROP_SIDE: u32 = 96;
-/// Desfoque gaussiano (px, na resolução de 96x96).
-const BLUR_SIGMA: f32 = 4.0;
-const SATURATION: f32 = 1.25;
-/// `im-base-darken` de tokens.json.
-const DARKEN: f32 = 0.46;
+/// `backdrop` do player (SLINT_SPEC v4 §6): capa 192x192, a capa espelhada logo abaixo e os 80 px do topo de novo.
+pub const BACKDROP_W: u32 = 192;
+pub const BACKDROP_H: u32 = 464;
 
-/// Fundo do player: capa 96x96, desfoque gaussiano σ=4, saturação ×1,25, ×0,46 e 1 LSB de ruído
-/// (evita faixas de cor em degradês escuros).
-pub fn backdrop(cover: &RgbaImage) -> RgbaImage {
+/// Recorta o quadrado central.
+fn center_square(cover: &RgbaImage) -> RgbaImage {
     let side = cover.width().min(cover.height()).max(1);
     let (x, y) = ((cover.width() - side) / 2, (cover.height() - side) / 2);
-    let square = image::imageops::crop_imm(cover, x, y, side, side).to_image();
-    let small = image::imageops::resize(&square, BACKDROP_SIDE, BACKDROP_SIDE, FilterType::Triangle);
-    let mut out = image::imageops::blur(&small, BLUR_SIGMA);
-    for (px, py, p) in out.enumerate_pixels_mut() {
-        let Rgba([r, g, b, _]) = *p;
-        let luma = 0.2126 * f32::from(r) + 0.7152 * f32::from(g) + 0.0722 * f32::from(b);
-        // ruído determinístico de 1 LSB (hash espacial barato)
-        let noise = ((px.wrapping_mul(73_856_093) ^ py.wrapping_mul(19_349_663)) >> 7) & 1;
-        let adj = |c: u8| {
-            let sat = luma + (f32::from(c) - luma) * SATURATION;
-            ((sat * DARKEN).round().clamp(0.0, 254.0) as u8).saturating_add(noise as u8)
-        };
-        *p = Rgba([adj(r), adj(g), adj(b), 255]);
+    image::imageops::crop_imm(cover, x, y, side, side).to_image()
+}
+
+/// Saturação como a do `ImageEnhance.Color` do PIL (mistura com o cinza de luma 601): `gray + (c - gray) * k`.
+fn saturate(img: &mut RgbaImage, k: f32) {
+    for p in img.pixels_mut() {
+        let Rgba([r, g, b, a]) = *p;
+        let gray = 0.299 * f32::from(r) + 0.587 * f32::from(g) + 0.114 * f32::from(b);
+        let adj = |c: u8| (gray + (f32::from(c) - gray) * k).round().clamp(0.0, 255.0) as u8;
+        *p = Rgba([adj(r), adj(g), adj(b), a]);
+    }
+}
+
+/// Fundo do player (192x464): a capa, o reflexo dela (espelhada na vertical) e os 80 px de cima de novo, com desfoque leve
+/// (σ3) e saturação ×1,2. Quem desfoca de verdade é o vidro do console, ao vivo; aqui a cor só precisa estar lá.
+pub fn backdrop(cover: &RgbaImage) -> RgbaImage {
+    let s192 = image::imageops::resize(&center_square(cover), BACKDROP_W, BACKDROP_W, FilterType::Lanczos3);
+    let mut tall = RgbaImage::new(BACKDROP_W, BACKDROP_H);
+    image::imageops::replace(&mut tall, &s192, 0, 0);
+    image::imageops::replace(&mut tall, &image::imageops::flip_vertical(&s192), 0, i64::from(BACKDROP_W));
+    image::imageops::replace(&mut tall, &image::imageops::crop_imm(&s192, 0, 0, BACKDROP_W, 80).to_image(), 0, 384);
+    let mut out = image::imageops::blur(&tall, 3.0);
+    saturate(&mut out, 1.2);
+    for p in out.pixels_mut() {
+        p[3] = 255;
     }
     out
+}
+
+/// Capa 96x96 com desfoque forte (σ9) e saturação ×1,35: tinge o mini-player e fica atrás do player em janelas largas.
+pub fn backdrop_wide(cover: &RgbaImage) -> RgbaImage {
+    let small = image::imageops::resize(&center_square(cover), BACKDROP_SIDE, BACKDROP_SIDE, FilterType::Lanczos3);
+    let mut out = image::imageops::blur(&small, 9.0);
+    saturate(&mut out, 1.35);
+    for p in out.pixels_mut() {
+        p[3] = 255;
+    }
+    out
+}
+
+fn gamma_to_lin(c: f32) -> f32 {
+    let c = c / 255.0;
+    if c <= 0.040_45 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+}
+
+/// Escurecimentos do vidro sobre a capa (`player-dim`, `mini-dim`): regra de `design/v4/tools/make_covers.py`.
+/// Com a capa em 12x12 (média de caixa), `V` é o cinza sRGB equivalente à célula mais clara; o texto branco precisa de um
+/// fundo composto de no máximo 112 (5:1), e a tinta do vidro é quase preta (12) com alfa `dim`.
+pub fn glass_dims(cover: &RgbaImage) -> (f32, f32) {
+    let cells = image::imageops::resize(&center_square(cover), 12, 12, FilterType::Triangle);
+    let worst = cells.pixels().map(|p| 0.2126 * gamma_to_lin(f32::from(p[0])) + 0.7152 * gamma_to_lin(f32::from(p[1])) + 0.0722 * gamma_to_lin(f32::from(p[2]))).fold(0.0_f32, f32::max);
+    let v = 255.0 * if worst <= 0.003_130_8 { 12.92 * worst } else { 1.055 * worst.powf(1.0 / 2.4) - 0.055 };
+    let need = |x: f32| if x <= 112.0 { 0.0 } else { (x - 112.0) / (x - 12.0) };
+    let player = (need(v) + 0.02).clamp(0.24, 0.64);
+    let mini = (need(0.45 * 255.0 + 0.55 * v) + 0.02).clamp(0.30, 0.70);
+    (player, mini)
 }
 
 /// Redimensiona mantendo a proporção para que o maior lado seja `max` (sem ampliar).
@@ -68,25 +106,36 @@ mod tests {
     use super::*;
 
     #[test]
-    fn backdrop_is_96px_dark_and_opaque_even_for_a_white_cover() {
-        let white = RgbaImage::from_pixel(640, 480, Rgba([255, 255, 255, 255]));
-        let b = backdrop(&white);
-        assert_eq!(b.dimensions(), (96, 96));
+    fn backdrop_is_192x464_opaque_and_mirrors_the_cover_below_it() {
+        // topo vermelho, base azul: o reflexo (logo abaixo da capa) tem as cores trocadas de lado
+        let cover = RgbaImage::from_fn(200, 200, |_, y| if y < 100 { Rgba([240, 20, 20, 255]) } else { Rgba([20, 20, 240, 255]) });
+        let b = backdrop(&cover);
+        assert_eq!(b.dimensions(), (192, 464));
         assert!(b.pixels().all(|p| p[3] == 255));
-        let max = b.pixels().map(|p| p[0].max(p[1]).max(p[2])).max().unwrap();
-        // 255 × 0,46 ≈ 117 (+ ruído); nunca claro o bastante para estragar o contraste do texto
-        assert!((110..=122).contains(&max), "max {max}");
+        assert!(b.get_pixel(96, 20)[0] > 150, "topo da capa é vermelho");
+        assert!(b.get_pixel(96, 170)[2] > 150, "base da capa é azul");
+        assert!(b.get_pixel(96, 200)[2] > 150, "logo abaixo da capa, o reflexo começa pela base (azul)");
+        assert!(b.get_pixel(96, 370)[0] > 150, "o reflexo termina pelo topo (vermelho)");
     }
 
     #[test]
-    fn backdrop_boosts_saturation() {
+    fn backdrop_wide_is_96px_and_boosts_saturation() {
         let teal = RgbaImage::from_pixel(100, 100, Rgba([30, 120, 140, 255]));
-        let b = backdrop(&teal);
+        let b = backdrop_wide(&teal);
+        assert_eq!(b.dimensions(), (96, 96));
         let p = b.get_pixel(48, 48);
-        let spread_in = 140 - 30;
-        let spread_out = i32::from(p[2]) - i32::from(p[0]);
-        // 0,46 × 1,25 ≈ 0,575 do afastamento original
-        assert!(spread_out as f32 > spread_in as f32 * 0.5, "spread {spread_out}");
+        assert!(i32::from(p[2]) - i32::from(p[0]) > 110, "mais saturada que a capa (110): {p:?}");
+    }
+
+    #[test]
+    fn glass_dims_follow_the_design_rule() {
+        let white = glass_dims(&RgbaImage::from_pixel(64, 64, Rgba([255, 255, 255, 255])));
+        let black = glass_dims(&RgbaImage::from_pixel(64, 64, Rgba([0, 0, 0, 255])));
+        // capa branca: (255 - 112) / (255 - 12) + 0,02 = 0,61 nos dois; capa preta: o piso de cada um
+        assert!((white.0 - 0.61).abs() < 0.01 && (white.1 - 0.61).abs() < 0.01, "{white:?}");
+        assert_eq!(black, (0.24, 0.30));
+        let mid = glass_dims(&RgbaImage::from_pixel(64, 64, Rgba([160, 70, 30, 255])));
+        assert!((0.24..=0.64).contains(&mid.0) && (0.30..=0.70).contains(&mid.1) && mid.1 >= mid.0, "{mid:?}");
     }
 
     #[test]

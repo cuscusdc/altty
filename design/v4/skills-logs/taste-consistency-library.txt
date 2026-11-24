@@ -1,0 +1,204 @@
+consistency  /home/sacer/Projects/altty/design/v4/prototypes/library.html
+--quick: not checked: scroll-linked (stepping), scroll-reveal (the reveal walk; IntersectionObserver reveals are read), hover-spill, hidden-visual, loop-pause, forms, reduced-motion, the dead-IntersectionObserver walk (hidden content is read with scripts off and under reduced motion), hover-move. Still told: IntersectionObserver reveals (scroll-reveal), held sections (pinned) and CSS scroll timelines (scroll-linked); faults inside held or [data-big-scene] sections are WARNs
+
+1440x900  2 screens  31 FAIL  8 WARN
+  FAIL hero-fill       main#conteudo > div.grid2  "Baixados Em breve Curtidos 128 músicas Á"
+       the next section shows on the first screen: it starts at 164px on a 900px screen (the hero ends at 132px)  [1440-01-hero-fill.jpg]
+       fix: let the hero fill the first screen alone (min-height: 100svh, less above it): nothing of the next section on load
+  FAIL flush           main#conteudo > div.grid2 > a.tile.soon > div.art.art--empty
+       its first line sits 0px under the top edge of div.grid2, where the ground changes  [1440-02-flush.jpg]
+       fix: give the section its padding at the edge where the ground changes (the closing call keeps a clear gap above the footer)
+  FAIL no-visual       main#conteudo > section.shelf:nth-of-type(1)  "Suas playlists"
+       no picture, effect or mock in this section; a feature section needs a visual  [1440-03-no-visual.jpg]
+       fix: give the section a visual: a UI fragment on a ground, real icons, or a photograph that fits
+  FAIL cta             main#conteudo > section.shelf:nth-of-type(2)  "Neste aparelho"
+       the last section before the footer ends with no button  [1440-09-cta.jpg]
+       fix: add the action: a button in the hero, one on every priced item, one in the closing section
+  FAIL copy-headline   main#conteudo > div.title > h1  "Biblioteca"
+       "Biblioteca" does not name what is sold (app de musica, app, musica, from flags)  [1440-04-copy-headline.jpg]
+       fix: put the category noun in the h1 (and who it is for, or where), in 2 to 8 words
+  WARN copy-headline   main#conteudo > div.title > h1  "Biblioteca"
+       the h1 has 1 word (2 to 8 read at a glance)  [1440-05-copy-headline.jpg]
+       fix: put the category noun in the h1 (and who it is for, or where), in 2 to 8 words
+  WARN copy-buttons    main#conteudo > div.title > a.btn  "Criar playlist"
+       "Criar playlist" does not start with a verb (book, buy, try, start, get, see...) (and 1 more like it: "Biblioteca")  [1440-06-copy-buttons.jpg]
+       fix: label buttons with a verb and what the visitor gets ("Book a room", "Start free trial")
+  WARN copy-actions    (the page)
+       the main action "Tocar" does not read word for word the same in the nav or hero and the closing section
+       fix: few actions, one wording: at most 2 in the hero, the main action word for word in nav, hero and close
+  WARN label-centre    aside.side > nav > a.nv:nth-of-type(3)  "Biblioteca"
+       its label sits 99px off-centre (12px of room at the left, 111px at the right)  [1440-07-label-centre.jpg]
+       fix: centre the label in its button, or fill the empty side with an icon
+  WARN stranded-action main#conteudo > div.title > a.btn  "Criar playlist"
+       stands 767px across from the nearest text of its block ("Biblioteca")  [1440-08-stranded-action.jpg]
+       fix: put the button under or beside the text it belongs to
+  WARN moment-none     (the page)
+       a software page (--type) deals no moment: every kind carries one, two on a long page (moments.md)
+       fix: deal one (moments.mjs pick --page software) and mount it in its own section
+  WARN skip-link       a.skip  "Pular para o conteúdo"
+       the first Tab stop is "Pular para o conteúdo", not a skip link: a keyboard user tabs through the whole nav on every visit
+       fix: add the starter's skip link as the header's first child: <a class="skip-link" href="#top">Skip to content</a>
+  WARN share-meta      head
+       the head lacks og:title, og:description, og:image, twitter:card: a shared link shows no picture or title of its own
+       fix: copy the head block of starter.html: og tags, twitter:card, the icon and theme-color (references/system.md, Head)
+  FAIL hero-screen     main#conteudo > div.title  "BibliotecaCriar playlist"
+       the hero ends at 132px on a 900px screen, 768px above the fold: it ends at the fold, 1px either way (SR-1)  [1440-rhythm-01-hero-screen.jpg]
+       fix: make the hero exactly one screen (height: 100svh, its content fitted inside), never taller or shorter
+  FAIL hero-screen     main#conteudo > div.grid2  "BaixadosEm breveCurtidos128 músicasÁlbun"
+       736px of the next section shows on the first screen (from 164px on a 900px screen): nothing below the hero shows at load (SR-1)
+       fix: end the hero at the fold so nothing of the next section shows at load (hero height: 100svh)
+  FAIL section-height  main#conteudo > section.shelf:nth-of-type(2)  "Neste aparelhoMusic/FLAC312 músicas, lid"
+       the section is 172px tall (0.2 screens), 728px short of one screen (900px): every section after the hero is one screen or two, 2px either way (SR-2)  [1440-rhythm-02-section-height.jpg]
+       fix: set the section to one screen or two (height: calc(var(--h,1) * 100vh), --h 1 or 2) and cut or split its content to fit
+  FAIL section-height  main#conteudo > div.grid2  "BaixadosEm breveCurtidos128 músicasÁlbun"
+       the section is 250px tall (0.3 screens), 650px short of one screen (900px): every section after the hero is one screen or two, 2px either way (SR-2)
+       fix: set the section to one screen or two (height: calc(var(--h,1) * 100vh), --h 1 or 2) and cut or split its content to fit
+  FAIL section-height  main#conteudo > section.shelf:nth-of-type(1)  "Suas playlistsEstrada42 músicasDomingo d"
+       the section is 316px tall (0.4 screens), 584px short of one screen (900px): every section after the hero is one screen or two, 2px either way (SR-2)
+       fix: set the section to one screen or two (height: calc(var(--h,1) * 100vh), --h 1 or 2) and cut or split its content to fit
+  FAIL section-height  main#conteudo > section.shelf:nth-of-type(1)  "Suas playlistsEstrada42 músicasDomingo d"
+       the section starts at 446px, 446px below the screen grid (0 x 900px): sections start on whole screens (SR-2)
+       fix: make every section above it exactly one or two screens tall, so this one starts on a whole screen
+  FAIL section-height  main#conteudo > div.grid2  "BaixadosEm breveCurtidos128 músicasÁlbun"
+       the section starts at 164px, 164px below the screen grid (0 x 900px): sections start on whole screens (SR-2)
+       fix: make every section above it exactly one or two screens tall, so this one starts on a whole screen
+  FAIL section-height  main#conteudo > section.shelf:nth-of-type(2)  "Neste aparelhoMusic/FLAC312 músicas, lid"
+       the section starts at 794px, 106px above the screen grid (1 x 900px): sections start on whole screens (and 1 more like it: "BibliotecaCriar playlist") (SR-2)
+       fix: make every section above it exactly one or two screens tall, so this one starts on a whole screen
+  FAIL section-height  main#conteudo > div.grid2  "BaixadosEm breveCurtidos128 músicasÁlbun"
+       the section's content does not fit it: its lowest content ends 250px below its top, past 178px (the section less 72px of bottom padding) (SR-2)
+       fix: fit the content above the section's bottom padding (--padb), or make it two screens (.g2) in two groups
+  FAIL section-height  main#conteudo > section.shelf:nth-of-type(1)  "Suas playlistsEstrada42 músicasDomingo d"
+       the section's content does not fit it: its lowest content ends 316px below its top, past 244px (the section less 72px of bottom padding) (and 1 more like it: "Neste aparelhoMusic/FLAC") (SR-2)
+       fix: fit the content above the section's bottom padding (--padb), or make it two screens (.g2) in two groups
+  FAIL section-air     main#conteudo > div.grid2 / main#conteudo > section.shelf:nth-of-type(1)
+       43px of air between the content of these two sections: 128-480px (64-600px WARN) (every gap out of the band at 1440px, top to bottom: 43px after "BaixadosEm breveCurt", 43px after "Suas playlistsEstrad") (SR-3)  [1440-rhythm-03-section-air.jpg]
+       fix: keep 128-480px of air between the content of neighbouring sections (112-420px on a phone): the sections' padding (--padt, --padb)
+  FAIL section-air     main#conteudo > section.shelf:nth-of-type(1) / main#conteudo > section.shelf:nth-of-type(2)
+       43px of air between the content of these two sections: 128-480px (64-600px WARN) (SR-3)
+       fix: keep 128-480px of air between the content of neighbouring sections (112-420px on a phone): the sections' padding (--padt, --padb)
+  FAIL one-section     main#conteudo > div.title > h1  "Biblioteca"
+       the screen at scroll 0px (stride 0) shows 250px of section 2 and the heading of section 1 whole and the content of 4 sections, over 24px each beside section 3: a screen shows one section (another may peek 8px, 24px WARN) (SR-4)  [1440-rhythm-04-one-section.jpg]
+       fix: make each section exactly one screen or two, so a screen shows one section and no neighbour peeks
+  FAIL one-section     main#conteudo > div.title > h1  "Biblioteca"
+       the screen at scroll 68px (the top of section 1) shows 250px of section 2 and the heading of section 1 whole and the content of 4 sections, over 24px each beside section 3: a screen shows one section (another may peek 8px, 24px WARN) (SR-4)
+       fix: make each section exactly one screen or two, so a screen shows one section and no neighbour peeks
+  FAIL one-section     h2#s-dev  "Neste aparelho"
+       the screen at scroll 164px (the top of section 2) shows 250px of section 2 and the heading of section 4 whole and the content of 3 sections, over 24px each beside section 3: a screen shows one section (another may peek 8px, 24px WARN) (SR-4)
+       fix: make each section exactly one screen or two, so a screen shows one section and no neighbour peeks
+  FAIL one-section     main#conteudo > div.title  "BibliotecaCriar playlist"
+       a <div> sits directly in <main>: every part of <main> is a <section> (SR-4)
+       fix: put every block of <main> in a <section>, and give a band its own section instead of a ground inside one
+  FAIL one-section     main#conteudo > div.grid2  "BaixadosEm breveCurtidos128 músicasÁlbun"
+       a <div> sits directly in <main>: every part of <main> is a <section> (SR-4)
+       fix: put every block of <main> in a <section>, and give a band its own section instead of a ground inside one
+  FAIL one-heading     h2#s-dev  "Neste aparelho"
+       headings of two sections show whole on one screen at 4 of 4 scroll positions (100%; at scroll 0, 50, 100, 150px), here with "Suas playlists": at most 3% on a desktop (SR-5)  [1440-rhythm-05-one-heading.jpg]
+       fix: make the sections one screen tall so their headings sit a screen apart and two never share one
+  FAIL container-edges header.top
+       the nav's content runs 1368px from the left and 24px from the right (read from its outermost blocks: no .wrap): the page's container starts at 280px; 1368 and 24px are not one margin; the margin is 64-120px at 1440px (one container, equal margins, 2px either way) (SR-6)  [1440-rhythm-06-container-edges.jpg]
+       fix: use one container on every section and the nav (.wrap): one margin left and right, 64-120px on a desktop, 16-24px on a phone
+  FAIL container-edges main#conteudo > div.title  "BibliotecaCriar playlist"
+       the content of section 1 runs 312px from the left and 48px from the right (read from its outermost blocks: no .wrap): the page's container starts at 280px; 312 and 48px are not one margin; the margin is 64-120px at 1440px (one container, equal margins, 2px either way) (and 3 more like it: "Suas playlistsEstrada42 ", "Neste aparelhoMusic/FLAC", "BaixadosEm breveCurtidos") (SR-6)
+       fix: use one container on every section and the nav (.wrap): one margin left and right, 64-120px on a desktop, 16-24px on a phone
+  FAIL container-edges a.skip  "Pular para o conteúdo"
+       a <a> at the top of the page, outside header.nav, main, footer.closing and nav.actionbar (SR-6)
+       fix: build the page as header.nav, a main of sections (each one in-flow .wrap plus background layers) and footer.closing
+  FAIL container-edges header.top
+       a <header> at the top of the page, outside header.nav, main, footer.closing and nav.actionbar (and 6 more like it: "InícioExplorarBiblioteca", "Brasa VivaOs Tangarás", "BibliotecaCriar playlist") (SR-6)
+       fix: build the page as header.nav, a main of sections (each one in-flow .wrap plus background layers) and footer.closing
+  FAIL container-edges div.group > div.item > div.it > span.one  "Music/FLAC"
+       2 text blocks start on a left line at x 364, 84px from the container's left: text starts on the container's left, or on one split line (x 767, 864, 961) (also "312 músicas, lida hoje") (SR-6)
+       fix: start the text on the container's left, or on the one split line every split shares
+  FAIL container-edges h2#s-pl  "Suas playlists"
+       6 text blocks start on a left line at x 312, 32px from the container's left: text starts on the container's left, or on one split line (x 767, 864, 961) (also "Estrada42 músicas", "Domingo de manhã18 músicas", "Para cozinhar27 músicas") (and 2 more like it: "Suas playlists", "Neste aparelho") (SR-6)
+       fix: start the text on the container's left, or on the one split line every split shares
+  FAIL container-edges section.shelf:nth-of-type(1) > ul.rows > li.row:nth-of-type(2) > div.rbody  "Domingo de manhã18 músicas"
+       a box over half the container wide runs 372-1392px, not on the container's lines at 280-1424px (SR-6)
+       fix: run the picture or box from the container's left line to its right line, or put it in a row or a split
+  FAIL container-edges section.shelf:nth-of-type(1) > ul.rows > li.row:nth-of-type(3) > div.rbody  "Para cozinhar27 músicas"
+       a box over half the container wide runs 372-1392px, not on the container's lines at 280-1424px (and 2 more like it: "Foco61 músicas", "Music/FLAC312 músicas, l") (SR-6)
+       fix: run the picture or box from the container's left line to its right line, or put it in a row or a split
+
+390x844  2 screens  4 FAIL  3 WARN
+  FAIL hero-fill       main#conteudo > div.grid2  "Baixados Em breve Curtidos 128 músicas Á"
+       the next section shows on the first screen: it starts at 164px on a 844px screen (the hero ends at 132px)  [390-01-hero-fill.jpg]
+       fix: let the hero fill the first screen alone (min-height: 100svh, less above it): nothing of the next section on load
+  FAIL flush           main#conteudo > div.grid2 > a.tile.soon > div.art.art--empty
+       its first line sits 0px under the top edge of div.grid2, where the ground changes  [390-02-flush.jpg]
+       fix: give the section its padding at the edge where the ground changes (the closing call keeps a clear gap above the footer)
+  FAIL no-visual       main#conteudo > section.shelf:nth-of-type(1)  "Suas playlists"
+       no picture, effect or mock in this section; a feature section needs a visual  [390-06-no-visual.jpg]
+       fix: give the section a visual: a UI fragment on a ground, real icons, or a photograph that fits
+  FAIL cta             main#conteudo > section.shelf:nth-of-type(2)  "Neste aparelho"
+       the last section before the footer ends with no button  [390-07-cta.jpg]
+       fix: add the action: a button in the hero, one on every priced item, one in the closing section
+  WARN nav             header.top > a.iconbtn.iconbtn--tonal
+       the nav is lopsided: its last item ends 8px outside the content's edge (374px), while its first starts on the other edge  [390-03-nav.jpg]
+       fix: start the nav's first item and end its last on the content's two edges
+  WARN no-visual       main#conteudo > div.grid2  "Baixados Em breve Curtidos 128 músicas Á"
+       pictures, effects and mocks cover 17% of this section; a feature section needs a visual (about 25% or more)  [390-04-no-visual.jpg]
+       fix: give the section a visual: a UI fragment on a ground, real icons, or a photograph that fits
+  WARN nav-family      div.dock
+       the nav's links come in 2 sizes (17, 12px)  [390-05-nav-family.jpg]
+       fix: keep one nav on every screen: the same bar, fill, links and type
+
+first screen at 1280, 1152, 1024, 896, 768  0 FAIL  0 WARN
+
+the page at 320x640, walked for what runs past the screen's edge  0 FAIL
+  WARN fold-cut        [320] h2#s-pl  "Suas playlists"
+       a 22px line is sliced by the bottom of the first screen (13px of it below the fold)  [narrow-320-01-fold-cut.jpg]
+       fix: size the hero so the heading ends above the fold, or starts below it
+
+checks
+  PASS assets                 PASS shader-lint            PASS gl-fallback            
+  PASS empty-visual           FAIL hero-fill              FAIL flush                  
+  PASS placeholder            PASS sample-label           PASS caption                
+  PASS credit-wall            WARN nav                    PASS nav-covers             
+  PASS spill                  PASS off-viewport           PASS fold-card              
+  SKIP hover-spill            PASS overlap-text           PASS collide                
+  PASS tap-size               PASS row-gap                PASS cut-text               
+  WARN fold-cut               PASS marquee                SKIP scroll-linked          
+  SKIP scroll-reveal          PASS pinned                 SKIP loop-pause             
+  SKIP reduced-motion         PASS hidden-content         PASS webgl                  
+  FAIL no-visual              PASS text-only              PASS card-visual            
+  SKIP hidden-visual          PASS card-family            PASS card-layout            
+  PASS nesting                PASS effect-repeat          PASS ui-fit                 
+  PASS ui-centre              PASS dark-ground            PASS button-styles          
+  PASS button-shape           PASS same-action            PASS button-picture         
+  FAIL cta                    PASS pricing-tiers          FAIL copy-headline          
+  PASS copy-fact              PASS copy-headings          WARN copy-buttons           
+  WARN copy-actions           PASS heading-scale          PASS stagger                
+  PASS top-stagger            PASS off-grid               PASS col-edge               
+  PASS right-edge             PASS centre-axis            PASS tilt                   
+  PASS contrast               PASS text-contrast          PASS body-size              
+  PASS busy-ground            PASS section-gaps           PASS proximity              
+  PASS hole                   PASS links                  SKIP forms                  
+  PASS photo-upscale          PASS photo-set              PASS photo-credit           
+  WARN nav-family             PASS nav-labels             PASS link-styles            
+  PASS heading-align          WARN label-centre           PASS fake-button            
+  WARN stranded-action        PASS orphan                 PASS unit-break             
+  PASS tab-wrap               PASS effects-fit            PASS fade-cut               
+  PASS photo-weight           PASS copy-length            PASS nav-current            
+  PASS progress-bar           PASS photo-repeat           PASS button-contrast        
+  PASS photo-print            PASS grounds                PASS split-align            
+  PASS fact-agree             PASS fold-action            PASS action-count           
+  PASS one-screen             SKIP hover                  SKIP hover-move             
+  PASS product-shown          PASS same-object            PASS font-load              
+  PASS visual-caption         PASS visual-empty           PASS effect-kind            
+  PASS hero-enter             WARN moment-none            PASS street-number          
+  PASS postcode               PASS coordinates            PASS company-number         
+  PASS phone-number           FAIL hero-screen            FAIL section-height         
+  FAIL section-air            FAIL one-section            FAIL one-heading            
+  FAIL container-edges        PASS row-lines              PASS split-pair             
+  PASS motion-layer           PASS count-text             PASS loop-cycle             
+  PASS section-tile           PASS empty-area             PASS a11y-name              
+  PASS img-alt                PASS field-label            PASS heading-order          
+  PASS tabindex               PASS focus-ring             PASS focus-visible          
+  PASS focus-hidden           WARN skip-link              PASS menu-toggle            
+  PASS lang                   PASS page-meta              WARN share-meta             
+  PASS action-repeat          PASS map-link               PASS open-now               
+  PASS assumed                PASS run-on                 PASS form-fields            
+  PASS form-send              
+
+total  35 FAIL  12 WARN  (crops and report.json in /home/sacer/Projects/altty/design/v4/prototypes/.taste-skill/consistency-library)

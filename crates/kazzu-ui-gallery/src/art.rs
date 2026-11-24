@@ -1,5 +1,4 @@
-#![allow(clippy::excessive_precision)] // constantes publicadas do OKLab
-//! Capas procedurais (sem arquivos), cor do palco/acento a partir da capa (OKLCH) e o `backdrop` pré-desfocado.
+//! Capas procedurais (sem arquivos) e os fundos derivados da capa (`backdrop`, `backdrop-wide`, escurecimentos), como o app os faz.
 
 use slint::{Image, Rgba8Pixel, SharedPixelBuffer};
 
@@ -184,116 +183,57 @@ pub fn to_image(rgba: &[u8], size: u32) -> Image {
     Image::from_rgba8(buf)
 }
 
-/// Capa 96×96 pré-desfocada para o palco (σ≈4, saturação ×1,35, brilho ×0,72): a mesma receita do Rust do app.
-pub fn backdrop(kind: Kind) -> Image {
-    const N: usize = 96;
-    let src = rgba(kind, N as u32);
-    let mut px: Vec<[f32; 3]> = src.chunks(4).map(|p| [p[0] as f32 / 255.0, p[1] as f32 / 255.0, p[2] as f32 / 255.0]).collect();
-    for _ in 0..3 {
-        // desfoque de caixa 9×9 separável, três passadas ≈ gaussiana de σ 4
-        for horizontal in [true, false] {
-            let mut next = px.clone();
-            for y in 0..N {
-                for x in 0..N {
-                    let mut acc = [0.0f32; 3];
-                    let mut n = 0.0;
-                    for d in -4i32..=4 {
-                        let (xx, yy) = if horizontal { ((x as i32 + d).clamp(0, N as i32 - 1) as usize, y) } else { (x, (y as i32 + d).clamp(0, N as i32 - 1) as usize) };
-                        let p = px[yy * N + xx];
-                        acc[0] += p[0];
-                        acc[1] += p[1];
-                        acc[2] += p[2];
-                        n += 1.0;
-                    }
-                    next[y * N + x] = [acc[0] / n, acc[1] / n, acc[2] / n];
-                }
-            }
-            px = next;
+fn rgba_image(kind: Kind, size: u32) -> image::RgbaImage {
+    image::RgbaImage::from_raw(size, size, rgba(kind, size)).expect("buffer RGBA")
+}
+
+fn saturate(img: &mut image::RgbaImage, k: f32) {
+    for p in img.pixels_mut() {
+        let gray = 0.299 * f32::from(p[0]) + 0.587 * f32::from(p[1]) + 0.114 * f32::from(p[2]);
+        for c in 0..3 {
+            p[c] = (gray + (f32::from(p[c]) - gray) * k).round().clamp(0.0, 255.0) as u8;
         }
+        p[3] = 255;
     }
-    let mut out = Vec::with_capacity(N * N * 4);
-    for p in px {
-        let l = 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2];
-        let sat = |c: f32| ((l + (c - l) * 1.35) * 0.72).clamp(0.0, 1.0);
-        out.extend_from_slice(&[(sat(p[0]) * 255.0) as u8, (sat(p[1]) * 255.0) as u8, (sat(p[2]) * 255.0) as u8, 255]);
-    }
-    to_image(&out, N as u32)
 }
 
-// ---- OKLCH ---------------------------------------------------------------------------------------------------------
-
-fn to_linear(c: f32) -> f32 {
-    if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+fn from_rgba_image(img: &image::RgbaImage) -> Image {
+    let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(img.width(), img.height());
+    buf.make_mut_bytes().copy_from_slice(img.as_raw());
+    Image::from_rgba8(buf)
 }
 
-fn from_linear(c: f32) -> f32 {
-    let c = c.clamp(0.0, 1.0);
-    if c <= 0.0031308 { 12.92 * c } else { 1.055 * c.powf(1.0 / 2.4) - 0.055 }
+/// `backdrop` do v4 (192×464): a capa, o reflexo dela e os 80 px do topo, desfoque σ3 e saturação ×1,2. Mesma receita do
+/// Rust do app (`kazzu_app::art::backdrop`).
+pub fn backdrop(kind: Kind) -> Image {
+    let s192 = image::imageops::resize(&rgba_image(kind, 384), 192, 192, image::imageops::FilterType::Lanczos3);
+    let mut tall = image::RgbaImage::new(192, 464);
+    image::imageops::replace(&mut tall, &s192, 0, 0);
+    image::imageops::replace(&mut tall, &image::imageops::flip_vertical(&s192), 0, 192);
+    image::imageops::replace(&mut tall, &image::imageops::crop_imm(&s192, 0, 0, 192, 80).to_image(), 0, 384);
+    let mut out = image::imageops::blur(&tall, 3.0);
+    saturate(&mut out, 1.2);
+    from_rgba_image(&out)
 }
 
-/// (L, C, h°) de uma cor sRGB.
-pub fn to_oklch(rgb: Rgb) -> (f32, f32, f32) {
-    let (r, g, b) = (to_linear(rgb[0]), to_linear(rgb[1]), to_linear(rgb[2]));
-    let l = (0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b).cbrt();
-    let m = (0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b).cbrt();
-    let s = (0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b).cbrt();
-    let ll = 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s;
-    let a = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s;
-    let bb = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s;
-    (ll, (a * a + bb * bb).sqrt(), bb.atan2(a).to_degrees().rem_euclid(360.0))
+/// `backdrop-wide` (96×96, σ9, saturação ×1,35): tinge o mini-player.
+pub fn backdrop_wide(kind: Kind) -> Image {
+    let small = image::imageops::resize(&rgba_image(kind, 192), 96, 96, image::imageops::FilterType::Lanczos3);
+    let mut out = image::imageops::blur(&small, 9.0);
+    saturate(&mut out, 1.35);
+    from_rgba_image(&out)
 }
 
-pub fn oklch(l: f32, c: f32, h_deg: f32) -> slint::Color {
-    let h = h_deg.to_radians();
-    let (a, b) = (c * h.cos(), c * h.sin());
-    let l_ = (l + 0.3963377774 * a + 0.2158037573 * b).powi(3);
-    let m_ = (l - 0.1055613458 * a - 0.0638541728 * b).powi(3);
-    let s_ = (l - 0.0894841775 * a - 1.2914855480 * b).powi(3);
-    let r = 4.0767416621 * l_ - 3.3077115913 * m_ + 0.2309699292 * s_;
-    let g = -1.2684380046 * l_ + 2.6097574011 * m_ - 0.3413193965 * s_;
-    let bl = -0.0041960863 * l_ - 0.7034186147 * m_ + 1.7076147010 * s_;
-    slint::Color::from_rgb_u8((from_linear(r) * 255.0) as u8, (from_linear(g) * 255.0) as u8, (from_linear(bl) * 255.0) as u8)
+fn lin(c: f32) -> f32 {
+    let c = c / 255.0;
+    if c <= 0.040_45 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
 }
 
-/// Matiz da capa (média ponderada pela saturação); capa pálida ou cinza cai no âmbar da marca (58°).
-pub fn cover_hue(kind: Kind) -> f32 {
-    let src = rgba(kind, 32);
-    let (mut sx, mut sy, mut w) = (0.0f32, 0.0f32, 0.0f32);
-    for p in src.chunks(4) {
-        let (_, c, h) = to_oklch([p[0] as f32 / 255.0, p[1] as f32 / 255.0, p[2] as f32 / 255.0]);
-        sx += c * h.to_radians().cos();
-        sy += c * h.to_radians().sin();
-        w += c;
-    }
-    let mean_c = w / (src.len() / 4) as f32;
-    if mean_c < 0.05 {
-        return 58.0;
-    }
-    sy.atan2(sx).to_degrees().rem_euclid(360.0)
-}
-
-/// Cores do palco, do vidro e do acento para um matiz (SLINT_SPEC §7).
-pub struct StageColors {
-    pub dark: [slint::Color; 4],
-    pub light: [slint::Color; 4],
-    pub tint_dark: slint::Color,
-    pub tint_light: slint::Color,
-    pub accent_dark: slint::Color,
-    pub accent_dark_ink: slint::Color,
-    pub accent_light: slint::Color,
-    pub accent_light_ink: slint::Color,
-}
-
-pub fn stage_colors(h: f32) -> StageColors {
-    let d = |l, c, dh: f32| oklch(l, c, h + dh);
-    StageColors {
-        dark: [d(0.50, 0.19, 0.0), d(0.45, 0.18, -36.0), d(0.41, 0.14, 147.0), d(0.44, 0.15, 37.0)],
-        light: [d(0.86, 0.09, 0.0), d(0.86, 0.085, -36.0), d(0.89, 0.06, 147.0), d(0.90, 0.08, 37.0)],
-        tint_dark: oklch(0.24, 0.055, h),
-        tint_light: oklch(0.99, 0.012, h),
-        accent_dark: oklch(0.80, 0.14, h),
-        accent_dark_ink: oklch(0.20, 0.03, h),
-        accent_light: oklch(0.50, 0.15, h),
-        accent_light_ink: oklch(0.98, 0.01, h),
-    }
+/// (`player-dim`, `mini-dim`): regra de `design/v4/tools/make_covers.py`, a mesma do app (`art::glass_dims`).
+pub fn glass_dims(kind: Kind) -> (f32, f32) {
+    let cells = image::imageops::resize(&rgba_image(kind, 96), 12, 12, image::imageops::FilterType::Triangle);
+    let worst = cells.pixels().map(|p| 0.2126 * lin(f32::from(p[0])) + 0.7152 * lin(f32::from(p[1])) + 0.0722 * lin(f32::from(p[2]))).fold(0.0_f32, f32::max);
+    let v = 255.0 * if worst <= 0.003_130_8 { 12.92 * worst } else { 1.055 * worst.powf(1.0 / 2.4) - 0.055 };
+    let need = |x: f32| if x <= 112.0 { 0.0 } else { (x - 112.0) / (x - 12.0) };
+    ((need(v) + 0.02).clamp(0.24, 0.64), (need(0.45 * 255.0 + 0.55 * v) + 0.02).clamp(0.30, 0.70))
 }
