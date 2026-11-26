@@ -291,6 +291,7 @@ impl<V: View> Controller<V> {
         if self.remote_enabled {
             self.home.state = LoadStateVm::Loading;
             self.request_home(HomeSectionVm::ForYou);
+            self.request_explore();
         } else {
             self.home.state = LoadStateVm::Ready;
             // sem YouTube Music não há feed nem Explorar: o Início mostra a música do aparelho
@@ -790,8 +791,11 @@ impl<V: View> Controller<V> {
         self.tab = tab;
         self.detail_open = false;
         self.detail_seq += 1; // um detalhe pedido antes desta troca de aba não pode abrir depois dela
-        if tab == NavTab::Explore && self.remote_enabled && !self.explore_requested {
+        if matches!(tab, NavTab::Home | NavTab::Explore | NavTab::Search) && self.remote_enabled && !self.explore_requested {
             self.request_explore();
+        }
+        if matches!(tab, NavTab::Home | NavTab::Search) && self.stale_screens.remove(&NavTab::Explore) {
+            self.publish_explore();
         }
         if self.stale_screens.remove(&tab) {
             match tab {
@@ -889,6 +893,8 @@ impl<V: View> Controller<V> {
 
     pub fn open_collection(&mut self, id: &str) {
         match id {
+            "songs" => self.request_detail(DetailRef::Songs),
+            _ if id.starts_with("artist:") => self.request_detail(DetailRef::Artist(id.trim_start_matches("artist:").to_owned())),
             "downloads" => self.request_detail(DetailRef::Downloads),
             "liked" => self.request_detail(DetailRef::Liked),
             "albums" => self.request_detail(DetailRef::Albums),
@@ -1109,6 +1115,18 @@ impl<V: View> Controller<V> {
     pub fn perf_offer_dismiss(&mut self) {
         self.perf_dismissed = true;
         self.view.set_perf_offer(false);
+    }
+
+    pub fn set_visual_style(&mut self, style: i32, artwork: bool) {
+        self.cfg.glass_style = style.clamp(0, 2);
+        self.cfg.artwork_background = artwork;
+        self.save_config();
+    }
+
+    pub fn set_library_layout(&mut self, view: i32, density: i32) {
+        self.cfg.library_view = view.clamp(0, 1);
+        self.cfg.library_density = density.clamp(0, 2);
+        self.save_config();
     }
 
     pub fn set_theme(&mut self, theme: ThemePref) {

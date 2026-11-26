@@ -9,6 +9,7 @@ import { Glass, Pressable, Icon, IconButton, TextButton, Button, Cover, Mosaic, 
 
 // Véu + moldura: sobe da base (`appear`), com alça de 36 × 5. Com Reduzir movimento só esmaece.
 component SheetBase inherits Rectangle {
+    in property <bool> side-panel: false;
     in property <string> title;
     in property <length> body-h;            // altura total da folha (sem o ajuste da área segura)
     in property <length> lift: 0px;         // sobe a folha (teclado sobre o campo de nome)
@@ -20,13 +21,13 @@ component SheetBase inherits Rectangle {
     animate shown-lift { duration: Theme.dur-short; }
     Rectangle { background: Theme.media-scrim; opacity: root.appear; accessible-role: none; TouchArea { clicked => { root.close(); } } }
     panel := Glass {
-        x: (parent.width - self.width) / 2;
-        width: min(parent.width, 552px);
+        x: Theme.wide && root.side-panel ? parent.width - self.width - Theme.s-md : (parent.width - self.width) / 2;
+        width: min(parent.width, Theme.wide && root.side-panel ? 460px : 552px);
         height: min(root.body-h, parent.height - AppState.safe-top - Theme.s-md);
-        y: parent.height - self.height - root.shown-lift + (Theme.reduce-motion ? 0px : (1 - root.appear) * 96px);
+        y: (Theme.wide ? (parent.height - self.height) / 2 : parent.height - self.height) - root.shown-lift + (Theme.reduce-motion ? 0px : (1 - root.appear) * 64px);
         opacity: root.appear;
         sheet: true;
-        flat-bottom: true;
+        flat-bottom: !Theme.wide;
         accessible-role: groupbox;
         accessible-label: root.title;
         Rectangle { y: 8px; width: 36px; height: 5px; border-radius: 2.5px; background: Theme.muted; x: (parent.width - self.width) / 2; accessible-role: none; }
@@ -71,6 +72,7 @@ component SheetRule inherits Rectangle {
 
 // ------------------------------------------------------------------------------------------------ Fila
 export component QueueSheet inherits SheetBase {
+    side-panel: true;
     title: "Fila";
     body-h: self.height - AppState.safe-top - Theme.s-xxxl;
     property <bool> empty: AppState.queue.length == 0;

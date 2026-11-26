@@ -114,6 +114,8 @@ pub struct SlintView {
     trending: Rows<ui::Track>,
     collections: Rows<ui::Collection>,
     playlists: Rows<ui::Playlist>,
+    library_artists: Rows<ui::Artist>,
+    library_albums: Rows<ui::Album>,
     queue: Rows<ui::Track>,
     search_songs: Rows<ui::Track>,
     search_albums: Rows<ui::Album>,
@@ -123,6 +125,7 @@ pub struct SlintView {
     recent_searches: Rows<SharedString>,
     detail_tracks: Rows<ui::Track>,
     detail_albums: Rows<ui::Album>,
+    detail_related: Rows<ui::Highlight>,
     folders: Rows<SharedString>,
     providers: Rows<ui::ProviderRow>,
 }
@@ -142,6 +145,8 @@ impl SlintView {
             trending: Rc::default(),
             collections: Rc::default(),
             playlists: Rc::default(),
+            library_artists: Rc::default(),
+            library_albums: Rc::default(),
             queue: Rc::default(),
             search_songs: Rc::default(),
             search_albums: Rc::default(),
@@ -151,6 +156,7 @@ impl SlintView {
             recent_searches: Rc::default(),
             detail_tracks: Rc::default(),
             detail_albums: Rc::default(),
+            detail_related: Rc::default(),
             folders: Rc::default(),
             providers: Rc::default(),
         };
@@ -165,6 +171,8 @@ impl SlintView {
         s.set_trending(ModelRc::from(v.trending.clone()));
         s.set_collections(ModelRc::from(v.collections.clone()));
         s.set_playlists(ModelRc::from(v.playlists.clone()));
+        s.set_library_artists(ModelRc::from(v.library_artists.clone()));
+        s.set_library_albums(ModelRc::from(v.library_albums.clone()));
         s.set_queue(ModelRc::from(v.queue.clone()));
         s.set_search_songs(ModelRc::from(v.search_songs.clone()));
         s.set_search_albums(ModelRc::from(v.search_albums.clone()));
@@ -174,6 +182,7 @@ impl SlintView {
         s.set_recent_searches(ModelRc::from(v.recent_searches.clone()));
         s.set_detail_tracks(ModelRc::from(v.detail_tracks.clone()));
         s.set_detail_albums(ModelRc::from(v.detail_albums.clone()));
+        s.set_detail_related(ModelRc::from(v.detail_related.clone()));
         s.set_folders(ModelRc::from(v.folders.clone()));
         s.set_providers(ModelRc::from(v.providers.clone()));
         v
@@ -273,6 +282,8 @@ impl View for SlintView {
     }
 
     fn set_library(&self, library: &LibraryVm) {
+        fill(&self.library_artists, &library.artists, artist);
+        fill(&self.library_albums, &library.albums, album);
         fill(&self.collections, &library.collections, |c| ui::Collection {
             id: c.id.as_str().into(),
             title: c.title.as_str().into(),
@@ -345,6 +356,7 @@ impl View for SlintView {
     fn set_detail(&self, detail: &DetailVm) {
         fill(&self.detail_tracks, &detail.tracks, track);
         fill(&self.detail_albums, &detail.albums, album);
+        fill(&self.detail_related, &detail.related, highlight);
         self.with(|w| {
             let s = w.global::<ui::AppState>();
             s.set_detail_kind(match detail.kind {
@@ -354,6 +366,7 @@ impl View for SlintView {
             });
             s.set_detail_state(load_state(detail.state));
             s.set_detail_title(detail.title.as_str().into());
+            s.set_detail_description(detail.description.as_str().into());
             s.set_detail_subtitle(detail.subtitle.as_str().into());
             s.set_detail_cover(img(&detail.cover));
             s.set_detail_source(detail.source.as_str().into());
@@ -367,6 +380,9 @@ impl View for SlintView {
     fn open_detail(&self, open: bool) {
         self.with(|w| {
             let s = w.global::<ui::AppState>();
+            if open && !s.get_detail_open() {
+                s.set_player_open(false);
+            }
             s.set_detail_open(open);
             if open {
                 s.set_queue_open(false);

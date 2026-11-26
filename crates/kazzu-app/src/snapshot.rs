@@ -66,6 +66,8 @@ fn plan(label: &'static str, w: f32, h: f32, theme: ThemePref, full: bool) -> Ve
     let mut v = vec![
         step(None, 500, move |app| {
             app.controller.borrow_mut().set_theme(theme);
+            app.window.window().set_maximized(false);
+            app.window.global::<ui::AppState>().set_mobile(w < 1100.0);
             app.window.window().set_size(slint::LogicalSize::new(w, h));
         }),
         // o Início do YouTube Music (ou só o local, com --no-youtube) precisa de tempo para chegar
@@ -80,6 +82,18 @@ fn plan(label: &'static str, w: f32, h: f32, theme: ThemePref, full: bool) -> Ve
         step(Some(&n("settings")), 600, |app| {
             app.window.global::<ui::AppState>().set_search_text("".into());
             go(ui::Tab::Settings)(app);
+        }),
+        step(Some(&n("settings-appearance")), 500, |app| app.window.global::<ui::AppState>().set_settings_section(2)),
+        step(Some(&n("settings-playback")), 500, |app| app.window.global::<ui::AppState>().set_settings_section(1)),
+        step(Some(&n("settings-search")), 500, |app| {
+            let state = app.window.global::<ui::AppState>();
+            state.set_settings_section(-1);
+            state.set_settings_query("vidro".into());
+        }),
+        step(None, 100, |app| {
+            let state = app.window.global::<ui::AppState>();
+            state.set_settings_query("".into());
+            state.set_settings_section(0);
         }),
         // janela alta: mostra Ajustes inteira sem precisar rolar
         step(None, 500, move |app| app.window.window().set_size(slint::LogicalSize::new(w, 1900.0))),
@@ -194,14 +208,23 @@ pub fn run(app: App, dir: PathBuf, software: bool) -> Result<(), AppError> {
     let prefix = format!("{}{}", if tag_env.is_empty() { String::new() } else { format!("{tag_env}-") }, if software { "sw" } else { "gl" });
     let mut steps: Vec<Step> = Vec::new();
     let tag = |s: &'static str| -> &'static str { Box::leak(format!("{prefix}-{s}").into_boxed_str()) };
-    // mobile primeiro (390 e 360), depois tablet e desktop
-    steps.extend(plan(tag("mobile-dark"), 390.0, 844.0, ThemePref::Dark, true));
-    steps.extend(plan(tag("narrow-dark"), 360.0, 740.0, ThemePref::Dark, true));
-    steps.extend(plan(tag("mobile-light"), 390.0, 844.0, ThemePref::Light, true));
-    steps.extend(plan(tag("tablet-dark"), 768.0, 1024.0, ThemePref::Dark, false));
-    steps.extend(plan(tag("desktop-dark"), 1280.0, 800.0, ThemePref::Dark, true));
-    steps.extend(plan(tag("desktop-light"), 1280.0, 800.0, ThemePref::Light, false));
+    // A native run may target selected sizes to verify window constraints without replaying the whole matrix.
+    let only = std::env::var("KAZZU_SNAPSHOT_ONLY").unwrap_or_default();
+    for (label, w, h, theme, full) in [
+        ("mobile-dark", 390.0, 844.0, ThemePref::Dark, true),
+        ("narrow-dark", 360.0, 740.0, ThemePref::Dark, true),
+        ("mobile-light", 390.0, 844.0, ThemePref::Light, true),
+        ("tablet-dark", 768.0, 1024.0, ThemePref::Dark, false),
+        ("desktop-dark", 1280.0, 800.0, ThemePref::Dark, true),
+        ("desktop-light", 1280.0, 800.0, ThemePref::Light, false),
+    ] {
+        if only.is_empty() || only.split(',').any(|s| s.trim() == label) {
+            steps.extend(plan(tag(label), w, h, theme, full));
+        }
+    }
     steps.push(step(Some(&format!("{prefix}-mobile-light-reduce-transparency")), 700, |app| {
+        app.window.global::<ui::AppState>().set_mobile(true);
+        app.window.window().set_size(slint::LogicalSize::new(390.0, 844.0));
         app.controller.borrow_mut().set_reduce_transparency(true);
         go(ui::Tab::Library)(app);
     }));

@@ -1,0 +1,74 @@
+// Native presentation primitives shared by browsing, library and detail screens.
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { AppState } from "../theme/app-contract.slint";
+import { Pressable, Icon, Cover, IconButton, MediaGlass } from "atoms.slint";
+
+export component PageHeading inherits Rectangle {
+    min-width: 0px;
+    in property <string> eyebrow;
+    in property <string> title;
+    in property <string> subtitle;
+    height: subtitle == "" ? 72px : 96px;
+    VerticalLayout {
+        padding-left: Theme.gutter; padding-right: Theme.gutter;
+        spacing: 4px; alignment: center;
+        Text { text: root.eyebrow; color: Theme.accent; font-size: Theme.text-xs; font-weight: 600; letter-spacing: 1.4px; }
+        Text { text: root.title; color: Theme.ink; font-family: Theme.font-display; font-size: 32px; font-weight: 700; overflow: elide; }
+        if root.subtitle != "" : Text { text: root.subtitle; color: Theme.ink-2; font-size: Theme.text-md; overflow: elide; }
+    }
+}
+
+export component CollectionShortcut inherits Pressable {
+    in property <string> title;
+    in property <string> subtitle;
+    in property <image> icon;
+    in property <bool> available: true;
+    label: title + (available ? "" : ", em breve");
+    height: 72px; ring-radius: Theme.r-plate;
+    enabled: available;
+    Rectangle { border-radius: Theme.r-plate; background: root.hovered ? Theme.paper-3 : Theme.paper-2; border-width: 1px; border-color: root.hovered ? Theme.accent.with-alpha(0.4) : Theme.rule; animate background { duration: Theme.dur-micro; } }
+    HorizontalLayout {
+        padding: Theme.s-sm; spacing: Theme.s-sm;
+        VerticalLayout { alignment: center; Icon { source: root.icon; tint: root.available ? Theme.accent : Theme.muted; } }
+        VerticalLayout { alignment: center; horizontal-stretch: 1;
+            Text { text: root.title; color: Theme.ink; font-size: Theme.text-md; font-weight: 600; overflow: elide; }
+            if root.subtitle != "" : Text { text: root.subtitle; color: Theme.ink-2; font-size: Theme.text-xs; overflow: elide; }
+        }
+    }
+}
+
+export component FeatureArtwork inherits Pressable {
+    in property <image> cover;
+    in property <string> title;
+    in property <string> subtitle;
+    callback play();
+    width: Theme.compact ? 272px : 300px;
+    height: Theme.compact ? 304px : 252px;
+    label: title + ", " + subtitle;
+    ring-radius: Theme.r-card;
+    Rectangle {
+        border-radius: Theme.r-card; clip: true;
+        background: Theme.paper-2;
+        Image { source: root.cover; width: 100%; height: 100%; image-fit: ImageFit.cover; }
+        if root.cover.width == 0 : Icon { source: Icons.disc; size: 64px; tint: Theme.muted; }
+        Rectangle { background: @linear-gradient(180deg, Theme.media-console.with-alpha(0) 35%, Theme.media-console.with-alpha(0.35) 100%); }
+        MediaGlass { x: 12px; y: parent.height - 116px; width: parent.width - 24px; height: 104px; radius: 20px; }
+        Rectangle { background: root.hovered ? Theme.media-ink.with-alpha(0.06) : transparent; animate background { duration: Theme.dur-micro; } }
+        VerticalLayout {
+            padding: 24px; padding-bottom: 28px; alignment: end; spacing: Theme.s-xs;
+            Text { text: "PARA OUVIR AGORA"; color: Theme.media-accent; font-size: Theme.text-xs; font-weight: 600; letter-spacing: 1.2px; }
+            HorizontalLayout {
+                spacing: Theme.s-sm;
+                VerticalLayout { alignment: center; horizontal-stretch: 1;
+                    Text { text: root.title; color: Theme.media-ink; font-family: Theme.font-display; font-size: Theme.text-xxl; font-weight: 700; overflow: elide; }
+                    Text { text: root.subtitle; color: Theme.media-ink; font-size: Theme.text-md; overflow: elide; }
+                }
+                Pressable { width: 48px; height: 48px; ring-color: Theme.media-ink; label: "Tocar " + root.title; clicked => { root.play(); }
+                    Rectangle { border-radius: 24px; background: Theme.media-ink; opacity: parent.pressed ? 0.8 : 1; }
+                    Icon { source: Icons.play; tint: Theme.media-console; size: 24px; }
+                }
+            }
+        }
+    }
+}

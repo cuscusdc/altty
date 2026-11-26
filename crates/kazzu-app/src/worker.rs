@@ -12,7 +12,7 @@ use std::time::Duration;
 use crossbeam_channel::{Receiver, RecvTimeoutError, Sender};
 use std::time::Instant;
 use kazzu_core::QueueItem;
-use kazzu_library::{Album, AlbumId, Artwork, Library, PlaylistEntry, PlaylistId, ScanProgress, ScanReport, Track, TrackId};
+use kazzu_library::{Album, AlbumId, ArtistId, Artwork, Library, PlaylistEntry, PlaylistId, ScanProgress, ScanReport, Track, TrackId};
 
 use crate::accent;
 use crate::art::{self, Pixels};
@@ -48,6 +48,9 @@ pub enum Scope {
 /// O que mostrar na tela de detalhe.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DetailRef {
+    Artist(String),
+    ArtistOfTrack(String),
+    Songs,
     Album(String),
     Liked,
     Downloads,
@@ -527,7 +530,7 @@ impl Store {
 
         Ok(Snapshot {
             home: HomeVm { recents, albums, ..Default::default() },
-            library: LibraryVm { collections, playlists: playlist_vms },
+            library: LibraryVm { albums: order.iter().map(|a| self.album_vm(a)).collect(), artists: self.lib.artists()?.into_iter().map(|a| ArtistVm { id: a.id.0.to_string(), name: a.name, subtitle: format::songs_label(a.track_count as u64), ..Default::default() }).collect(), collections, playlists: playlist_vms },
             settings: SettingsVm {
                 folders: folders.iter().map(|p| p.display().to_string()).collect(),
                 summary: format::library_summary(folders.len(), track_count),
@@ -570,6 +573,24 @@ impl Store {
 
     /// Detalhe + ids das faixas (para tocar na ordem exibida).
     fn detail(&mut self, r: &DetailRef) -> Result<(DetailVm, Vec<String>, Vec<kazzu_core::Track>), kazzu_library::Error> {
+        if let DetailRef::ArtistOfTrack(track_id) = r {
+            let name = parse_id(track_id).and_then(|id| self.lib.track(TrackId(id)).ok().flatten()).and_then(|t| t.artists.first().cloned());
+            let found = self.lib.artists()?.into_iter().find(|a| Some(a.name.as_str()) == name.as_deref());
+            return match found {
+                Some(a) => self.detail(&DetailRef::Artist(a.id.0.to_string())),
+                None => Ok((DetailVm { state: LoadStateVm::Empty, title: "Artista".into(), empty_text: "Este arquivo não informa o artista.".into(), ..Default::default() }, vec![], vec![])),
+            };
+        }
+        if let DetailRef::Artist(id) = r {
+            let artist_id = ArtistId(parse_id(id).unwrap_or(-1));
+            let title = self.lib.artists()?.into_iter().find(|a| a.id == artist_id).map(|a| a.name).unwrap_or_else(|| "Artista".into());
+            let tracks = self.lib.artist_tracks(artist_id)?;
+            let albums = self.lib.artist_albums(artist_id)?;
+            let mut out = self.mixed_detail(title, "Adicione músicas deste artista à biblioteca.", tracks.into_iter().map(PlaylistEntry::Local).collect())?;
+            out.0.kind = DetailKindVm::Artist;
+            out.0.albums = albums.iter().map(|a| self.album_vm(a)).collect();
+            return Ok(out);
+        }
         if let DetailRef::AlbumOfTrack(track_id) = r {
             let album = parse_id(track_id).and_then(|i| self.lib.track(TrackId(i)).ok().flatten()).and_then(|t| t.album_id);
             return match album {
@@ -578,7 +599,8 @@ impl Store {
             };
         }
         let (title, subtitle, empty, scope) = match r {
-            DetailRef::AlbumOfTrack(_) => unreachable_detail(),
+            DetailRef::Songs => ("Músicas".into(), String::new(), "Adicione uma pasta para ouvir suas músicas aqui.".into(), Scope::All),
+            DetailRef::AlbumOfTrack(_) | DetailRef::ArtistOfTrack(_) | DetailRef::Artist(_) => unreachable_detail(),
             DetailRef::Album(id) => {
                 let album = parse_id(id).and_then(|i| self.albums.get(&i).cloned());
                 match album {

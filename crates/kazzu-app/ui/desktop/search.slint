@@ -1,11 +1,12 @@
-// Buscar (v4): campo no alto da tela, "Reconhecer pelo som" (Em breve), buscas recentes, sugestões e resultados por tipo.
+// Instant search and discovery, with provider-backed categories and live results.
 import { Theme } from "../theme/tokens.slint";
 import { Icons } from "../theme/icons.slint";
 import { Metrics } from "../theme/metrics.slint";
-import { AppState, Tab, SearchState } from "../theme/app-contract.slint";
+import { AppState, Tab, SearchState, LoadState } from "../theme/app-contract.slint";
 import { Nav } from "../theme/nav-state.slint";
-import { SearchField, Pressable, Icon, IconButton, Cover, Tile, TrackRow, Segmented, SectionHeader, Group, GroupItem, Tag, StateCard, Skeleton } from "../components/atoms.slint";
-import { Screen, Rail, RootHeader, LargeTitle, Rows, Gutters, AlbumGrid, SkeletonRows } from "../components/shared.slint";
+import { SearchField, Pressable, Icon, IconButton, Cover, Tile, TrackRow, MoodTile, Segmented, SectionHeader, Group, GroupItem, Tag, StateCard, Skeleton } from "../components/atoms.slint";
+import { PageHeading, FeatureArtwork } from "../components/editorial.slint";
+import { Screen, Rail, Rows, Gutters, AlbumGrid, SkeletonRows } from "../components/shared.slint";
 
 // Linha de texto da busca (recente ou sugestão): ícone, texto e, nas recentes, o X para tirar.
 component TermRow inherits Pressable {
@@ -30,34 +31,10 @@ component TermRow inherits Pressable {
     }
 }
 
-component MediaRow inherits Pressable {
-    in property <image> cover;
-    in property <string> title;
-    in property <string> subtitle;
-    in property <bool> round: false;
-    in property <bool> separator: true;
-    height: Theme.row-h;
-    ring-radius: Theme.r-thumb;
-    label: title + ", " + subtitle;
-    HorizontalLayout {
-        spacing: Theme.s-sm;
-        VerticalLayout { alignment: center; Cover { source: root.cover; radius: root.round ? 24px : Theme.r-thumb; } }
-        Rectangle {
-            if root.separator : Rectangle { x: 0; y: 0; width: parent.width - 12px; height: 1px; background: Theme.rule; }
-            HorizontalLayout {
-                VerticalLayout {
-                    alignment: center;
-                    horizontal-stretch: 1;
-                    Text { text: root.title; color: Theme.ink; font-size: Theme.text-lg; overflow: elide; accessible-role: none; }
-                    Text { text: root.subtitle; color: Theme.ink-2; font-size: Theme.text-md; overflow: elide; accessible-role: none; }
-                }
-            }
-        }
-    }
-}
-
-export component SearchScreen inherits Rectangle {
+export component DesktopSearch inherits Rectangle {
     property <[string]> kinds: ["Tudo", "Músicas", "Álbuns", "Artistas", "Playlists"];
+    property <int> cols: root.width < 600px ? 2 : 4;
+    property <length> mood-w: (root.width - 2 * Theme.gutter - (root.cols - 1) * Theme.s-sm) / root.cols;
     property <bool> typing: AppState.search-text != "";
     function set-text(t: string) { AppState.search-text = t; AppState.search(t); field.focus-input(); }
     function set-kind(k: int) { AppState.search-kind = k; AppState.search-kind-changed(k); }
@@ -66,11 +43,11 @@ export component SearchScreen inherits Rectangle {
     Screen {
         tab: Tab.search;
         VerticalLayout {
-            padding-top: AppState.safe-top + Theme.s-xs;
+            padding-top: AppState.safe-top + Theme.s-xl;
             padding-bottom: Metrics.reserve;
             spacing: Theme.s-xl;
             alignment: start;
-            VerticalLayout { RootHeader { } LargeTitle { text: "Buscar"; } }
+            VerticalLayout { PageHeading { eyebrow: "SIGA SUA CURIOSIDADE"; title: "Seu próximo som."; subtitle: "Músicas, artistas, álbuns e playlists."; } }
             Gutters {
                 field := SearchField {
                     text <=> AppState.search-text;
@@ -78,9 +55,37 @@ export component SearchScreen inherits Rectangle {
                     escaped => { root.set-text(""); }
                 }
             }
-            if AppState.search-state == SearchState.idle && !root.typing : Gutters {
-                // recurso que ainda não existe: linha esmaecida com "Em breve", sem interruptor falso
-                Group { GroupItem { separator: false; has-icon: true; icon: Icons.wave; title: "Reconhecer pelo som"; note: "Descubra a música que está tocando perto de você."; dimmed: true; VerticalLayout { alignment: center; Tag { text: "Em breve"; } } } }
+            if !root.typing && AppState.new-releases.length == 0 && AppState.library-albums.length > 0 : VerticalLayout {
+                spacing: Theme.s-xs; SectionHeader { title: "Explore seu acervo"; }
+                Rail { label: "Seu acervo"; card-h: (Theme.compact ? 148px : 172px) + 52px;
+                    for a in AppState.library-albums : Tile { cover: a.cover; title: a.title; subtitle: a.artist; clicked => { AppState.open-album(a.id); } }
+                }
+            }
+            if !root.typing && AppState.library-albums.length == 0 && AppState.moods.length == 0 && AppState.new-releases.length == 0 && AppState.recent-searches.length == 0 && AppState.explore-state != LoadState.loading : Gutters {
+                StateCard { icon: Icons.search; title: "O que você quer ouvir?"; text: "Digite o nome de uma música, artista ou álbum para começar."; }
+            }
+            if !root.typing && AppState.moods.length > 0 : VerticalLayout {
+                spacing: Theme.s-xs;
+                SectionHeader { title: "Explore por momentos e gêneros"; }
+                Rectangle {
+                    height: ceil(AppState.moods.length / root.cols) * 68px;
+                    for m[i] in AppState.moods : MoodTile {
+                        x: Theme.gutter + mod(i, root.cols) * (root.mood-w + Theme.s-sm);
+                        y: floor(i / root.cols) * 68px;
+                        width: root.mood-w; title: m.title;
+                        clicked => { AppState.open-item(m.kind, m.id); }
+                    }
+                }
+            }
+            if !root.typing && AppState.explore-state == LoadState.loading : SkeletonRows { count: 2; }
+            if !root.typing && AppState.explore-state == LoadState.error : Gutters {
+                StateCard { icon: Icons.cloud-off; title: "A descoberta não atualizou"; text: AppState.explore-error-text; primary: "Atualizar"; primary-clicked => { AppState.retry-explore(); } }
+            }
+            if !root.typing && AppState.new-releases.length > 0 : VerticalLayout {
+                spacing: Theme.s-xs; SectionHeader { title: "Novos lançamentos"; }
+                Rail { label: "Lançamentos"; card-h: (Theme.compact ? 148px : 172px) + 52px;
+                    for a in AppState.new-releases : Tile { cover: a.cover; title: a.title; subtitle: a.artist; clicked => { AppState.open-album(a.id); } }
+                }
             }
             if AppState.search-state == SearchState.idle && !root.typing && AppState.recent-searches.length > 0 : VerticalLayout {
                 spacing: Theme.s-sm;
@@ -96,8 +101,12 @@ export component SearchScreen inherits Rectangle {
                     }
                 }
             }
+            if !root.typing && AppState.trending.length > 0 : VerticalLayout {
+                spacing: Theme.s-xs; SectionHeader { title: "Em alta agora"; }
+                Rows { for t[i] in AppState.trending : TrackRow { visible: i < 5; height: i < 5 ? Theme.row-h : 0px; t: t; number: i + 1; ranked: true; separator: false; clicked => { AppState.play-track(t.id); } more-clicked => { Nav.open-menu(t); } } }
+            }
             // sugestões enquanto digita (antes do resultado chegar)
-            if root.typing && AppState.search-suggestions.length > 0 && AppState.search-state == SearchState.idle : Rows {
+            if root.typing && AppState.search-suggestions.length > 0 && (AppState.search-state == SearchState.idle || AppState.search-state == SearchState.loading) : Rows {
                 for s[i] in AppState.search-suggestions : TermRow { term: s; icon: Icons.search; separator: i > 0; clicked => { root.set-text(s); } }
             }
             if AppState.search-state == SearchState.loading : SkeletonRows { count: 5; }
@@ -130,31 +139,20 @@ export component SearchScreen inherits Rectangle {
             }
             if AppState.search-state == SearchState.results : VerticalLayout {
                 spacing: Theme.s-xl;
-                Gutters { Segmented { options: root.kinds; current: AppState.search-kind; changed(i) => { root.set-kind(i); } } }
+                Rail { label: "Tipos de resultado"; card-h: 48px;
+                    for kind[i] in root.kinds : Pressable { width: 108px; height: 48px; label: kind; accessible-role: tab; accessible-item-selected: AppState.search-kind == i; ring-radius: Theme.r-pill;
+                        Rectangle { border-radius: Theme.r-pill; background: AppState.search-kind == i ? Theme.accent : Theme.paper-2; }
+                        Text { text: kind; color: AppState.search-kind == i ? Theme.accent-ink : Theme.ink; font-size: Theme.text-md; horizontal-alignment: center; vertical-alignment: center; }
+                        clicked => { root.set-kind(i); }
+                    }
+                }
                 if AppState.search-kind == 0 && AppState.search-has-best : VerticalLayout {
                     spacing: Theme.s-sm;
                     SectionHeader { title: "Melhor resultado"; }
-                    Gutters {
-                        Group {
-                            Pressable {
-                                height: 72px;
-                                ring-radius: Theme.r-group;
-                                label: AppState.search-best.title + ", " + AppState.search-best.subtitle;
-                                clicked => { AppState.open-item(AppState.search-best.kind, AppState.search-best.id); }
-                                HorizontalLayout {
-                                    padding-left: Theme.s-md;
-                                    padding-right: Theme.s-sm;
-                                    spacing: Theme.s-sm;
-                                    VerticalLayout { alignment: center; Cover { source: AppState.search-best.cover; } }
-                                    VerticalLayout {
-                                        alignment: center;
-                                        horizontal-stretch: 1;
-                                        Text { text: AppState.search-best.title; color: Theme.ink; font-size: Theme.text-lg; font-weight: 600; overflow: elide; accessible-role: none; }
-                                        Text { text: AppState.search-best.subtitle; color: Theme.ink-2; font-size: Theme.text-sm; overflow: elide; accessible-role: none; }
-                                    }
-                                    VerticalLayout { alignment: center; IconButton { icon: Icons.play; label: "Tocar " + AppState.search-best.title; clicked => { AppState.play-item(AppState.search-best.kind, AppState.search-best.id); } } }
-                                }
-                            }
+                    Rail { label: "Melhor resultado"; card-h: Theme.compact ? 304px : 332px;
+                        FeatureArtwork { cover: AppState.search-best.cover; title: AppState.search-best.title; subtitle: AppState.search-best.subtitle;
+                            clicked => { AppState.open-item(AppState.search-best.kind, AppState.search-best.id); }
+                            play => { AppState.play-item(AppState.search-best.kind, AppState.search-best.id); }
                         }
                     }
                 }
@@ -186,12 +184,16 @@ export component SearchScreen inherits Rectangle {
                 if (AppState.search-kind == 0 || AppState.search-kind == 3) && AppState.search-artists.length > 0 : VerticalLayout {
                     spacing: Theme.s-sm;
                     SectionHeader { title: "Artistas"; }
-                    Rows { for a[i] in AppState.search-artists : MediaRow { round: true; cover: a.cover; title: a.name; subtitle: a.subtitle; separator: i > 0; clicked => { AppState.open-item("artist", a.id); } } }
+                    Rail { label: "Artistas"; card-h: (Theme.compact ? 148px : 172px) + 52px;
+                        for a in AppState.search-artists : Tile { round: true; cover: a.cover; title: a.name; subtitle: a.subtitle; clicked => { AppState.open-item("artist", a.id); } }
+                    }
                 }
                 if (AppState.search-kind == 0 || AppState.search-kind == 4) && AppState.search-playlists.length > 0 : VerticalLayout {
                     spacing: Theme.s-sm;
                     SectionHeader { title: "Playlists"; }
-                    Rows { for p[i] in AppState.search-playlists : MediaRow { cover: p.cover; title: p.title; subtitle: p.subtitle; separator: i > 0; clicked => { AppState.open-item(p.kind, p.id); } } }
+                    Rail { label: "Playlists"; card-h: (Theme.compact ? 148px : 172px) + 52px;
+                        for p in AppState.search-playlists : Tile { cover: p.cover; title: p.title; subtitle: p.subtitle; clicked => { AppState.open-item(p.kind, p.id); } }
+                    }
                 }
             }
         }

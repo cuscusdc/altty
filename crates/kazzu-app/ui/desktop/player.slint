@@ -1,0 +1,193 @@
+// Native immersive player: responsive inset artwork, atmospheric backdrop and an adaptive control console.
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { AppState, RepeatMode } from "../theme/app-contract.slint";
+import { Nav } from "../theme/nav-state.slint";
+import { MediaGlass, MediaIconButton, Cover, Pressable, Icon, IconButton, TextButton, Scrubber, Spinner } from "../components/atoms.slint";
+
+// Console: título, posição, transporte, volume, saída e fila. Mesmo conteúdo no celular, no tablet e no desktop.
+component PlayerConsole inherits VerticalLayout {
+    in property <length> pad-x: Theme.s-xl;
+    in property <length> pad-top: Theme.s-xl + Theme.s-xs;
+    in property <length> pad-bottom: Theme.s-lg;
+    padding-left: root.pad-x;
+    padding-right: root.pad-x;
+    padding-top: root.pad-top;
+    padding-bottom: root.pad-bottom;
+    alignment: space-between;
+    // título, artista, curtir. Todo texto do console é branco puro: a hierarquia vem do tamanho e do peso.
+    HorizontalLayout {
+        spacing: Theme.s-sm;
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            Text { text: AppState.now.title; color: Theme.media-ink; font-family: Theme.font-display; font-size: Theme.compact ? Theme.text-xl : Theme.text-xxl; font-weight: 700; letter-spacing: -0.44px; overflow: elide; accessible-role: AccessibleRole.text; }
+            Pressable { height: 48px; label: "Abrir artista: " + AppState.now.artist; clicked => { Nav.close-player(); AppState.goto-artist(AppState.now.id); }
+                Text { x: 0; width: parent.width; text: AppState.now.artist; color: Theme.media-ink; font-size: Theme.text-lg; vertical-alignment: center; overflow: elide; }
+            }
+            if AppState.now.album != "" : Pressable { height: 48px; label: "Abrir álbum: " + AppState.now.album; clicked => { Nav.close-player(); AppState.goto-album(AppState.now.id); }
+                Text { x: 0; width: parent.width; text: AppState.now.album; color: Theme.media-ink; font-size: Theme.text-sm; vertical-alignment: center; overflow: elide; }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            IconButton {
+                icon: AppState.now.liked ? Icons.heart-fill : Icons.heart;
+                tint: AppState.now.liked ? Theme.media-accent : Theme.media-ink;
+                media: true;
+                ring-color: Theme.media-ink;
+                label: AppState.now.liked ? "Descurtir" : "Curtir";
+                clicked => { AppState.toggle-like(AppState.now.id); }
+            }
+        }
+    }
+    // erro: uma linha com a ação, entre o título e a posição
+    if AppState.player-error != "" : VerticalLayout {
+        spacing: Theme.s-xxs;
+        Text { text: AppState.player-error; color: Theme.media-ink; font-size: Theme.text-md; font-weight: 600; wrap: word-wrap; accessible-role: AccessibleRole.text; accessible-live-region: AccessibleLiveness.polite; }
+        HorizontalLayout {
+            alignment: start;
+            spacing: Theme.s-sm;
+            TextButton { text: AppState.player-error-action; ink: Theme.media-ink; ring-color: Theme.media-ink; width: 140px; clicked => { AppState.retry-track(); } }
+            TextButton { text: "Pular"; ink: Theme.media-ink; ring-color: Theme.media-ink; width: 80px; clicked => { AppState.next(); } }
+        }
+    }
+    // posição: tempo decorrido, de onde vem e em que formato, tempo que falta
+    VerticalLayout {
+        // o desenho da barra é fino; o toque tem os 48 (a linha ultrapassa 8 para cima e para baixo da faixa de 32)
+        Rectangle {
+            height: 32px;
+            Scrubber {
+                y: -8px;
+                height: 48px;
+                value: AppState.progress;
+                label: "Posição";
+                value-text: AppState.position-label + ", faltam " + AppState.remaining-label;
+                seek(v) => { AppState.seek(v); }
+            }
+        }
+        HorizontalLayout {
+            height: 24px;
+            spacing: Theme.s-xs;
+            Text { width: 44px; text: AppState.position-label; color: Theme.media-ink; font-size: Theme.text-sm; vertical-alignment: center; accessible-role: none; }
+            Text { text: AppState.now-source-line; color: Theme.media-ink; font-size: Theme.text-xs; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; accessible-label: AppState.now-source-line + (AppState.output-note != "" ? ". " + AppState.output-note : ""); }
+            Text { width: 48px; text: AppState.now.duration-label != "" ? AppState.now.duration-label : AppState.remaining-label; color: Theme.media-ink; font-size: Theme.text-sm; horizontal-alignment: right; vertical-alignment: center; accessible-role: none; }
+        }
+    }
+    HorizontalLayout {
+        alignment: space-between;
+        VerticalLayout { alignment: center; IconButton { icon: Icons.shuffle; tint: Theme.media-ink; media: true; on: AppState.shuffle; label: AppState.shuffle ? "Aleatório, ligado" : "Aleatório, desligado"; ring-color: Theme.media-ink; clicked => { AppState.toggle-shuffle(); } } }
+        VerticalLayout { alignment: center; IconButton { width: 56px; height: 56px; visual: 56px; icon: Icons.prev; icon-size: 36px; tint: Theme.media-ink; media: true; label: "Anterior"; ring-color: Theme.media-ink; clicked => { AppState.previous(); } } }
+        Pressable {
+            width: 72px;
+            height: 72px;
+            label: AppState.player-loading ? "Carregando" : AppState.playing ? "Pausar" : "Tocar";
+            ring-color: Theme.media-ink;
+            clicked => { AppState.toggle-play(); }
+            Rectangle { border-radius: 36px; background: Theme.media-ink; opacity: parent.pressed ? 0.85 : 1; }
+            if !AppState.player-loading : Icon { source: AppState.playing ? Icons.pause : Icons.play; tint: Theme.media-console; size: 32px; }
+            if AppState.player-loading : Rectangle { Spinner { tint: Theme.media-console; size: 32px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; } }
+        }
+        VerticalLayout { alignment: center; IconButton { width: 56px; height: 56px; visual: 56px; icon: Icons.next; icon-size: 36px; tint: Theme.media-ink; media: true; label: "Próxima"; ring-color: Theme.media-ink; clicked => { AppState.next(); } } }
+        VerticalLayout {
+            alignment: center;
+            IconButton {
+                icon: Icons.repeat;
+                tint: Theme.media-ink;
+                media: true;
+                on: AppState.repeat != RepeatMode.off;
+                badge: AppState.repeat == RepeatMode.one ? "1" : "";
+                label: AppState.repeat == RepeatMode.off ? "Repetir, desligado" : AppState.repeat == RepeatMode.all ? "Repetir tudo" : "Repetir esta música";
+                ring-color: Theme.media-ink;
+                clicked => { AppState.cycle-repeat(); }
+            }
+        }
+    }
+    HorizontalLayout {
+        spacing: Theme.s-sm;
+        Icon { source: Icons.vol-low; tint: Theme.media-ink; size: 20px; }
+        Scrubber { height: 48px; value: AppState.volume; label: "Volume"; value-text: Math.round(AppState.volume * 100) + " por cento"; seek(v) => { AppState.set-volume(v); } }
+        Icon { source: Icons.vol-high; tint: Theme.media-ink; size: 20px; }
+    }
+    // saída atual e Fila: dois botões com caixa (um poço mais escuro dentro do vidro; nunca vidro dentro de vidro)
+    HorizontalLayout {
+        spacing: Theme.s-sm;
+        for a[i] in [{ icon: Icons.device, text: AppState.output-name != "" ? AppState.output-name : "Este aparelho", label: "Saída: " + AppState.output-name }, { icon: Icons.queue, text: "Fila", label: "Abrir a fila" }] : Pressable {
+            height: Theme.control-h;
+            horizontal-stretch: 1;
+            ring-color: Theme.media-ink;
+            label: a.label;
+            clicked => { if (i == 1) { AppState.queue-open = true; } else { AppState.open-output-picker(); } }
+            Rectangle { border-radius: parent.height / 2; background: Theme.media-well; border-width: 1px; border-color: Theme.media-edge-lo; opacity: parent.pressed ? 0.7 : 1; }
+            HorizontalLayout {
+                alignment: center;
+                spacing: Theme.s-xs;
+                padding-left: Theme.s-sm;
+                padding-right: Theme.s-sm;
+                VerticalLayout { alignment: center; Icon { source: a.icon; tint: Theme.media-ink; size: 20px; } }
+                Text { text: a.text; color: Theme.media-ink; font-size: Theme.text-md; font-weight: 600; vertical-alignment: center; overflow: elide; accessible-role: none; }
+            }
+        }
+    }
+}
+
+// One responsive stage: inset artwork on phones, a separate console on wide windows.
+export component DesktopPlayer inherits Rectangle {
+    property <float> reveal: 0;
+    property <bool> wide: root.width >= 900px && root.height - AppState.safe-top - AppState.safe-bottom >= 520px;
+    property <length> top: AppState.safe-top + 72px;
+    property <length> art: root.wide ? min(480px, root.width * 0.43, root.height - 152px) : min(420px, root.width - 48px, max(144px, root.height * 0.36));
+    property <length> console-w: root.wide ? min(440px, root.width * 0.42) : min(480px, root.width);
+    property <length> stage-h: root.wide ? max(root.art, 484px) : root.art + 464px;
+    property <length> left: root.wide ? (root.width - root.art - root.console-w - 56px) / 2 : (root.width - root.art) / 2;
+    property <length> drag-y: 0px;
+    init => { root.reveal = 1; }
+    animate reveal { duration: Theme.dur-long; easing: cubic-bezier(0.2, 0.9, 0.2, 1); }
+    background: Theme.media-console; clip: true;
+    accessible-role: groupbox; accessible-label: "Player";
+    if Theme.glass-on : Image { source: AppState.backdrop-wide; width: 100%; height: 100%; image-fit: ImageFit.cover; opacity: 0.7; }
+    Rectangle { background: @linear-gradient(180deg, Theme.media-console.with-alpha(0.35) 0%, Theme.media-console.with-alpha(0.7) 70%, Theme.media-console 100%); }
+    // A scrolling stage keeps all controls reachable in short windows and with large system text.
+    Flickable {
+        y: root.wide ? max(root.top, (root.height - root.stage-h) / 2) : root.top; height: root.height - self.y - AppState.safe-bottom;
+        content-height: max(self.height, root.stage-h + 24px);
+        interactive: self.content-height > self.height;
+        Rectangle {
+            y: (Theme.reduce-motion ? 0px : (1 - root.reveal) * 60px) + root.drag-y;
+            width: root.width; height: root.stage-h;
+            opacity: root.reveal;
+            Rectangle {
+                x: root.left; y: root.wide ? (root.stage-h - root.art) / 2 : 8px;
+                width: root.art; height: root.art;
+                border-radius: Theme.r-card; clip: true;
+                background: Theme.paper-2;
+                drop-shadow-blur: 36px; drop-shadow-offset-y: 16px; drop-shadow-color: Theme.media-shadow;
+                Image { source: AppState.now-art.width > 0 ? AppState.now-art : AppState.now.cover; width: 100%; height: 100%; image-fit: ImageFit.contain; accessible-label: "Capa de " + AppState.now.album; }
+                if AppState.now-art.width == 0 && AppState.now.cover.width == 0 : Icon { source: Icons.disc; tint: Theme.muted; size: 72px; }
+                TouchArea {
+                    property <length> start-y;
+                    pointer-event(e) => {
+                        if (e.kind == PointerEventKind.down) { self.start-y = self.mouse-y; }
+                        if (e.kind == PointerEventKind.up || e.kind == PointerEventKind.cancel) { if (root.drag-y > 110px) { Nav.close-player(); } root.drag-y = 0px; }
+                    }
+                    moved => { if (self.pressed && !root.wide) { root.drag-y = max(0px, self.mouse-y + root.drag-y - self.start-y); } }
+                }
+            }
+            Rectangle {
+                x: root.wide ? root.left + root.art + 56px : (root.width - root.console-w) / 2;
+                y: root.wide ? 0px : root.art + 24px;
+                width: root.console-w; height: root.wide ? root.stage-h : 440px;
+                PlayerConsole { pad-x: 24px; pad-top: 8px; pad-bottom: 16px; }
+            }
+        }
+    }
+    Rectangle {
+        y: AppState.safe-top + 8px; height: 48px;
+        IconButton { x: 16px; icon: Icons.chevron-down; tint: Theme.media-ink; media: true; label: "Fechar o player"; clicked => { Nav.close-player(); } }
+        VerticalLayout { x: 72px; width: root.width - 144px; alignment: center;
+            Text { text: "TOCANDO AGORA"; color: Theme.media-accent; font-size: Theme.text-xs; letter-spacing: 1.4px; font-weight: 600; horizontal-alignment: center; }
+            Text { text: AppState.now-origin; color: Theme.media-ink; font-size: Theme.text-sm; horizontal-alignment: center; overflow: elide; }
+        }
+        IconButton { x: parent.width - 64px; icon: Icons.more; tint: Theme.media-ink; media: true; label: "Mais ações"; clicked => { Nav.open-menu(AppState.now); } }
+    }
+}

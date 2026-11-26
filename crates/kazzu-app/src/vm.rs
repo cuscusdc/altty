@@ -132,6 +132,8 @@ pub struct ExploreVm {
 
 #[derive(Clone, Default)]
 pub struct LibraryVm {
+    pub albums: Vec<AlbumVm>,
+    pub artists: Vec<ArtistVm>,
     pub collections: Vec<CollectionVm>,
     pub playlists: Vec<PlaylistVm>,
 }
@@ -154,6 +156,8 @@ pub enum DetailKindVm {
 
 #[derive(Clone, Default)]
 pub struct DetailVm {
+    pub description: String,
+    pub related: Vec<HighlightVm>,
     pub kind: DetailKindVm,
     pub state: LoadStateVm,
     pub title: String,
@@ -358,6 +362,7 @@ impl CoverSlots for SearchVm {
 
 impl CoverSlots for DetailVm {
     fn each_cover(&mut self, f: &mut dyn FnMut(Option<&str>, &mut Option<Pixels>)) {
+        each_in(&mut self.related, f);
         f(self.cover_url.as_deref(), &mut self.cover);
         each_in(&mut self.tracks, f);
         each_in(&mut self.albums, f);

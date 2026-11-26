@@ -79,7 +79,6 @@ O UX_PLAN pede "zero requisição ao abrir e ficar parado"; a decisão do autor 
 2. Reordenar a fila por arrastar; "Adicionar à playlist" com Desfazer; renomear/apagar playlists.
 3. Foreground service/notificação de mídia no Android (a música para com a tela apagada); seletor de pastas (SAF).
 4. Teste com TalkBack e aparelho físico; medir 60 fps em GPU/Android de entrada.
-5. Playlists/artistas locais em "Artistas" e página de artista do acervo.
 
 ## v2: decisões e limites do Slint
 
@@ -166,3 +165,43 @@ Fonte visual da verdade: `design/v4/` (`README`, `DESIGN`, `SLINT_SPEC`, `ux/`, 
 - **Faixa larga (>= 1100) e média.** O design só prototipou a faixa larga em HTML; no Slint ela foi construída aqui: barra lateral **sólida** de 264 (`paper-2`, logo, quatro destinos, playlists), `NowBar` de vidro de 72, player em duas colunas (capa à esquerda, console à direita, sobre a capa muito desfocada), detalhe com a capa ao lado das faixas (>= 840 de largura de conteúdo). Abaixo de 1100 é o layout de celular (doca de vidro centralizada, até 520).
 - **Biblioteca de demonstração.** `--demo-library` agora gera 22 álbuns com as 22 fotos CC0 de `assets/demo-covers` (créditos no `CREDITS.md`). Sem YouTube Music (`--no-youtube`) o Início mostra os álbuns e as músicas do aparelho e o Explorar mostra o estado vazio; o detalhe local ganhou capa grande.
 - **Acessibilidade mantida.** Alvos de 48 (os botões do transporte têm 56 e 72), anel de foco por `Pressable`, nomes acessíveis em pt-BR, Reduzir transparência (`Theme.glass-on` falso: o vidro vira `paper-2` com fio; o player perde o fundo da capa) e Reduzir movimento (`dur-*` caem para 120 ms; o player entra só por esmaecer), renderer software sem desfoque, áreas seguras e Voltar (`Nav.back`, inalterado).
+
+## Reconstrução nativa de novembro de 2026
+
+A UI de produção continua em Rust + Slint, com as cores Brasa/Ink/Paper e as fontes Inter existentes. `components/editorial.slint` reúne os novos cabeçalhos, atalhos de coleção e destaques de arte. As composições de Home, Biblioteca, detalhes e player foram substituídas; Busca, ajustes, folhas, linhas e navegação usam a mesma linguagem visual.
+
+A ilha principal contém Início, Biblioteca e Buscar, no celular e no desktop. A rota antiga Explore resolve para Home. O feed Explore é solicitado na inicialização e alimenta lançamentos/em alta na Home e gêneros/lançamentos na Busca. A atualização de capas considera os três destinos consumidores, inclusive ao retornar à tela.
+
+A Biblioteca salva `library_view` e `library_density` no TOML com defaults para arquivos antigos. Categorias ficam no estado global Slint ao navegar. Playlists usam mosaicos; o acervo de músicas e os artistas locais consultam o banco existente. Detalhes de artistas locais mostram músicas e discografia. Descrições e conteúdo relacionado de álbum, playlist e artista remotos são publicados quando fornecidos pelo catálogo, incluindo capas pelo cache existente. A lista de faixas dos detalhes é virtualizada. Em celular, a grade padrão tem duas colunas; a densidade permite três colunas a partir de 390 px ou uma capa grande. A mesma preferência adapta tablet/desktop.
+
+O player usa capa inteira com margem, console em coluna no celular e em duas colunas em janelas largas. Telas curtas rolam para manter volume e fila acessíveis. Mostra álbum, tempo atual, duração total, qualidade real, favorito, shuffle/repeat, fila e ações existentes. Fila vira painel lateral no desktop; demais folhas ficam centralizadas. Movimento e transparência seguem as preferências existentes.
+
+Referências examinadas: screenshots e componentes Home/Player/Library de `efzynx/BitChord-Desktop`; desktop chrome, drawer e screenshots de `Bntagaaa/BitChord-Desktop-Revived`; página pública e capturas de Orchard (somente o que o site mostra; nenhum código do repositório foi usado). Foram aproveitadas estruturas de apresentação, sem portar seus frameworks nem copiar seu código.
+
+A árvore única do design v4 foi dividida em `ui/mobile` e `ui/desktop`. O teste `design_sync` registra o mapa de equivalências (`HomeScreen` → `MobileHome`/`DesktopHome`, `TopBar` → `MobileTopBar`/`DesktopCompactHeader`, etc.) e confere que todo nome do design continua coberto nas duas famílias; Explorar foi dobrado no Início.
+
+Limites do backend continuam explícitos: downloads gerenciados, letras, timer e troca de saída não ganharam implementações fictícias. Os controles existentes mantêm seus avisos de disponibilidade. Android/iOS e dispositivos físicos exigem seus respectivos toolchains para validação; testes de largura em desktop verificam composição responsiva, não equivalem a certificação em dispositivos.
+
+### Verificação da reconstrução
+
+Validado em Linux com `cargo check -j 1 --workspace` e `git diff --check`. A suíte do app passou com 115 testes (47 unitários, 54 de controller, 6 de consistência do design, 7 de worker e a matriz de renderização). O teste inalterado de síntese da biblioteca de demonstração foi filtrado; a execução nativa usou cinco arquivos WAV temporários indexados pelo backend real. Após os últimos ajustes de viewport, `cargo test -j 1 -p kazzu-app --test ui_render` foi executado novamente e passou.
+
+A aplicação também foi executada com FemtoVG/X11 e saída de áudio simulada. Capturas confirmaram 390×844, 768×1024 e 1280×800; o renderer de software cobriu ainda 320 e 360 px, categorias da biblioteca, modos grade/lista, temas e interações reais de clique/teclado. O ambiente usa Niri: a janela de captura foi colocada em modo flutuante para permitir as medidas solicitadas. O canvas **Kazzu — interface nativa implementada** reúne dez dessas capturas. Android/iOS não foram compilados nem testados em dispositivos neste ambiente.
+
+### Ajuste visual após uso no desktop
+
+O cabeçalho agora oculta Ajustes em janelas largas: o único acesso fica na lateral; em celular e tablet, continua no cabeçalho. O cromo usa vidro mais transmissivo sobre atmosfera da capa (o fundo do player em cache quando há reprodução), com fallback sólido para reduzir transparência/software. A lateral passa a ser um painel flutuante único, sem empilhar dois blurs. As chamadas editoriais usam uma placa de vidro sobre a arte; os recentes ocupam até três colunas no desktop, seguindo a organização musical do BitChord. A paleta de marca permanece intacta.
+
+Validação deste refinamento: build nativo aprovado; seis testes de design e a matriz de renderização/interações em ambos os temas aprovados (7 testes, sem falhas). Capturas FemtoVG em 1280×800 conferidas com reprodução ativa. O comparativo está no artefato `kazzu-glass-refinement`. A captura desktop manteve o tamanho pelo IPC do Niri, pois o compositor altera a geometria após a captura de Ajustes alta. Para iterar mais rápido nesta validação, o segundo build usou override local de `profile.dev.package.kazzu-app.opt-level=0`; nenhum perfil do repositório foi alterado.
+
+### Configurações inspiradas nas três referências
+
+Foram estudados `SettingsSheet.kt` dos dois BitChord, `DesktopPlayerThemeSettings.kt` do Revived e os componentes `SettingsPanel`, `AppearanceSectionForm` e `PlaybackSectionForm` do Orchard. A implementação em Slint usa categorias laterais no desktop, navegação horizontal no celular e busca global que ignora caixa e acentos. As seções são Geral, Reprodução, Aparência, Fontes e biblioteca, Privacidade, Atalhos e Sobre.
+
+Os controles de qualidade, rádio automático, volume, tema, movimento/transparência, pastas, histórico e diagnóstico continuam ligados ao backend. Biblioteca, acabamento do vidro e atmosfera de fundo são preferências persistidas em TOML com valores padrão para configurações antigas. Atalhos exibidos correspondem ao `FocusScope` real do aplicativo. Não foram importados controles falsos para equalizador, normalização, crossfade ou serviços que o Kazzu ainda não implementa.
+
+Na validação nativa, a seção Geral revelou uma largura preferida nula quando continha apenas escolhas segmentadas. `Narrow` agora fixa explicitamente a largura disponível, até 720 px, e calcula a altura pelo conteúdo; a regressão tem verificação de pixels na matriz visual. O menu de categorias também rola em janelas baixas. As capturas do AppImage atualizado estão no artefato `kazzu-settings-native` (janelas compactas Linux, não dispositivo Android).
+
+Os testes de fila passaram a selecionar um item com sucessores na ordem efetivamente apresentada, sem presumir ordem de término do escaneamento. O teste de retomada aceita a faixa tanto na fila quanto já em reprodução, pois o relógio de teste acelera os arquivos de três segundos em 8×. As verificações de dados, origem, formato, continuidade e ausência de tentativas repetidas permanecem.
+
+Validação final das configurações: 56 testes de controle/integração, 6 de sincronização visual e 1 matriz de renderização/interação aprovados (63 no total). A região de amostragem da regressão Geral inclui os rótulos e os controles, evitando o espaço vazio entre linhas no tema claro. A matriz final passou em 125,87 s. Os três pacotes tiveram arquitetura, conteúdo e checksums verificados; detalhes em `dist/validation.txt`.

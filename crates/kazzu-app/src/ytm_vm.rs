@@ -298,6 +298,10 @@ fn join_nonempty(parts: &[String]) -> String {
     parts.iter().filter(|p| !p.is_empty()).cloned().collect::<Vec<_>>().join(", ")
 }
 
+fn related_items(shelves: &[Shelf]) -> Vec<HighlightVm> {
+    shelves.iter().flat_map(|s| s.items.iter()).filter(|i| matches!(i, Item::Album(_) | Item::Playlist(_) | Item::Artist(_))).take(12).map(|i| highlight(i, "Continue explorando")).collect()
+}
+
 pub fn build_album(page: &AlbumPage, liked: &HashSet<String>, saved: bool, sink: &mut TrackSink) -> DetailVm {
     let tracks: Vec<TrackVm> = page.tracks.iter().map(|t| track_vm(t, liked.contains(&remote_id(t.id.as_str())), "")).collect();
     sink.extend(page.tracks.iter().cloned());
@@ -306,6 +310,8 @@ pub fn build_album(page: &AlbumPage, liked: &HashSet<String>, saved: bool, sink:
         kind: DetailKindVm::Tracks,
         state: if tracks.is_empty() { LoadStateVm::Empty } else { LoadStateVm::Ready },
         title: page.album.title.clone(),
+        description: page.description.clone().unwrap_or_default(),
+        related: related_items(&page.related),
         subtitle,
         cover_url: cover_url(&page.album.cover),
         source: SOURCE_LABEL.to_owned(),
@@ -324,6 +330,8 @@ pub fn build_playlist(page: &PlaylistPage, liked: &HashSet<String>, sink: &mut T
         kind: DetailKindVm::Tracks,
         state: if tracks.is_empty() { LoadStateVm::Empty } else { LoadStateVm::Ready },
         title: page.playlist.name.clone(),
+        description: page.playlist.description.clone().unwrap_or_default(),
+        related: related_items(&page.related),
         subtitle: join_nonempty(&[page.author.clone().unwrap_or_default(), tidy_summary(page.summary.as_deref().unwrap_or(""))]),
         cover_url: cover_url(&page.playlist.cover),
         source: SOURCE_LABEL.to_owned(),
@@ -347,6 +355,8 @@ pub fn build_artist(page: &ArtistPage, liked: &HashSet<String>, sink: &mut Track
         kind: DetailKindVm::Artist,
         state: if tracks.is_empty() && albums.is_empty() { LoadStateVm::Empty } else { LoadStateVm::Ready },
         title: page.artist.name.clone(),
+        description: page.description.clone().unwrap_or_default(),
+        related: page.shelves.iter().flat_map(|s| s.items.iter()).filter(|i| matches!(i, Item::Artist(_))).take(12).map(|i| highlight(i, "Artistas relacionados")).collect(),
         subtitle: page.audience.clone().unwrap_or_default(),
         cover_url: cover_url(&page.artist.image),
         source: SOURCE_LABEL.to_owned(),
@@ -472,7 +482,7 @@ mod tests {
     #[test]
     fn search_groups_by_kind_and_picks_a_best_result() {
         let items = vec![
-            Item::Artist(Artist { id: ArtistId::new("UC1"), provider: ProviderKind::YtMusic, name: "Nina Sabiá".into(), image: None }),
+            Item::Artist(Artist { id: ArtistId::new("UC1"), provider: ProviderKind::YtMusic, name: "Nina Sabiá".into(), image: None, genres: Vec::new(), popularity: 0 }),
             Item::Track(t("v1", "Quase Verão")),
             Item::Album(album("a1")),
             Item::Playlist(playlist("p1")),
@@ -487,10 +497,12 @@ mod tests {
 
     #[test]
     fn album_detail_has_subtitle_without_mid_dots() {
-        let page = AlbumPage { album: album("a1"), tracks: vec![t("v1", "A")], description: None, summary: Some("1 música • 3 minutos".into()), album_type: None, audio_playlist_id: None, related: vec![] };
+        let page = AlbumPage { album: album("a1"), tracks: vec![t("v1", "A")], description: Some("Sobre este álbum".into()), summary: Some("1 música • 3 minutos".into()), album_type: None, audio_playlist_id: None, related: vec![Shelf { title: "Relacionados".into(), subtitle: None, items: vec![Item::Album(album("a2"))], more: None }] };
         let vm = build_album(&page, &HashSet::new(), false, &mut vec![]);
         assert_eq!(vm.subtitle, "Aurora, 2024, 1 música, 3 minutos");
         assert!(vm.can_save && !vm.subtitle.contains('•'));
+        assert_eq!(vm.description, "Sobre este álbum");
+        assert_eq!(vm.related[0].id, "yt:a2");
     }
 
     #[test]

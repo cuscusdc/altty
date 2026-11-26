@@ -209,3 +209,34 @@ fn obsolete_remote_jobs_are_recognized_by_generation() {
     assert!(!latest.is_stale(&covers));
     assert!(!latest.is_stale(&RemoteJob::LoadExplore { seq: 1 }));
 }
+
+#[test]
+fn local_songs_and_artist_pages_use_indexed_tracks_and_discography() {
+    use kazzu_app::worker::DetailRef;
+    let tmp = tempfile::tempdir().unwrap();
+    let music = tmp.path().join("album");
+    let data = tmp.path().join("data");
+    write_wav(&music, "a.wav", "Primeira");
+    write_wav(&music, "b.wav", "Segunda");
+    let mut lib = kazzu_library::Library::open(&data).unwrap();
+    lib.add_folder(&music).unwrap();
+    lib.scan(&|_| {}).unwrap();
+    let artist = lib.artists().unwrap().remove(0);
+    let track = lib.tracks().unwrap().remove(0);
+    drop(lib);
+    let mut store = Store::open(&data).unwrap();
+    store.run(Job::Refresh, &|_| {});
+    for what in [DetailRef::Songs, DetailRef::Artist(artist.id.0.to_string()), DetailRef::ArtistOfTrack(track.id.0.to_string())] {
+        let result = Mutex::new(None);
+        store.run(Job::OpenDetail { seq: 1, what: what.clone() }, &|r| {
+            if let JobResult::Detail { detail, ids, remote_tracks, .. } = r { *result.lock().unwrap() = Some((detail, ids, remote_tracks)); }
+        });
+        let (vm, ids, _) = result.into_inner().unwrap().expect("detail result");
+        assert_eq!(ids.len(), 2);
+        assert_eq!(vm.tracks.len(), 2);
+        if !matches!(what, DetailRef::Songs) {
+            assert_eq!(vm.title, "Artista");
+            assert_eq!(vm.albums.len(), 1);
+        }
+    }
+}

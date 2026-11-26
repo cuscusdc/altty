@@ -85,6 +85,7 @@ impl App {
             return Err(AppError::RetrySoftware);
         }
         window.global::<ui::Theme>().set_blur_supported(!opts.software_renderer);
+        window.global::<ui::AppState>().set_mobile(cfg!(target_os = "android"));
         window.global::<ui::AppState>().set_licenses_text(licenses_text().into());
         window.global::<ui::AppState>().set_version_label(format!("Kazzu {}", env!("CARGO_PKG_VERSION")).into());
 
@@ -146,6 +147,10 @@ impl App {
         if !opts.software_renderer {
             watch_frames(&window, sink.clone());
         }
+        window.global::<ui::AppState>().set_glass_style(cfg.glass_style);
+        window.global::<ui::AppState>().set_artwork_background(cfg.artwork_background);
+        window.global::<ui::AppState>().set_library_view(cfg.library_view);
+        window.global::<ui::AppState>().set_library_density(cfg.library_density);
         let view = SlintView::new(&window);
         let mut ctl = Controller::new(view, engine, Box::new(runner), sink.clone(), cfg, cfg_path);
         ctl.set_data_dir(data_dir);
@@ -391,6 +396,26 @@ fn wire(window: &ui::AppWindow, ctrl: &Rc<RefCell<Controller<SlintView>>>) {
     s.on_toggle_shuffle(cb!(ctrl, |c| c.toggle_shuffle()));
     s.on_cycle_repeat(cb!(ctrl, |c| c.cycle_repeat()));
     s.on_toggle_like(cb!(ctrl, |c, id| c.toggle_like(&id)));
+    let weak_window = weak.clone();
+    let weak_ctrl = Rc::downgrade(ctrl);
+    s.on_play_random_shortcut(move || {
+        use slint::Model;
+        use std::hash::{BuildHasher, RandomState};
+
+        if let (Some(ui), Some(ctrl)) = (weak_window.upgrade(), weak_ctrl.upgrade()) {
+            let state = ui.global::<ui::AppState>();
+            let quick_picks = state.get_quick_picks();
+            let tracks = if quick_picks.row_count() > 0 { quick_picks } else { state.get_recents() };
+            let count = tracks.row_count();
+            if count > 0 {
+                let index = (RandomState::new().hash_one(count) % count as u64) as usize;
+                if let Some(track) = tracks.row_data(index) {
+                    ctrl.borrow_mut().play_track(&track.id);
+                }
+            }
+        }
+    });
+    s.on_mobile_feature(cb!(ctrl, |c, feature| c.coming_soon(&feature)));
     s.on_play_track(cb!(ctrl, |c, id| c.play_track(&id)));
     s.on_play_next(cb!(ctrl, |c, id| c.queue_track(&id, QueueMode::PlayNext)));
     s.on_enqueue(cb!(ctrl, |c, id| c.queue_track(&id, QueueMode::Enqueue)));
@@ -438,6 +463,9 @@ fn wire(window: &ui::AppWindow, ctrl: &Rc<RefCell<Controller<SlintView>>>) {
     s.on_remove_recent_search(cb!(ctrl, |c, text| c.remove_recent_search(&text)));
 
     // configurações
+    s.on_settings_match(|query, words| settings_match(&query, &words));
+    s.on_visual_style_changed(cb!(ctrl, |c, style, artwork| c.set_visual_style(style, artwork)));
+    s.on_library_layout_changed(cb!(ctrl, |c, view, density| c.set_library_layout(view, density)));
     s.on_theme_mode_changed(cb!(ctrl, |c, mode| c.set_theme(match mode {
         ui::ThemeMode::Auto => ThemePref::Auto,
         ui::ThemeMode::Light => ThemePref::Light,
@@ -453,4 +481,16 @@ fn wire(window: &ui::AppWindow, ctrl: &Rc<RefCell<Controller<SlintView>>>) {
     s.on_report_problem(cb!(ctrl, |c| c.report_problem()));
     s.on_toast_action(cb!(ctrl, |c| c.toast_action()));
     s.on_dismiss_toast(|| {});
+}
+
+/// Accent-insensitive matching for the small native settings index.
+pub fn settings_match(query: &str, words: &str) -> bool {
+    fn normalize(s: &str) -> String {
+        s.to_lowercase().chars().map(|c| match c {
+            'á' | 'à' | 'â' | 'ã' => 'a', 'é' | 'ê' => 'e', 'í' => 'i',
+            'ó' | 'ô' | 'õ' => 'o', 'ú' | 'ü' => 'u', 'ç' => 'c', _ => c,
+        }).collect()
+    }
+    let words = normalize(words);
+    normalize(query).split_whitespace().all(|term| words.contains(term))
 }

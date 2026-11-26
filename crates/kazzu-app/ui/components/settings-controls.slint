@@ -1,0 +1,21 @@
+// Reusable native settings controls, shared by all preference sections.
+import { Theme } from "../theme/tokens.slint";
+import { Segmented } from "atoms.slint";
+export component SettingsGroupHead inherits Rectangle {
+    in property <string> text;
+    height: 28px;
+    Text { x: Theme.gutter + Theme.s-md; text: root.text; color: Theme.ink-2; font-size: Theme.text-md; font-weight: 600; accessible-role: AccessibleRole.text; }
+}
+
+// Linha com escolha entre poucas opções: título em cima, `Segmented` embaixo.
+export component SettingsChoice inherits Rectangle {
+    in property <string> title;
+    in property <[string]> options;
+    in property <int> current;
+    in property <bool> separator: true;
+    callback changed(int);
+    height: 104px;
+    if root.separator : Rectangle { y: 0; height: 1px; background: Theme.rule; }
+    Text { x: Theme.s-md; y: Theme.s-sm; text: root.title; color: Theme.ink; font-size: Theme.text-lg; accessible-role: AccessibleRole.text; }
+    Segmented { x: Theme.s-md; y: 44px; width: parent.width - 2 * Theme.s-md; options: root.options; current: root.current; changed(i) => { root.changed(i); } }
+}

@@ -76,6 +76,8 @@ fn fill(view: &SlintView) {
         ..Default::default()
     });
     view.set_library(&LibraryVm {
+        albums: albums.clone(),
+        artists: vec![ArtistVm { id: "1".into(), name: "Nina Sabiá".into(), subtitle: "5 músicas".into(), ..Default::default() }],
         collections: vec![
             CollectionVm { id: "downloads".into(), title: "Baixados".into(), count_label: "Em breve".into(), covers: vec![], soon: true },
             CollectionVm { id: "liked".into(), title: "Curtidos".into(), count_label: "2 músicas".into(), covers: vec![], soon: false },
@@ -90,6 +92,12 @@ fn fill(view: &SlintView) {
     );
     view.set_queue(&QueueVm { tracks: tracks[1..].to_vec(), summary: "A seguir, 4 músicas, 13 min".into(), more_label: String::new(), note: "Quando a fila acabar, o Kazzu continua com músicas parecidas.".into() });
     view.set_search(&SearchVm { state: SearchStateVm::Results, songs: tracks.clone(), albums: albums.clone(), recent: vec!["aurora".into()], ..Default::default() });
+    view.set_detail(&DetailVm {
+        kind: DetailKindVm::Artist, state: LoadStateVm::Ready, title: "Nina Sabiá".into(), subtitle: "Artista do seu acervo".into(),
+        description: "Uma artista que reúne canções de diferentes momentos. Informações fornecidas pelo catálogo, apresentadas com espaço para leitura.".into(),
+        cover: Some(cover([120, 50, 80])), tracks: tracks.clone(), albums: albums.clone(),
+        related: vec![hero(1, "Continue explorando")], ..Default::default()
+    });
     let now = TrackVm { cover: Some(cover([230, 140, 90])), ..track(0, "Quase Verão", true) };
     view.set_playback(&PlaybackVm {
         has_now: true,
@@ -147,6 +155,14 @@ fn out_dir() -> PathBuf {
     dir
 }
 
+fn assert_light_transport_contrast(img: &image::RgbaImage, y: u32) {
+    let dark_pixels = (284..312)
+        .flat_map(|x| (y..y + 22).map(move |row| img.get_pixel(x, row)))
+        .filter(|pixel| pixel.0[..3].iter().all(|channel| *channel < 100))
+        .count();
+    assert!(dark_pixels > 8, "o controle de reprodução precisa de contraste no fundo claro sem desfoque");
+}
+
 #[test]
 fn every_screen_renders_at_mobile_tablet_and_desktop_sizes_in_both_themes_and_input_works() {
     let window = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
@@ -157,6 +173,7 @@ fn every_screen_renders_at_mobile_tablet_and_desktop_sizes_in_both_themes_and_in
     fill(&view);
     ui.show().expect("show");
     let state = ui.global::<AppState>();
+    state.on_settings_match(|q, words| kazzu_app::app::settings_match(&q, &words));
     let dir = out_dir();
     let prefs = |theme| PrefsVm { theme, accent: AccentPref::Cover, reduce_motion: true, reduce_transparency: false, stream_quality: StreamQualityPref::Original, autoplay_radio: true };
 
@@ -174,13 +191,10 @@ fn every_screen_renders_at_mobile_tablet_and_desktop_sizes_in_both_themes_and_in
                 img.save(dir.join(format!("{theme}-{size_name}-{name}.png"))).expect("salvar png");
                 // há conteúdo de verdade: texto, capas e painéis (não só o fundo)
                 assert!(distinct(&img, 0, 0, w, h) > 200, "{theme} {size_name} {name} parece em branco");
-                if w < 1100 {
-                    // celular e tablet: a cápsula de abas (doca de vidro) fica embaixo
-                    let left = (w.saturating_sub(520)) / 2;
-                    assert!(distinct(&img, left + 12, h - 80, w.min(520) - 24, 64) > 20, "{theme} {size_name} {name}: sem a barra inferior");
-                } else {
-                    // desktop: barra lateral sólida à esquerda, com os destinos
-                    assert!(distinct(&img, 12, 60, 240, 300) > 20, "{theme} {size_name} {name}: sem barra lateral");
+                let sidebar_width = if w < 1100 { 72 } else { 240 };
+                assert!(distinct(&img, 0, 60, sidebar_width, 240) > 20, "{theme} {size_name} {name}: sem barra lateral");
+                if theme == "light" && w == 390 && tab == Tab::Home {
+                    assert_light_transport_contrast(&img, 792);
                 }
             }
             for (name, set) in [("player", 0), ("queue", 1), ("detail", 2)] {
@@ -195,7 +209,101 @@ fn every_screen_renders_at_mobile_tablet_and_desktop_sizes_in_both_themes_and_in
             state.set_queue_open(false);
             state.set_detail_open(false);
         }
+
+        // Android: a mesma janela no shell de celular (barra de topo, dock de três abas e pilha de telas).
+        state.set_mobile(true);
+        for (name, tab) in screens {
+            state.set_player_open(false);
+            state.set_queue_open(false);
+            state.set_detail_open(false);
+            state.set_tab(tab);
+            let img = render(&window, 390, 844);
+            img.save(dir.join(format!("{theme}-android-{name}.png"))).expect("salvar png android");
+            assert!(distinct(&img, 0, 0, 390, 844) > 200, "{theme} android {name} parece em branco");
+            assert!(distinct(&img, 12, 764, 366, 64) > 20, "{theme} android {name}: sem a barra inferior");
+            if theme == "light" && tab == Tab::Home {
+                let lit_pixels = (242..270)
+                    .flat_map(|x| (725..750).map(move |y| (x, y)))
+                    .filter(|&(x, y)| img.get_pixel(x, y).0[..3].iter().all(|channel| *channel > 190))
+                    .count();
+                assert!(lit_pixels > 8, "o transporte da ilha precisa de contraste no fundo escuro");
+            }
+        }
+        state.set_tab(Tab::Home);
+        state.set_player_open(true);
+        let img = render(&window, 390, 844);
+        img.save(dir.join(format!("{theme}-android-player.png"))).expect("salvar png android player");
+        assert!(distinct(&img, 0, 0, 390, 844) > 200, "{theme} android player em branco");
+        state.set_player_open(false);
+        let img = render(&window, 1280, 800);
+        assert!(distinct(&img, 392, 724, 496, 64) > 20, "{theme} android largo: sem a barra inferior");
+        state.set_mobile(false);
     }
+
+    // Artwork arriving for an already-open detail must not dismiss an expanded player.
+    state.set_detail_open(true);
+    state.set_player_open(true);
+    view.open_detail(true);
+    assert!(state.get_player_open());
+    state.set_detail_open(false);
+    view.open_detail(true);
+    assert!(!state.get_player_open());
+    state.set_detail_open(false);
+
+    // Exercise every library presentation mode, including narrow layouts and recreation after navigation.
+    state.set_tab(Tab::Library);
+    for (name, width) in [("compact", 320), ("tablet", 768), ("desktop", 1280)] {
+        for mode in [0, 1] {
+            state.set_library_view(mode);
+            for category in 0..=4 {
+                state.set_library_category(category);
+                let img = render(&window, width, 844);
+                img.save(dir.join(format!("library-{name}-mode{mode}-category{category}.png"))).unwrap();
+                assert!(distinct(&img, 0, 0, width, 844) > 100);
+            }
+        }
+    }
+    state.set_library_density(2);
+    state.set_tab(Tab::Home);
+    render(&window, 390, 844);
+    state.set_tab(Tab::Library);
+    render(&window, 390, 844);
+    assert_eq!(state.get_library_view(), 1);
+    assert_eq!(state.get_library_density(), 2);
+    state.set_library_view(0);
+    state.set_library_category(0);
+
+    // Every settings category must fit both adaptive arrangements; search uses the same Rust matcher as production.
+    state.set_detail_open(false);
+    state.set_player_open(false);
+    state.set_queue_open(false);
+    state.set_tab(Tab::Settings);
+    for (label, w, h) in [("phone", 390, 844), ("desktop", 1280, 800)] {
+        for section in 0..7 {
+            state.set_settings_section(section);
+            let img = render(&window, w, h);
+            img.save(dir.join(format!("settings-{label}-{section}.png"))).expect("settings category snapshot");
+            assert!(distinct(&img, 0, 0, w, h) > 200);
+            if section == 0 {
+                // Include the labels and segments, rather than the empty gap between rows.
+                let (sample_x, sample_y, sample_w) = if w < 600 { (24, h / 2 - 70, w - 48) } else { (w / 2, h / 2 - 100, w / 4) };
+                assert!(distinct(&img, sample_x, sample_y, sample_w, 100) > 20, "General settings controls collapsed at {label}");
+            }
+        }
+        state.set_settings_section(-1);
+        state.set_settings_query("VIDRO".into());
+        render(&window, w, h).save(dir.join(format!("settings-{label}-search.png"))).unwrap();
+        state.set_settings_query("".into());
+    }
+    state.set_settings_section(0);
+
+    // Desktop settings navigation must close a stacked detail before changing destinations.
+    state.set_detail_open(true);
+    state.set_player_open(false);
+    render(&window, 1280, 800);
+    click(&window, 48.0, 760.0);
+    assert_eq!(state.get_tab(), Tab::Settings);
+    assert!(!state.get_detail_open());
 
     // Voltar: fecha o que está aberto antes de sair (o botão Voltar do Android chama isto)
     state.set_tab(Tab::Library);
@@ -220,7 +328,7 @@ fn every_screen_renders_at_mobile_tablet_and_desktop_sizes_in_both_themes_and_in
         state.on_navigate(move |t| ev.borrow_mut().push(format!("navigate:{t:?}")));
     }
     render(&window, 390, 844);
-    click(&window, 350.0, 800.0); // botão circular Buscar
+    click(&window, 36.0, 192.0); // Buscar na barra lateral recolhida
     window.dispatch_event(WindowEvent::WindowActiveChanged(true));
     assert_eq!(state.get_tab(), Tab::Search, "o clique em Buscar chegou: {:?}", events.borrow());
 
@@ -243,6 +351,21 @@ fn every_screen_renders_at_mobile_tablet_and_desktop_sizes_in_both_themes_and_in
     assert_eq!(events.borrow().iter().filter(|e| *e == "toggle-play").count(), before, "Espaço no campo não pode acionar o atalho global");
     state.set_search_text("".into());
 
+    state.set_mobile(true);
+    state.set_tab(Tab::Library);
+    render(&window, 390, 844);
+    click(&window, 354.0, 30.0);
+    assert_eq!(state.get_tab(), Tab::Settings);
+    assert!(ui.invoke_go_back());
+    assert_eq!(state.get_tab(), Tab::Library);
+    state.set_mobile(false);
+    render(&window, 1280, 800);
+    for expected in [true, false] {
+        window.dispatch_event(WindowEvent::KeyPressed { text: "f".into() });
+        window.dispatch_event(WindowEvent::KeyReleased { text: "f".into() });
+        assert_eq!(state.get_player_open(), expected);
+    }
+
     // O app inteiro (App::build) não deixa o controller preso em closures: só o dono e o slot de mensagens o seguram,
     // então o desligamento (grava a configuração) realmente roda. Sem YouTube Music: nenhuma rede no teste.
     {
@@ -252,10 +375,12 @@ fn every_screen_renders_at_mobile_tablet_and_desktop_sizes_in_both_themes_and_in
         let cfg = app_dir.join("config.toml");
         let app = App::build(&Options { data_dir: Some(app_dir.join("data")), config_path: Some(cfg.clone()), null_audio: true, software_renderer: true, no_remote: true, ..Default::default() }).expect("App::build");
         assert_eq!(Rc::strong_count(&app.controller), 2, "alguma closure da UI segura o controller com Rc forte");
+        app.controller.borrow_mut().set_library_layout(1, 2);
         app.controller.borrow_mut().set_volume(0.3);
-        assert!(!cfg.exists(), "o volume só é gravado com atraso ou no encerramento");
+        // Layout is saved asynchronously; shutdown flushes the last volume and layout.
         app.finish();
         let saved = kazzu_app::config::Config::load(&cfg).expect("config gravada no encerramento");
+        assert_eq!((saved.library_view, saved.library_density), (1, 2));
         assert!((saved.volume - 0.3).abs() < 1e-6, "volume salvo: {}", saved.volume);
     }
 }

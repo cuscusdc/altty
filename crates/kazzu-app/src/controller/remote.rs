@@ -417,7 +417,7 @@ impl<V: View> Controller<V> {
             }
         }
         if self.explore_requested && touches(&mut self.explore, &set) {
-            if self.tab == NavTab::Explore {
+            if matches!(self.tab, NavTab::Home | NavTab::Explore | NavTab::Search) {
                 self.publish_explore();
             } else {
                 self.stale_screens.insert(NavTab::Explore);
@@ -547,7 +547,7 @@ impl<V: View> Controller<V> {
                 None => self.toast("Não achei a página deste artista.", false),
             }
         } else {
-            self.coming_soon("A página de artista do seu acervo");
+            self.request_detail(DetailRef::ArtistOfTrack(track_id.to_owned()));
         }
     }
 

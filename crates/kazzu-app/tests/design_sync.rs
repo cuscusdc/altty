@@ -56,13 +56,67 @@ fn atoms_keep_every_name_the_design_exports() {
 }
 
 #[test]
-fn screens_and_chrome_keep_the_design_names() {
-    for (design, ours) in [("slint/screens.slint", &["screens/home.slint", "screens/explore.slint", "screens/search.slint", "screens/library.slint", "screens/detail.slint", "screens/settings.slint", "screens/player.slint", "components/sheets.slint", "components/atoms.slint"][..]), ("slint/chrome.slint", &["components/chrome.slint"][..])] {
-        let Some(design) = read(&root().join(DESIGN).join(design)) else { continue };
-        let all: String = ours.iter().filter_map(|f| read(&root().join("ui").join(f))).collect::<Vec<_>>().join("\n");
-        let missing: Vec<_> = exports(&design).difference(&exports(&all)).cloned().collect();
-        assert!(missing.is_empty(), "faltam exportações do design v4: {missing:?}");
+fn platform_screens_cover_every_design_name() {
+    // O design v4 tinha uma árvore única (`screens.slint` + `chrome.slint`). A implementação separa
+    // mobile/desktop e dobra Explorar no Início; cada nome do design continua coberto por um
+    // componente de cada família (ou pelos átomos/folhas compartilhados). Renomes registrados aqui.
+    const MAP: &[(&str, &[&str])] = &[
+        ("HomeScreen", &["MobileHome", "DesktopHome"]),
+        ("ExploreScreen", &["MobileHome", "DesktopHome"]),
+        ("SearchField", &["SearchField"]),
+        ("SearchScreen", &["MobileSearch", "DesktopSearch"]),
+        ("LibraryScreen", &["MobileLibrary", "DesktopLibrary"]),
+        ("DetailScreen", &["MobileDetail", "DesktopDetail"]),
+        ("PlayerScreen", &["MobilePlayer", "DesktopPlayer"]),
+        ("QueueSheet", &["QueueSheet"]),
+        ("MenuSheet", &["MenuSheet"]),
+        ("NewPlaylistSheet", &["NewPlaylistSheet"]),
+        ("SettingsScreen", &["MobileSettings", "DesktopSettings"]),
+        ("MiniPlayer", &["MobileDock", "DesktopNowBar", "DesktopCompactBar"]),
+        ("TabBar", &["MobileDock", "DesktopSidebar"]),
+        ("SearchOrb", &["MobileDock", "DesktopSidebar"]),
+        ("Dock", &["MobileDock", "DesktopCompactBar"]),
+        ("TopBar", &["MobileTopBar"]),
+    ];
+    let mut ours = BTreeSet::new();
+    for dir in ["ui/mobile", "ui/desktop"] {
+        if let Ok(entries) = std::fs::read_dir(root().join(dir)) {
+            for entry in entries.filter_map(Result::ok) {
+                if let Some(src) = read(&entry.path()) {
+                    ours.extend(exports(&src));
+                }
+            }
+        }
     }
+    for file in ["ui/components/atoms.slint", "ui/components/sheets.slint"] {
+        if let Some(src) = read(&root().join(file)) {
+            ours.extend(exports(&src));
+        }
+    }
+    let mut design_names = BTreeSet::new();
+    for file in ["slint/screens.slint", "slint/chrome.slint"] {
+        if let Some(src) = read(&root().join(DESIGN).join(file)) {
+            design_names.extend(exports(&src));
+        }
+    }
+    if design_names.is_empty() {
+        return;
+    }
+    let mapped: BTreeSet<String> = MAP.iter().map(|(name, _)| (*name).to_owned()).collect();
+    let unmapped: Vec<_> = design_names.difference(&mapped).cloned().collect();
+    assert!(unmapped.is_empty(), "nomes do design sem equivalente registrado: {unmapped:?}");
+    let mut missing = Vec::new();
+    for (design, equivalents) in MAP {
+        if !design_names.contains(*design) {
+            continue;
+        }
+        for name in *equivalents {
+            if !ours.contains(*name) {
+                missing.push(format!("{design} -> {name}"));
+            }
+        }
+    }
+    assert!(missing.is_empty(), "componentes equivalentes ausentes: {missing:?}");
 }
 
 #[test]
@@ -80,7 +134,7 @@ fn no_screen_uses_literal_colors_outside_the_registered_exceptions() {
     // regra do SLINT_SPEC §1.1: cores só de Theme.*; as exceções estão listadas em docs/UI_NOTES.md
     const ALLOWED: &[&str] = &[];
     let mut offenders = Vec::new();
-    for dir in ["ui/components", "ui/screens", "ui/app.slint", "ui/theme/metrics.slint", "ui/theme/nav-state.slint"] {
+    for dir in ["ui/components", "ui/mobile", "ui/desktop", "ui/app.slint", "ui/theme/metrics.slint", "ui/theme/nav-state.slint"] {
         let path = root().join(dir);
         let files: Vec<PathBuf> = if path.is_dir() {
             std::fs::read_dir(&path).map(|r| r.filter_map(Result::ok).map(|e| e.path()).collect()).unwrap_or_default()

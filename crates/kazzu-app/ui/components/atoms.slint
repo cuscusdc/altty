@@ -13,7 +13,7 @@
 
 import { Theme } from "../theme/tokens.slint";
 import { Icons } from "../theme/icons.slint";
-import { Track } from "../theme/app-contract.slint";
+import { Track, AppState } from "../theme/app-contract.slint";
 
 // ------------------------------------------------------------------------------------------------ ícone
 // SVG de traço uniforme (1,75), tingido por `colorize`. Largura fixa; na vertical ocupa a célula e centraliza o desenho.
@@ -37,7 +37,7 @@ export component Glass inherits Rectangle {
     border-bottom-left-radius: flat-bottom ? 0px : radius;
     border-bottom-right-radius: flat-bottom ? 0px : radius;
     clip: true;
-    background: !Theme.glass-on ? Theme.glass-solid : sheet ? Theme.glass-tint-sheet : Theme.glass-tint;
+    background: !Theme.glass-on ? Theme.glass-solid : sheet ? Theme.glass-tint-sheet : Theme.glass-tint.with-alpha(AppState.glass-style == 0 ? 0.78 : AppState.glass-style == 2 ? (Theme.dark ? 0.34 : 0.48) : (Theme.dark ? 0.52 : 0.64));
     backdrop-blur: !Theme.glass-on ? 0px : sheet ? Theme.glass-blur-sheet : Theme.glass-blur;
     border-width: 1px;
     border-color: Theme.glass-on ? @linear-gradient(180deg, Theme.glass-edge-hi 0%, Theme.glass-edge-lo 42%, Theme.glass-edge-lo 100%) : @linear-gradient(180deg, Theme.rule 0%, Theme.rule 100%);
@@ -138,7 +138,7 @@ export component Button inherits Pressable {
     label: text;
     Rectangle {
         border-radius: root.height / 2;
-        background: primary ? Theme.primary : Theme.paper-3;
+        background: primary ? Theme.accent : Theme.paper-3;
         opacity: !root.enabled ? 0.55 : root.pressed ? 0.82 : 1;
         animate opacity { duration: Theme.dur-micro; }
     }
@@ -147,10 +147,10 @@ export component Button inherits Pressable {
         padding-right: Theme.s-lg;
         spacing: Theme.s-xs;
         alignment: center;
-        if root.has-icon : Icon { source: root.icon; tint: root.primary ? Theme.primary-ink : Theme.ink; size: 20px; }
+        if root.has-icon : Icon { source: root.icon; tint: root.primary ? Theme.accent-ink : Theme.ink; size: 20px; }
         Text {
             text: root.text;
-            color: root.primary ? Theme.primary-ink : Theme.ink;
+            color: root.primary ? Theme.accent-ink : Theme.ink;
             font-size: Theme.text-md;
             font-weight: 600;
             vertical-alignment: center;
@@ -314,6 +314,11 @@ export component TrackRow inherits Pressable {
     height: Theme.row-h;
     ring-radius: Theme.r-thumb;
     label: t.title + ", " + t.artist + (t.duration-label != "" ? ", " + t.duration-label : "");
+    Rectangle {
+        border-radius: Theme.r-group;
+        background: root.t.playing && !root.on-glass ? Theme.accent.with-alpha(0.08) : root.hovered ? Theme.paper-2 : transparent;
+        animate background { duration: Theme.dur-micro; }
+    }
     HorizontalLayout {
         spacing: Theme.s-sm;
         if root.number > 0 && (root.ranked || !root.t.playing) : Text {
@@ -446,7 +451,10 @@ export component Tile inherits Pressable {
     label: title + ", " + subtitle;
     VerticalLayout {
         spacing: Theme.s-xs;
-        Cover { source: root.cover; size: root.size; radius: root.round ? root.size / 2 : Theme.r-cover; opacity: root.pressed ? 0.85 : 1; }
+        Rectangle { width: root.size; height: root.size;
+            Cover { source: root.cover; size: root.size; radius: root.round ? root.size / 2 : Theme.r-cover; opacity: root.pressed ? 0.82 : 1; }
+            Rectangle { border-radius: root.round ? root.size / 2 : Theme.r-cover; border-width: root.hovered ? 2px : 0px; border-color: Theme.accent.with-alpha(0.6); }
+        }
         VerticalLayout {
             Text { text: root.title; color: Theme.ink; font-size: Theme.text-md; font-weight: 600; overflow: elide; }
             Text { text: root.subtitle; color: Theme.ink-2; font-size: Theme.text-sm; overflow: elide; }

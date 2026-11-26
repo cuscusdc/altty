@@ -90,7 +90,7 @@ fi
 # --- ícones/recursos ------------------------------------------------------------------------------------------
 WORK="$REPO/target/android/work"
 rm -rf "$WORK"; mkdir -p "$WORK"
-"/data/data/com.termux/files/usr/bin/aapt2" compile --dir android/res -o "$WORK/res.zip"
+"$BT/aapt2" compile --dir android/res -o "$WORK/res.zip"
 
 for ABI in "${ABIS[@]}"; do
   case "$ABI" in
@@ -106,14 +106,14 @@ for ABI in "${ABIS[@]}"; do
 
   echo "==> cargo: kazzu_app ($TRIPLE, release)"
   # `--crate-type cdylib` só aqui: o crate continua `lib` no desktop. Sem a feature `demo` (gera dados de teste).
-  cargo rustc -p kazzu-app --lib --release ${CI:+--locked} --no-default-features --target "$TRIPLE" \
+  cargo rustc --config "profile.release.package.kazzu-app.opt-level=${KAZZU_APP_OPT_LEVEL:-1}" -j "${KAZZU_BUILD_JOBS:-1}" -p kazzu-app --lib --release ${CI:+--locked} --no-default-features --target "$TRIPLE" \
     --config 'profile.release.strip="symbols"' --crate-type cdylib
   SO="$CARGO_TARGET_DIR/$TRIPLE/release/libkazzu_app.so"
   [[ -f "$SO" ]] || { echo "libkazzu_app.so não gerada" >&2; exit 1; }
 
   echo "==> empacotando $ABI"
   BASE="$WORK/base-$ABI.apk"
-  "/data/data/com.termux/files/usr/bin/aapt2" link -o "$BASE" -I "$PLATFORM_JAR" --manifest android/AndroidManifest.xml \
+  "$BT/aapt2" link -o "$BASE" -I "$PLATFORM_JAR" --manifest android/AndroidManifest.xml \
     --min-sdk-version "$MIN_SDK" --target-sdk-version 34 --version-code "$VERSION_CODE" --version-name "$VERSION" \
     -R "$WORK/res.zip" --auto-add-overlay
   # biblioteca nativa sem compressão (extractNativeLibs=false); python3 só para escrever o zip

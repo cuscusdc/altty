@@ -1,0 +1,242 @@
+// Biblioteca (Android): capas e playlists primeiro; as preferências de apresentação sobrevivem à navegação.
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { Metrics } from "../theme/metrics.slint";
+import { AppState, Tab } from "../theme/app-contract.slint";
+import { Nav } from "../theme/nav-state.slint";
+import { Button, Pressable, Icon, Cover, Mosaic, Tile, LibraryTile, TrackRow, SectionHeader, Group, GroupItem, StateCard, Segmented } from "../components/atoms.slint";
+import { PageHeading } from "../components/editorial.slint";
+import { Screen, Rows, Gutters, SkeletonRows, AlbumGrid } from "../components/shared.slint";
+
+export component MobileLibrary inherits Rectangle {
+    property <int> cols: root.width < 600px ? (AppState.library-density == 2 ? 1 : AppState.library-density == 0 && root.width >= 390px ? 3 : 2) : max(2, floor((root.width - 2 * Theme.gutter + Theme.s-md) / (AppState.library-density == 0 ? 160px : AppState.library-density == 2 ? 280px : 210px)));
+    property <length> tile-w: (root.width - 2 * Theme.gutter - (root.cols - 1) * Theme.s-md) / root.cols;
+    property <length> step: root.tile-w + 72px;
+    function save-layout() { AppState.library-layout-changed(AppState.library-view, AppState.library-density); }
+    pure function collection-icon(id: string) -> image { return id == "liked" ? Icons.heart : id == "downloads" ? Icons.download : id == "albums" ? Icons.disc : Icons.library; }
+    Screen {
+        tab: Tab.library;
+        VerticalLayout {
+            padding-top: AppState.safe-top + Theme.header-h + Theme.s-xs;
+            padding-bottom: Metrics.reserve;
+            spacing: Theme.s-xl;
+            alignment: start;
+            PageHeading {
+                eyebrow: "DO SEU JEITO";
+                title: "Sua biblioteca";
+                subtitle: AppState.library-summary != "" ? AppState.library-summary : "Tudo o que você guarda, sempre por perto.";
+            }
+            Gutters {
+                Button { text: "Criar playlist"; has-icon: true; icon: Icons.plus; primary: true; clicked => { AppState.new-playlist-track = ""; AppState.new-playlist-open = true; } }
+                Rectangle { horizontal-stretch: 1; }
+                Segmented { width: Theme.compact ? 148px : 200px; options: ["Grade", "Lista"]; current: AppState.library-view; changed(i) => { AppState.library-view = i; root.save-layout(); } }
+            }
+            Gutters {
+                VerticalLayout {
+                    spacing: Theme.s-xs;
+                    Flickable {
+                        height: 48px;
+                        content-width: 540px;
+                        interactive: true;
+                        for name[i] in ["Tudo", "Playlists", "Álbuns", "Músicas", "Artistas"] : Pressable {
+                            x: i * 108px;
+                            width: 100px;
+                            height: 48px;
+                            label: name;
+                            ring-radius: Theme.r-pill;
+                            accessible-role: tab;
+                            accessible-item-selected: AppState.library-category == i;
+                            Rectangle { border-radius: Theme.r-pill; background: AppState.library-category == i ? Theme.accent : Theme.paper-2; }
+                            Text { text: name; color: AppState.library-category == i ? Theme.accent-ink : Theme.ink; font-size: Theme.text-md; horizontal-alignment: center; vertical-alignment: center; }
+                            clicked => { AppState.library-category = i; Metrics.reset-scroll(Tab.library); }
+                        }
+                    }
+                    if AppState.library-view == 0 : HorizontalLayout {
+                        height: 48px;
+                        spacing: Theme.s-md;
+                        Text { text: Theme.compact ? "Capas" : "Tamanho das capas"; color: Theme.ink-2; font-size: Theme.text-sm; vertical-alignment: center; }
+                        Segmented { width: Theme.compact ? root.width - 2 * Theme.gutter - 72px : 280px; options: ["Menor", "Padrão", "Maior"]; current: AppState.library-density; changed(i) => { AppState.library-density = i; root.save-layout(); } }
+                        Rectangle { horizontal-stretch: 1; }
+                    }
+                }
+            }
+            if AppState.loading : SkeletonRows { count: 4; }
+            if !AppState.loading && AppState.library-category == 0 && AppState.library-view == 0 : Rectangle {
+                height: ceil(AppState.collections.length / root.cols) * root.step;
+                for c[i] in AppState.collections : LibraryTile {
+                    x: Theme.gutter + mod(i, root.cols) * (root.tile-w + Theme.s-md);
+                    y: floor(i / root.cols) * root.step;
+                    width: root.tile-w;
+                    covers: c.covers;
+                    icon: root.collection-icon(c.id);
+                    title: c.title;
+                    count: c.count-label;
+                    soon: c.soon;
+                    liked: c.id == "liked";
+                    clicked => { Nav.collection(c.id); }
+                }
+            }
+            if !AppState.loading && AppState.library-category == 0 && AppState.library-view == 1 : Rows {
+                for c in AppState.collections : Pressable {
+                    height: 72px;
+                    enabled: !c.soon;
+                    label: c.title + ", " + c.count-label;
+                    clicked => { Nav.collection(c.id); }
+                    Rectangle { border-radius: Theme.r-plate; background: parent.hovered ? Theme.paper-2 : transparent; }
+                    HorizontalLayout {
+                        spacing: Theme.s-sm;
+                        Rectangle { width: 48px; Icon { source: root.collection-icon(c.id); tint: Theme.accent; } }
+                        VerticalLayout {
+                            alignment: center;
+                            horizontal-stretch: 1;
+                            Text { text: c.title; color: Theme.ink; font-size: Theme.text-lg; font-weight: 600; }
+                            Text { text: c.count-label; color: Theme.ink-2; font-size: Theme.text-sm; }
+                        }
+                        Icon { source: Icons.chevron-right; tint: Theme.muted; }
+                    }
+                }
+            }
+            if !AppState.loading && (AppState.library-category == 0 || AppState.library-category == 1) : VerticalLayout {
+                spacing: Theme.s-sm;
+                SectionHeader { title: "Suas playlists"; }
+                if AppState.playlists.length == 0 : Gutters {
+                    StateCard { icon: Icons.library; title: "Dê um lugar às suas favoritas"; text: "Crie uma playlist e adicione músicas pelo menu de cada faixa."; primary: "Criar playlist"; primary-clicked => { AppState.new-playlist-track = ""; AppState.new-playlist-open = true; } }
+                }
+                if AppState.library-view == 0 && AppState.playlists.length > 0 : Rectangle {
+                    height: ceil(AppState.playlists.length / root.cols) * root.step;
+                    for p[i] in AppState.playlists : LibraryTile {
+                        x: Theme.gutter + mod(i, root.cols) * (root.tile-w + Theme.s-md);
+                        y: floor(i / root.cols) * root.step;
+                        width: root.tile-w;
+                        covers: p.covers;
+                        icon: Icons.library;
+                        title: p.name;
+                        count: p.count-label;
+                        clicked => { AppState.open-playlist(p.id); }
+                    }
+                }
+                if AppState.library-view == 1 : Rows {
+                    for p in AppState.playlists : Pressable {
+                        height: 72px;
+                        label: p.name + ", " + p.count-label;
+                        clicked => { AppState.open-playlist(p.id); }
+                        HorizontalLayout {
+                            spacing: Theme.s-sm;
+                            VerticalLayout { alignment: center; Mosaic { width: 52px; height: 52px; sources: p.covers; radius: Theme.r-thumb; } }
+                            VerticalLayout {
+                                alignment: center;
+                                horizontal-stretch: 1;
+                                Text { text: p.name; color: Theme.ink; font-size: Theme.text-lg; overflow: elide; }
+                                Text { text: p.count-label; color: Theme.ink-2; font-size: Theme.text-sm; }
+                            }
+                            Icon { source: Icons.chevron-right; tint: Theme.muted; }
+                        }
+                    }
+                }
+            }
+            if !AppState.loading && AppState.library-category == 2 : VerticalLayout {
+                SectionHeader { title: "Álbuns"; }
+                if AppState.library-view == 0 : AlbumGrid { albums: AppState.library-albums; preferred-cols: root.cols; }
+                if AppState.library-view == 1 : Rows {
+                    for a in AppState.library-albums : Pressable {
+                        height: 72px;
+                        label: a.title + ", " + a.artist;
+                        clicked => { AppState.open-album(a.id); }
+                        HorizontalLayout {
+                            spacing: Theme.s-sm;
+                            VerticalLayout { alignment: center; Cover { source: a.cover; size: 52px; } }
+                            VerticalLayout {
+                                alignment: center;
+                                horizontal-stretch: 1;
+                                Text { text: a.title; color: Theme.ink; font-size: Theme.text-lg; overflow: elide; }
+                                Text { text: a.artist; color: Theme.ink-2; font-size: Theme.text-sm; overflow: elide; }
+                            }
+                            Icon { source: Icons.chevron-right; tint: Theme.muted; }
+                        }
+                    }
+                }
+                Gutters { Button { text: "Todos os álbuns locais"; clicked => { AppState.open-collection("albums"); } } }
+            }
+            if !AppState.loading && AppState.library-category == 4 : VerticalLayout {
+                SectionHeader { title: "Artistas do seu acervo"; }
+                if AppState.library-artists.length == 0 : Gutters {
+                    StateCard { icon: Icons.user; title: "Seus artistas vão aparecer aqui"; text: "Adicione uma pasta de músicas com as informações de artista."; primary: "Adicionar pasta"; primary-clicked => { AppState.add-folder(); } }
+                }
+                if AppState.library-view == 1 : Rows {
+                    for a in AppState.library-artists : Pressable {
+                        height: 72px;
+                        label: a.name + ", " + a.subtitle;
+                        clicked => { AppState.open-collection("artist:" + a.id); }
+                        HorizontalLayout {
+                            spacing: Theme.s-sm;
+                            Rectangle { width: 52px; Icon { source: Icons.user; tint: Theme.accent; } }
+                            VerticalLayout {
+                                alignment: center;
+                                horizontal-stretch: 1;
+                                Text { text: a.name; color: Theme.ink; font-size: Theme.text-lg; overflow: elide; }
+                                Text { text: a.subtitle; color: Theme.ink-2; font-size: Theme.text-sm; overflow: elide; }
+                            }
+                            Icon { source: Icons.chevron-right; tint: Theme.muted; }
+                        }
+                    }
+                }
+                if AppState.library-view == 0 : Rectangle {
+                    height: ceil(AppState.library-artists.length / root.cols) * root.step;
+                    for a[i] in AppState.library-artists : Tile {
+                        x: Theme.gutter + mod(i, root.cols) * (root.tile-w + Theme.s-md);
+                        y: floor(i / root.cols) * root.step;
+                        size: root.tile-w;
+                        round: true;
+                        cover: a.cover;
+                        title: a.name;
+                        subtitle: a.subtitle;
+                        clicked => { AppState.open-collection("artist:" + a.id); }
+                    }
+                }
+            }
+            if !AppState.loading && (AppState.library-category == 0 || AppState.library-category == 3) : VerticalLayout {
+                spacing: Theme.s-sm;
+                SectionHeader { title: "Música neste aparelho"; }
+                Gutters {
+                    Group {
+                        Pressable {
+                            height: 72px;
+                            label: "Abrir músicas locais";
+                            clicked => { AppState.open-collection("songs"); }
+                            GroupItem { separator: false; has-icon: true; icon: Icons.folder; title: AppState.library-summary != "" ? AppState.library-summary : "Traga seus arquivos"; note: AppState.scanning ? AppState.scan-label : "Sua biblioteca local, sem internet."; chevron: true; }
+                        }
+                        Pressable {
+                            height: 56px;
+                            label: "Adicionar pasta";
+                            clicked => { AppState.add-folder(); }
+                            GroupItem { has-icon: true; icon: Icons.plus; title: "Adicionar pasta"; chevron: true; }
+                        }
+                    }
+                }
+                if AppState.scanning : Gutters {
+                    Rectangle {
+                        height: 6px;
+                        border-radius: 3px;
+                        background: Theme.paper-3;
+                        Rectangle { width: parent.width * (AppState.scan-progress < 0 ? 0.35 : clamp(AppState.scan-progress, 0, 1)); background: Theme.accent; border-radius: 3px; }
+                    }
+                }
+                if AppState.recents.length > 0 && AppState.library-view == 0 : Rectangle {
+                    height: ceil(AppState.recents.length / root.cols) * root.step;
+                    for t[i] in AppState.recents : Tile {
+                        x: Theme.gutter + mod(i, root.cols) * (root.tile-w + Theme.s-md);
+                        y: floor(i / root.cols) * root.step;
+                        size: root.tile-w;
+                        cover: t.cover;
+                        title: t.title;
+                        subtitle: t.artist;
+                        clicked => { AppState.play-track(t.id); }
+                    }
+                }
+                if AppState.recents.length > 0 && AppState.library-view == 1 : Rows {
+                    for t[i] in AppState.recents : TrackRow { t: t; separator: false; clicked => { AppState.play-track(t.id); } more-clicked => { Nav.open-menu(t); } }
+                }
+            }
+        }
+    }
+}

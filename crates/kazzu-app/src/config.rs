@@ -70,6 +70,10 @@ impl StreamQualityPref {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
+    pub glass_style: i32,
+    pub artwork_background: bool,
+    pub library_view: i32,
+    pub library_density: i32,
     pub theme: ThemePref,
     pub accent: AccentPref,
     /// `None` = ainda não decidido (usa a preferência do sistema, se houver).
@@ -90,6 +94,10 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            glass_style: 1,
+            artwork_background: true,
+            library_view: 0,
+            library_density: 1,
             theme: ThemePref::Dark,
             accent: AccentPref::Cover,
             reduce_motion: None,
@@ -136,6 +144,9 @@ impl Config {
     /// Corrige valores impossíveis vindos de um arquivo editado à mão (`volume = nan`, 7, -1...).
     pub fn sanitized(mut self) -> Self {
         self.volume = if self.volume.is_finite() { self.volume.clamp(0.0, 1.0) } else { 1.0 };
+        self.glass_style = self.glass_style.clamp(0, 2);
+        self.library_view = self.library_view.clamp(0, 1);
+        self.library_density = self.library_density.clamp(0, 2);
         self.recent_searches.truncate(Self::MAX_RECENT);
         self
     }

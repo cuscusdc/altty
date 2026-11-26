@@ -4,17 +4,18 @@ import { AppState, Tab } from "app-contract.slint";
 
 export global Metrics {
     /// largura da barra lateral do desktop (>= 1100): sólida, `paper-2`
-    out property <length> sidebar-w: 264px;
+    out property <length> sidebar-w: 240px;
     /// barra de reprodução do desktop (vidro)
     out property <length> nowbar-h: 72px;
     /// largura máxima da doca (celular e tablet)
     out property <length> dock-max-w: 520px;
-    /// altura que a doca ocupa (mini-player + cápsula + folga + área segura); as telas somam mais 16 de respiro
-    out property <length> dock-reserve: (AppState.has-now ? Theme.mini-h + Theme.s-xs : 0px) + Theme.bar-h + Theme.s-sm + AppState.safe-bottom + Theme.s-md;
+    /// Altura da ilha, incluindo mini-player opcional, dock, margem e área segura.
+    out property <length> dock-reserve: (AppState.has-now ? 66px : 0px) + 70px + AppState.safe-bottom;
     /// recuo inferior do conteúdo: a doca (celular, tablet) ou a barra de reprodução (desktop)
-    out property <length> reserve: (Theme.wide ? (AppState.has-now ? nowbar-h + Theme.s-md + Theme.s-xl : Theme.s-xl) + AppState.safe-bottom : dock-reserve + Theme.s-md);
+    property <length> desktop-bar-reserve: AppState.has-now ? (Theme.wide ? nowbar-h + Theme.s-md : 64px + Theme.s-sm) : 0px;
+    out property <length> reserve: AppState.mobile ? dock-reserve + Theme.s-md : desktop-bar-reserve + Theme.s-xl + AppState.safe-bottom;
     /// onde o aviso (toast) apoia: o topo da doca ou da barra de reprodução
-    out property <length> chrome-top: Theme.wide ? (AppState.has-now ? nowbar-h + Theme.s-md : Theme.s-md) + AppState.safe-bottom : dock-reserve - Theme.s-md;
+    out property <length> chrome-top: AppState.mobile ? dock-reserve : max(Theme.s-md, desktop-bar-reserve) + AppState.safe-bottom;
 
     // Rolagem por tela (cada aba guarda a sua; tocar na aba ativa volta ao topo). Telas gravam em `changed content-y`.
     in-out property <length> scroll-home: 0px;

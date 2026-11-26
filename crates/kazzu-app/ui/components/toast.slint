@@ -1,0 +1,44 @@
+// Aviso (toast): cápsula de vidro de 52, apoiada acima do cromo. O Rust incrementa `seq` a cada aviso; um Timer
+// o esconde (6 s; 12 s com ação). Texto na tinta principal; a ação é um TextButton na mesma tinta.
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { Glass, Icon, TextButton } from "atoms.slint";
+
+export component Toast inherits Glass {
+    in property <string> message;
+    in property <bool> error: false;
+    in property <string> action-label;
+    in property <int> seq: 0;
+    in property <length> avail: 360px;
+    callback action();
+    callback dismissed();
+    property <bool> shown: false;
+    changed seq => { root.shown = root.message != ""; if (root.shown) { hide.restart(); } }
+    radius: 26px;
+    height: 52px;
+    visible: (shown && message != "") || self.opacity > 0.01;
+    opacity: (shown && message != "") ? 1.0 : 0.0;
+    animate opacity { duration: Theme.dur-short; }
+    width: min(avail - 2 * Theme.s-md, 520px, msg.preferred-width + (root.action-label != "" ? 112px : 0px) + 56px + (root.error ? 30px : 0px));
+    accessible-role: AccessibleRole.text;
+    accessible-label: message;
+    accessible-live-region: AccessibleLiveness.polite;
+    hide := Timer {
+        interval: root.action-label != "" ? 12s : 6s;
+        running: false;
+        triggered => { root.shown = false; self.running = false; root.dismissed(); }
+    }
+    HorizontalLayout {
+        padding-left: Theme.s-lg;
+        padding-right: root.action-label != "" ? Theme.s-xxs : Theme.s-lg;
+        spacing: Theme.s-xs;
+        if root.error : VerticalLayout { alignment: center; Icon { source: Icons.info; size: 20px; } }
+        msg := Text { text: root.message; color: Theme.ink; font-size: Theme.text-md; font-weight: 600; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; accessible-role: none; }
+        if root.action-label != "" : TextButton {
+            text: root.action-label;
+            ink: Theme.ink;
+            width: 96px;
+            clicked => { root.shown = false; hide.running = false; root.action(); }
+        }
+    }
+}

@@ -381,19 +381,22 @@ fn first_run_scans_and_fills_home_library_and_settings() {
 #[test]
 fn clicking_a_track_loads_the_list_as_queue_and_plays() {
     let mut h = harness();
-    let id = track_id_by_title(&h, "Linha d'Água");
+    // Scan completion order is not an ordering contract; choose an item with successors from the actual view.
+    let selected = h.rec.borrow().recents[1].clone();
+    let id = track_id_by_title(&h, &selected);
     h.ctrl.play_track(&id);
-    h.pump_until("faixa tocando", |r| r.playback.playing && r.playback.now.as_ref().is_some_and(|t| t.title == "Linha d'Água"));
+    h.pump_until("faixa tocando", |r| r.playback.playing && r.playback.now.as_ref().is_some_and(|t| t.title == selected));
     let r = h.rec.borrow();
     let now = r.playback.now.as_ref().unwrap();
-    assert_eq!((now.artist.as_str(), now.album.as_str()), ("Aurora Vento", "Aurora"));
+    let expected = if selected == "Calor de Março" { ("Nina Sabiá", "Brasa") } else { ("Aurora Vento", "Aurora") };
+    assert_eq!((now.artist.as_str(), now.album.as_str()), expected);
     assert_eq!(r.playback.origin, "Recentes");
     assert!(now.playing);
     assert!(r.playing_marks.contains(&Some(id.clone())));
     assert_eq!(now.codec, "WAV");
     assert_eq!(now.detail, "16/44,1");
     drop(r);
-    // as demais faixas dos recentes viram "a seguir" (3 depois da atual, na ordem da lista)
+    // The successors in the displayed context become the upcoming queue.
     h.pump_until("fila", |r| !r.queue.is_empty());
     assert!(h.rec.borrow().queue_summary.starts_with("A seguir, "));
 }
@@ -650,11 +653,12 @@ fn loading_a_new_list_while_playing_replaces_the_queue() {
     let mut h = harness();
     h.ctrl.play_track(&h.first_recent_id());
     h.pump_until("fila", |r| r.queue.len() >= 3);
-    let id = track_id_by_title(&h, "Horizonte");
+    let selected = h.rec.borrow().recents[1].clone();
+    let id = track_id_by_title(&h, &selected);
     h.ctrl.play_track(&id);
-    h.pump_until("trocou de faixa", |r| r.playback.now.as_ref().is_some_and(|t| t.title == "Horizonte"));
+    h.pump_until("trocou de faixa", |r| r.playback.now.as_ref().is_some_and(|t| t.title == selected));
     h.settle(300);
-    // "Horizonte" está no meio da lista dos recentes: o que vem depois dela continua na fila
+    // The selected item has successors in the actual recent list.
     assert!(!h.rec.borrow().queue.is_empty(), "fila vazia após recarregar: {:?}", h.rec.borrow().queue);
     h.ctrl.play_track(&h.first_recent_id());
     h.settle(400);
@@ -977,9 +981,9 @@ fn nothing_touches_the_network_until_the_remote_provider_is_enabled_and_asked() 
     h.settle(200);
     assert!(cat.calls().is_empty());
     assert!(h.rec.borrow().home.as_ref().is_some_and(|x| x.state == LoadStateVm::Ready), "sem rede, o Início fica pronto só com o local");
-    // ligado: só o Início (cache + feed) é pedido na abertura; nada de busca, rádio ou resolução
+    // Home and discovery load at startup; search, radio and stream resolution wait for user intent.
     let (h2, cat2) = remote_harness();
-    assert_eq!(cat2.calls(), ["peek_home", "discover"]);
+    assert_eq!(cat2.calls(), ["peek_home", "discover", "explore"]);
     drop(h2);
 }
 
@@ -1099,7 +1103,8 @@ fn unavailable_tracks_are_skipped_with_a_calm_message_and_network_failures_wait_
     assert_eq!(cat.calls().iter().filter(|c| *c == "resolve:al1").count(), before, "sem martelar");
     cat.0.lock().unwrap().fail_resolve.clear();
     h.ctrl.toast_action();
-    h.pump_until("retomou", |r| r.queue_titles.iter().any(|t| t == "Álbum faixa 1"));
+    // A retry may already have become the current item if the preceding short fixture ended.
+    h.pump_until("retomou", |r| r.queue_titles.iter().any(|t| t == "Álbum faixa 1") || (r.playback.playing && r.playback.now.as_ref().is_some_and(|t| t.title == "Álbum faixa 1")));
 }
 
 #[test]
@@ -1382,4 +1387,33 @@ fn the_player_does_not_call_a_youtube_stream_original() {
     let (mut h, _cat) = remote_harness();
     h.ctrl.play_track("yt:v3");
     h.pump_until("nota de qualidade", |r| r.playback.output_note == "Qualidade do YouTube Music, sem equalizador");
+}
+
+#[test]
+fn library_layout_is_saved_and_clamps_values_from_the_ui() {
+    let mut h = harness();
+    h.ctrl.set_library_layout(1, 2);
+    let saved = Config::load(&h._dir.path().join("config.toml")).unwrap();
+    assert_eq!((saved.library_view, saved.library_density), (1, 2));
+    h.ctrl.set_library_layout(-1, 9);
+    assert_eq!((h.ctrl.config().library_view, h.ctrl.config().library_density), (0, 2));
+}
+
+#[test]
+fn visual_preferences_survive_restart_and_clamp_invalid_style() {
+    let mut h = harness();
+    h.ctrl.set_visual_style(2, false);
+    let saved = Config::load(&h._dir.path().join("config.toml")).unwrap();
+    assert_eq!((saved.glass_style, saved.artwork_background), (2, false));
+    h.ctrl.set_visual_style(99, true);
+    assert_eq!((h.ctrl.config().glass_style, h.ctrl.config().artwork_background), (2, true));
+}
+
+#[test]
+fn settings_search_ignores_case_accents_and_extra_spaces() {
+    use kazzu_app::app::settings_match;
+    assert!(settings_match("  APARENCIA  VIDRO ", "aparência tema vidro atmosfera"));
+    assert!(settings_match("reproducao", "Reprodução qualidade fila"));
+    assert!(settings_match("", "qualquer seção"));
+    assert!(!settings_match("volume", "aparência tema vidro"));
 }

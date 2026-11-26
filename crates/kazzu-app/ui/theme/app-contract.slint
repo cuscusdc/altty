@@ -43,10 +43,13 @@ export struct OutputDevice { id: string, name: string, active: bool }
 export struct ProviderRow { id: string, name: string, status-label: string, connected: bool, available: bool }
 
 export global AppState {
+    // ---- plataforma (o Rust define na criação da janela: Android = true) ----------------------
+    in property <bool> mobile: false;
     // ---- navegação (estado de tela vive no Slint; o Rust só escuta) ---------------------------
     in-out property <Tab> tab: Tab.home;
     in-out property <bool> player-open: false;
     in-out property <bool> queue-open: false;
+    in-out property <bool> mobile-lyrics-open: false;
     // Folhas contextuais (nível 3). `menu-track` é uma cópia da linha que abriu o menu.
     in-out property <bool> menu-open: false;
     in-out property <Track> menu-track;
@@ -121,6 +124,8 @@ export global AppState {
     in property <[Track]> recents;                  // locais recentes (Início offline, Biblioteca)
     callback dismiss-first-run-banner();
     callback retry-home();
+    callback play-random-shortcut();
+    callback mobile-feature(string);
     callback open-item(string, string);             // kind, id: abre álbum/playlist/artista/humor
     callback play-item(string, string);             // kind, id: toca na hora (botão do destaque)
 
@@ -132,8 +137,15 @@ export global AppState {
     in property <[Track]> trending;                 // "Em alta"
     callback retry-explore();
 
+    in-out property <int> library-view: 0;
+    in-out property <int> library-density: 1;
+    in-out property <int> library-category: 0;
+    callback library-layout-changed(int, int);
+
     // ---- Biblioteca ---------------------------------------------------------------------------
     in property <[Collection]> collections;         // sempre 4: baixados, curtidos, álbuns, playlists
+    in property <[Album]> library-albums;
+    in property <[Artist]> library-artists;
     in property <[Playlist]> playlists;
     in property <bool> has-library: false;          // há pastas e músicas indexadas
     in property <bool> scanning: false;
@@ -155,6 +167,8 @@ export global AppState {
     in-out property <bool> detail-open: false;
     in property <DetailKind> detail-kind: DetailKind.tracks;
     in property <LoadState> detail-state: LoadState.ready;
+    in property <string> detail-description;
+    in property <[Highlight]> detail-related;
     in property <string> detail-title: "";
     in property <string> detail-subtitle: "";
     in property <image> detail-cover;
@@ -217,6 +231,12 @@ export global AppState {
     callback toast-action();
     callback dismiss-toast();
 
+    in-out property <int> settings-section: 0;
+    in-out property <string> settings-query;
+    in-out property <int> glass-style: 1;
+    in-out property <bool> artwork-background: true;
+    callback visual-style-changed(int, bool);
+    pure callback settings-match(string, string) -> bool;
     // ---- Configurações ------------------------------------------------------------------------
     in-out property <ThemeMode> theme-mode: ThemeMode.dark;
     in-out property <int> stream-quality: 0;        // 0 Original, 1 Alta, 2 Baixa

@@ -1,0 +1,82 @@
+// Shell desktop com navegação lateral e barra de reprodução no rodapé.
+import { Theme } from "../theme/tokens.slint";
+import { AppState, Tab } from "../theme/app-contract.slint";
+import { Nav } from "../theme/nav-state.slint";
+import { DesktopSidebar } from "sidebar.slint";
+import { DesktopNowBar } from "nowbar.slint";
+import { DesktopCompactBar } from "chrome.slint";
+import { DesktopHome } from "home.slint";
+import { DesktopLibrary } from "library.slint";
+import { DesktopSearch } from "search.slint";
+import { DesktopSettings } from "settings.slint";
+import { DesktopDetail } from "detail.slint";
+
+export component DesktopShell inherits Rectangle {
+    background: transparent;
+    in-out property <bool> collapsed: false;
+    property <int> tab-idx: AppState.tab == Tab.home || AppState.tab == Tab.explore ? 0 : AppState.tab == Tab.library ? 1 : AppState.tab == Tab.search ? 2 : 3;
+    property <bool> sidebar-collapsed: !Theme.wide || root.collapsed;
+    property <length> side-w: root.sidebar-collapsed ? 72px : 240px;
+    function go(i: int) { Nav.go(i == 0 ? Tab.home : i == 1 ? Tab.library : Tab.search); }
+    Rectangle {
+        x: root.side-w;
+        width: parent.width - root.side-w;
+        height: parent.height;
+        if AppState.detail-open : DesktopDetail { }
+        if !AppState.detail-open && (AppState.tab == Tab.home || AppState.tab == Tab.explore) : DesktopHome { }
+        if !AppState.detail-open && AppState.tab == Tab.library : DesktopLibrary { }
+        if !AppState.detail-open && AppState.tab == Tab.search : DesktopSearch { }
+        if !AppState.detail-open && AppState.tab == Tab.settings : DesktopSettings { }
+    }
+    DesktopSidebar {
+        x: 0;
+        width: root.side-w;
+        height: parent.height;
+        collapsed: root.sidebar-collapsed;
+        can-expand: Theme.wide;
+        tab: AppState.detail-open ? 3 : root.tab-idx;
+        playlists: AppState.playlists;
+        safe-top: AppState.safe-top;
+        go(i) => { root.go(i); }
+        open-playlist(id) => { AppState.open-playlist(id); }
+        toggle-collapsed => { root.collapsed = !root.collapsed; }
+    }
+    if !Theme.wide && AppState.has-now && !AppState.player-open : DesktopCompactBar {
+        x: root.side-w;
+        y: parent.height - self.height;
+        width: parent.width - root.side-w;
+        now: AppState.now;
+        now-tint: AppState.backdrop-wide;
+        now-dim: AppState.mini-dim;
+        playing: AppState.playing;
+        progress: AppState.progress;
+        safe-bottom: AppState.safe-bottom;
+        open-player => { Nav.open-player(); }
+        toggle-play => { AppState.toggle-play(); }
+        next => { AppState.next(); }
+    }
+    if Theme.wide && AppState.has-now && !AppState.player-open : DesktopNowBar {
+        x: root.side-w + Theme.s-md;
+        y: parent.height - self.height - Theme.s-md - AppState.safe-bottom;
+        width: parent.width - root.side-w - 2 * Theme.s-md;
+        now: AppState.now;
+        has-now: AppState.has-now;
+        playing: AppState.playing;
+        progress: AppState.progress;
+        position: AppState.position-label;
+        remaining: AppState.remaining-label;
+        volume: AppState.volume;
+        shuffle: AppState.shuffle;
+        repeat: AppState.repeat;
+        open-player => { Nav.open-player(); }
+        toggle-play => { AppState.toggle-play(); }
+        previous => { AppState.previous(); }
+        next => { AppState.next(); }
+        seek(v) => { AppState.seek(v); }
+        set-volume(v) => { AppState.set-volume(v); }
+        toggle-like => { AppState.toggle-like(AppState.now.id); }
+        open-queue => { AppState.queue-open = true; }
+        toggle-shuffle => { AppState.toggle-shuffle(); }
+        cycle-repeat => { AppState.cycle-repeat(); }
+    }
+}

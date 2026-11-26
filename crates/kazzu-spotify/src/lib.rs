@@ -10,6 +10,7 @@
 //! usable from any executor (`pollster`, tokio, smol...).
 //! No network call happens unless a method is called (no telemetry).
 
+use url::form_urlencoded;
 use async_trait::async_trait;
 use base64::Engine;
 use serde_json::Value;

@@ -1,5 +1,6 @@
-// Janela raiz do Kazzu (v4). UMA árvore: o celular (compacto, < 600) é a base; `Theme.wide` (>= 1100) acrescenta a barra lateral e
-// a barra de reprodução. O conteúdo rola por baixo do cromo (doca, cabeçalho recolhido), que é vidro. Fundo liso: toda a cor vem das capas.
+// Janela raiz do Kazzu (v4). DUAS árvores: Android (`AppState.mobile`, definido pelo Rust) usa o shell de celular;
+// desktop usa o shell adaptativo (barra lateral >= 1100, cromo compacto abaixo disso). Overlays, folhas e o aviso
+// vivem aqui, acima dos dois. Fundo liso: toda a cor vem das capas.
 import "fonts/Inter-Regular.ttf";
 import "fonts/Inter-SemiBold.ttf";
 import "fonts/Inter-Bold.ttf";
@@ -7,20 +8,16 @@ import "fonts/InterDisplay-Bold.ttf";
 
 import { Palette } from "std-widgets.slint";
 import { Theme } from "theme/tokens.slint";
-import { Icons } from "theme/icons.slint";
 import { Metrics } from "theme/metrics.slint";
 import { Nav } from "theme/nav-state.slint";
 import { AppState, Tab, RepeatMode, SearchState, ThemeMode, DetailKind, LoadState, Track, Album, Highlight, Artist, Playlist, Collection, OutputDevice, ProviderRow } from "theme/app-contract.slint";
 import { Glass, Button, TextButton } from "components/atoms.slint";
-import { Dock, TopBar, Toast, Sidebar, NowBar } from "components/chrome.slint";
+import { Toast } from "components/toast.slint";
 import { MenuSheet, PlaylistSheet, NewPlaylistSheet, QueueSheet } from "components/sheets.slint";
-import { HomeScreen } from "screens/home.slint";
-import { ExploreScreen } from "screens/explore.slint";
-import { LibraryScreen } from "screens/library.slint";
-import { SearchScreen } from "screens/search.slint";
-import { SettingsScreen } from "screens/settings.slint";
-import { DetailScreen } from "screens/detail.slint";
-import { PlayerScreen } from "screens/player.slint";
+import { MobileShell } from "mobile/shell.slint";
+import { DesktopShell } from "desktop/shell.slint";
+import { MobilePlayer } from "mobile/player.slint";
+import { DesktopPlayer } from "desktop/player.slint";
 
 export { Metrics, Nav, Theme, AppState, Tab, RepeatMode, SearchState, ThemeMode, DetailKind, LoadState, Track, Album, Highlight, Artist, Playlist, Collection, OutputDevice, ProviderRow }
 
@@ -75,16 +72,7 @@ export component AppWindow inherits Window {
     changed cur-queue => { keys.focus(); }
     changed cur-detail => { keys.focus(); }
 
-    property <bool> sheet-up: AppState.queue-open || AppState.menu-open || AppState.playlist-sheet-open || AppState.new-playlist-open;
-    // destino ativo da barra lateral e da doca: 0 Início, 1 Explorar, 2 Biblioteca, 3 Buscar, 4 Ajustes (nenhum)
-    property <int> tab-idx: AppState.tab == Tab.home ? 0 : AppState.tab == Tab.explore ? 1 : AppState.tab == Tab.library ? 2 : AppState.tab == Tab.search ? 3 : 4;
-    function go(i: int) { Nav.go(i == 0 ? Tab.home : i == 1 ? Tab.explore : i == 2 ? Tab.library : Tab.search); }
-    property <length> side-w: Theme.wide ? Metrics.sidebar-w : 0px;
-    property <length> content-x: AppState.safe-left + side-w;
-    property <length> content-w: root.width - content-x - AppState.safe-right;
-    property <length> scrolled: AppState.detail-open ? -Metrics.scroll-detail : -Metrics.saved-scroll(AppState.tab);
-    property <bool> bar-shown: AppState.detail-open ? root.scrolled > (content-w >= 840px ? 160px : min(content-w, 520px) - 110px) : root.scrolled > 56px;
-    property <string> bar-title: AppState.detail-open ? AppState.detail-title : AppState.tab == Tab.home ? (Theme.wide ? "Início" : "") : AppState.tab == Tab.explore ? "Explorar" : AppState.tab == Tab.search ? "Buscar" : AppState.tab == Tab.library ? "Biblioteca" : "Ajustes";
+    property <bool> sheet-up: AppState.mobile-lyrics-open || AppState.queue-open || AppState.menu-open || AppState.playlist-sheet-open || AppState.new-playlist-open;
 
     keys := FocusScope {
         width: 100%;
@@ -92,6 +80,18 @@ export component AppWindow inherits Window {
         key-pressed(e) => {
             // Esc (desktop) e Voltar do Android (Key.Back): só "accept" se algo foi fechado; senão o sistema fecha o app
             if (e.text == Key.Escape || e.text == Key.Back) { return root.go-back() ? accept : reject; }
+            // Atalhos de desktop (no Android o teclado físico também funciona, mas a barra de atalhos é outra)
+            if (!AppState.mobile && e.modifiers.control) {
+                if (e.text == "f" || e.text == "k") { Nav.go(Tab.search); return accept; }
+                if (e.text == ",") { Nav.go(Tab.settings); return accept; }
+                if (e.text == "1") { Nav.go(Tab.home); return accept; }
+                if (e.text == "2") { Nav.go(Tab.library); return accept; }
+                if (e.text == "3") { Nav.go(Tab.search); return accept; }
+            }
+            if (!AppState.mobile && AppState.has-now && !root.sheet-up && !e.modifiers.control && !e.modifiers.alt && !e.modifiers.meta && e.text == "f") {
+                if (AppState.player-open) { Nav.close-player(); } else { Nav.open-player(); }
+                return accept;
+            }
             if (e.text == " ") { AppState.toggle-play(); return accept; }
             if (e.text == Key.LeftArrow) { AppState.seek-relative(-5); return accept; }
             if (e.text == Key.RightArrow) { AppState.seek-relative(5); return accept; }
@@ -100,77 +100,23 @@ export component AppWindow inherits Window {
             return reject;
         }
 
-        // ---- a área de conteúdo: a tela da aba (ou o detalhe) e o cromo que flutua sobre ela
-        area := Rectangle {
-            x: root.content-x;
-            width: root.content-w;
-            height: parent.height;
-            // as telas ficam numa coluna de até 1240, centralizada (janelas muito largas)
-            screens := Rectangle {
-                x: (parent.width - self.width) / 2;
-                width: min(parent.width, 1240px);
-                if AppState.detail-open : DetailScreen { }
-                if !AppState.detail-open && AppState.tab == Tab.home : HomeScreen { }
-                if !AppState.detail-open && AppState.tab == Tab.explore : ExploreScreen { }
-                if !AppState.detail-open && AppState.tab == Tab.library : LibraryScreen { }
-                if !AppState.detail-open && AppState.tab == Tab.search : SearchScreen { }
-                if !AppState.detail-open && AppState.tab == Tab.settings : SettingsScreen { }
-            }
-            TopBar {
-                y: 0;
-                width: parent.width;
-                safe-top: AppState.safe-top;
-                shown: root.bar-shown;
-                title: root.bar-title;
-                back: AppState.detail-open;
-                back-clicked => { Nav.close-detail(); }
-            }
-            if !Theme.wide && !AppState.player-open : Dock {
-                y: parent.height - self.height;
-                width: parent.width;
-                tab: root.tab-idx;
-                has-now: AppState.has-now;
-                now: AppState.now;
-                now-tint: AppState.backdrop-wide;
-                now-dim: AppState.mini-dim;
-                playing: AppState.playing;
-                progress: AppState.progress;
-                safe-bottom: AppState.safe-bottom;
-                go(i) => { root.go(i); }
-                open-player => { Nav.open-player(); }
-                toggle-play => { AppState.toggle-play(); }
-                next => { AppState.next(); }
-            }
-            if Theme.wide && AppState.has-now && !AppState.player-open : NowBar {
-                x: Theme.s-md;
-                y: parent.height - self.height - Theme.s-md - AppState.safe-bottom;
-                width: parent.width - 2 * Theme.s-md;
-                now: AppState.now;
-                playing: AppState.playing;
-                progress: AppState.progress;
-                position: AppState.position-label;
-                remaining: AppState.remaining-label;
-                volume: AppState.volume;
-                open-player => { Nav.open-player(); }
-                toggle-play => { AppState.toggle-play(); }
-                previous => { AppState.previous(); }
-                next => { AppState.next(); }
-                seek(v) => { AppState.seek(v); }
-                set-volume(v) => { AppState.set-volume(v); }
-                toggle-like => { AppState.toggle-like(AppState.now.id); }
-                open-queue => { AppState.queue-open = true; }
-            }
+        // Cached artwork atmosphere: no animated blur or per-row effects.
+        if Theme.glass-on && AppState.artwork-background && AppState.has-now : Image {
+            source: AppState.backdrop-wide;
+            width: parent.width; height: parent.height;
+            image-fit: ImageFit.cover;
+            opacity: Theme.dark ? 0.36 : 0.18;
         }
-        if Theme.wide : Sidebar {
-            x: AppState.safe-left;
-            width: Metrics.sidebar-w;
-            height: parent.height;
-            tab: AppState.detail-open ? 4 : root.tab-idx;
-            safe-top: AppState.safe-top;
-            playlists: AppState.playlists;
-            go(i) => { root.go(i); }
-            open-playlist(id) => { AppState.open-playlist(id); }
+        if Theme.glass-on && AppState.artwork-background && !AppState.has-now && AppState.highlights.length > 0 : Image {
+            source: AppState.highlights[0].cover;
+            width: parent.width; height: min(parent.height, 640px);
+            image-fit: ImageFit.cover; opacity: Theme.dark ? 0.12 : 0.08;
         }
+        Rectangle { background: @linear-gradient(180deg, Theme.paper.with-alpha(0.12) 0%, Theme.paper.with-alpha(0.72) 65%, Theme.paper 100%); }
+
+        // ---- o shell da plataforma (as telas e o cromo próprio de cada família)
+        if AppState.mobile : MobileShell { width: 100%; height: 100%; }
+        if !AppState.mobile : DesktopShell { width: 100%; height: 100%; }
 
         // ---- oferta de desempenho (aviso nível 2): aceitar liga Reduzir transparência
         if AppState.perf-offer && !Theme.reduce-transparency : Glass {
@@ -196,8 +142,9 @@ export component AppWindow inherits Window {
         }
 
         // ---- player (folha cheia, sempre escura) e folhas
-        if AppState.player-open : PlayerScreen { width: 100%; height: 100%; }
-        if AppState.queue-open : QueueSheet { width: 100%; height: 100%; }
+        if AppState.player-open && AppState.mobile : MobilePlayer { width: 100%; height: 100%; }
+        if AppState.player-open && !AppState.mobile : DesktopPlayer { width: 100%; height: 100%; }
+        if AppState.queue-open && (!AppState.mobile || !AppState.player-open) : QueueSheet { width: 100%; height: 100%; }
         if AppState.menu-open : MenuSheet { width: 100%; height: 100%; }
         if AppState.playlist-sheet-open : PlaylistSheet { width: 100%; height: 100%; }
         if AppState.new-playlist-open : NewPlaylistSheet { width: 100%; height: 100%; }
