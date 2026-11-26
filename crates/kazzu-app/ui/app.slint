@@ -13,7 +13,7 @@ import { Nav } from "theme/nav-state.slint";
 import { AppState, Tab, RepeatMode, SearchState, ThemeMode, DetailKind, LoadState, Track, Album, Highlight, Artist, Playlist, Collection, OutputDevice, ProviderRow } from "theme/app-contract.slint";
 import { Glass, Button, TextButton } from "components/atoms.slint";
 import { Toast } from "components/toast.slint";
-import { MenuSheet, PlaylistSheet, NewPlaylistSheet, QueueSheet } from "components/sheets.slint";
+import { AccountSheet, FolderSheet, MenuSheet, PlaylistSheet, NewPlaylistSheet, QueueSheet } from "components/sheets.slint";
 import { MobileShell } from "mobile/shell.slint";
 import { DesktopShell } from "desktop/shell.slint";
 import { MobilePlayer } from "mobile/player.slint";
@@ -72,7 +72,7 @@ export component AppWindow inherits Window {
     changed cur-queue => { keys.focus(); }
     changed cur-detail => { keys.focus(); }
 
-    property <bool> sheet-up: AppState.mobile-lyrics-open || AppState.queue-open || AppState.menu-open || AppState.playlist-sheet-open || AppState.new-playlist-open;
+    property <bool> sheet-up: AppState.account-open || AppState.folder-open || AppState.mobile-lyrics-open || AppState.queue-open || AppState.menu-open || AppState.playlist-sheet-open || AppState.new-playlist-open;
 
     keys := FocusScope {
         width: 100%;
@@ -148,6 +148,9 @@ export component AppWindow inherits Window {
         if AppState.menu-open : MenuSheet { width: 100%; height: 100%; }
         if AppState.playlist-sheet-open : PlaylistSheet { width: 100%; height: 100%; }
         if AppState.new-playlist-open : NewPlaylistSheet { width: 100%; height: 100%; }
+
+        if AppState.account-open : AccountSheet { width: 100%; height: 100%; }
+        if AppState.folder-open : FolderSheet { width: 100%; height: 100%; }
 
         // ---- aviso: 8 acima do cromo (em cima de tudo)
         Toast {

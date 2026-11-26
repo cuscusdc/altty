@@ -539,6 +539,7 @@ export component Scrubber inherits Rectangle {
     in property <string> label;
     in property <string> value-text;
     in property <bool> media: true;
+    in property <length> track-height: 9px;
     callback seek(float);
     height: 48px;
     accessible-role: slider;
@@ -560,8 +561,8 @@ export component Scrubber inherits Rectangle {
         clicked => { root.seek(max(0, min(1, self.mouse-x / self.width))); }
         moved => { if (self.pressed) { root.seek(max(0, min(1, self.mouse-x / self.width))); } }
     }
-    Rectangle { height: ta.pressed ? 10px : 6px; border-radius: self.height / 2; background: root.media ? Theme.media-track : Theme.paper-3; animate height { duration: Theme.dur-micro; } }
-    Rectangle { x: 0; width: parent.width * root.value; height: ta.pressed ? 10px : 6px; border-radius: self.height / 2; background: root.media ? Theme.media-ink : Theme.ink; animate height { duration: Theme.dur-micro; } }
+    Rectangle { height: ta.pressed ? root.track-height + 4px : root.track-height; border-radius: self.height / 2; background: root.media ? Theme.media-track : Theme.paper-3; animate height { duration: Theme.dur-micro; } }
+    Rectangle { x: 0; width: parent.width * root.value; height: ta.pressed ? root.track-height + 4px : root.track-height; border-radius: self.height / 2; background: root.media ? Theme.media-ink : Theme.ink; animate height { duration: Theme.dur-micro; } }
     if fs.has-focus : Rectangle { height: 20px; border-radius: 10px; border-width: 2px; border-color: root.media ? Theme.media-ink : Theme.focus; }
 }
 
@@ -630,6 +631,7 @@ export component Banner inherits Rectangle {
 export component SearchField inherits Rectangle {
     in-out property <string> text;
     in property <string> placeholder: "Músicas, artistas, álbuns";
+    in property <bool> secret: false;
     in property <bool> plain: false;       // sem lupa (campo de nome)
     in property <color> fill: Theme.paper-3;
     out property <bool> has-focus: input.has-focus;
@@ -652,6 +654,7 @@ export component SearchField inherits Rectangle {
         font-size: Theme.text-lg;
         vertical-alignment: center;
         single-line: true;
+        input-type: root.secret ? InputType.password : InputType.text;
         accessible-role: text-input;
         accessible-label: root.placeholder;
         accessible-placeholder-text: root.placeholder;

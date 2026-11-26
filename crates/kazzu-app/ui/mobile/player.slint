@@ -253,6 +253,7 @@ export component MobilePlayer inherits Rectangle {
         border-top-right-radius: 24px;
         background: MobilePalette.queue;
         clip: true;
+        TouchArea {}
         animate y { duration: Theme.reduce-motion ? 0ms : 300ms; }
         VerticalLayout {
             padding: 16px; padding-bottom: 12px + AppState.safe-bottom;

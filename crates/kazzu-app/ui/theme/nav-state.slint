@@ -28,6 +28,8 @@ export global Nav {
     }
     /// Voltar (Esc, botão Voltar do Android). Devolve false quando já está no Início sem nada aberto.
     public function back() -> bool {
+        if (AppState.folder-open) { AppState.folder-open = false; return true; }
+        if (AppState.account-open) { AppState.account-open = false; return true; }
         if (AppState.new-playlist-open) { AppState.new-playlist-open = false; return true; }
         if (AppState.playlist-sheet-open) { AppState.playlist-sheet-open = false; return true; }
         if (AppState.menu-open) { AppState.menu-open = false; return true; }

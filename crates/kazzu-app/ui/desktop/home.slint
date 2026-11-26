@@ -97,7 +97,7 @@ export component DesktopHome inherits Rectangle {
                 Rows { for t[i] in AppState.trending : TrackRow { t: t; number: i + 1; ranked: true; separator: false; clicked => { AppState.play-track(t.id); } more-clicked => { Nav.open-menu(t); } } }
             }
             if AppState.home-state == LoadState.empty || (AppState.home-state != LoadState.loading && !AppState.has-library && AppState.highlights.length == 0 && AppState.recents.length == 0) : Gutters {
-                StateCard { icon: Icons.disc; title: "Sua próxima descoberta começa aqui"; text: "Busque uma música ou traga seus arquivos para a biblioteca."; primary: "Buscar música"; secondary: "Adicionar pasta"; primary-clicked => { Nav.go(Tab.search); } secondary-clicked => { AppState.add-folder(); } }
+                StateCard { icon: Icons.disc; title: "Sua próxima descoberta começa aqui"; text: "Busque uma música ou traga seus arquivos para a biblioteca."; primary: "Buscar música"; secondary: "Adicionar pasta"; primary-clicked => { Nav.go(Tab.search); } secondary-clicked => { AppState.folder-open = true; } }
             }
         }
     }

@@ -222,3 +222,20 @@ fn invalid_index_changes_nothing() {
     assert_eq!(item_ids(&conn), before);
     assert_eq!(titles(&lib, pl), ["L1", "R-ok", "L3"]);
 }
+
+#[test]
+fn importing_the_same_playlist_twice_preserves_identity_and_metadata() {
+    let (_tmp, mut lib, _) = setup();
+    let first = remote("a", "Primeira");
+    let second = remote("b", "Segunda");
+    lib.import_remote_playlist("spotify:playlist:example", "Importada", std::slice::from_ref(&first)).unwrap();
+    lib.import_remote_playlist("spotify:playlist:example", "Importada", &[first, second]).unwrap();
+    let playlists = lib.playlists().unwrap();
+    let imported: Vec<_> = playlists.iter().filter(|playlist| playlist.name == "Importada").collect();
+    assert_eq!(imported.len(), 1);
+    let entries = lib.playlist_entries(imported[0].id).unwrap();
+    assert_eq!(entries.len(), 2);
+    let PlaylistEntry::Remote(track) = &entries[1] else { panic!("expected imported metadata") };
+    assert_eq!(track.title, "Segunda");
+    assert_eq!(track.duration, Some(Duration::from_millis(215_500)));
+}

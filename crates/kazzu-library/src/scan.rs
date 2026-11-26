@@ -64,6 +64,9 @@ impl Library {
     pub fn add_folder(&self, path: impl AsRef<Path>) -> Result<()> {
         let p = path.as_ref();
         let canon = std::fs::canonicalize(p).map_err(|e| Error::io(p, e))?;
+        if !canon.is_dir() {
+            return Err(Error::NotFound("diretório de músicas"));
+        }
         let s = canon.to_str().ok_or(Error::NotFound("caminho UTF-8"))?;
         self.conn
             .execute("INSERT OR IGNORE INTO music_folders(path) VALUES (?1)", [s])?;
@@ -112,7 +115,7 @@ impl Library {
         let mut files: Vec<FileEntry> = Vec::new();
         let mut live_roots: Vec<PathBuf> = Vec::new();
         for root in &roots {
-            if !root.is_dir() {
+            if !root.is_dir() || std::fs::read_dir(root).is_err() {
                 continue; // volume desmontado: não apaga as faixas dele
             }
             live_roots.push(root.clone());
@@ -127,7 +130,7 @@ impl Library {
         progress(ScanProgress::Discovering {
             files_found: files.len(),
         });
-        report.scanned = files.len();
+
 
         // 2. Diferença com o banco.
         let existing: HashMap<String, (i64, i64, i64)> = {
@@ -148,7 +151,9 @@ impl Library {
                     .push((f.path.clone(), "caminho não é UTF-8".into()));
                 continue;
             };
-            seen.insert(p);
+            if !seen.insert(p) {
+                continue; // pastas cadastradas podem se sobrepor
+            }
             match existing.get(p) {
                 Some(&(_, mtime, size)) if mtime == f.mtime && size == f.size => {
                     report.unchanged += 1
@@ -156,6 +161,8 @@ impl Library {
                 _ => to_read.push(f),
             }
         }
+
+        report.scanned = seen.len();
 
         // 3. Leitura paralela.
         let total = to_read.len();

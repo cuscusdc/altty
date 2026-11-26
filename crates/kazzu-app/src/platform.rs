@@ -39,3 +39,25 @@ mod tests {
         assert_eq!(parse_gsettings_bool("'prefer-dark'"), None);
     }
 }
+
+/// Opens a Spotify reference in the system handler. Accept only a Spotify track ID.
+pub fn open_spotify_track(id: &str) -> bool {
+    if id.is_empty() || id.len() > 64 || !id.bytes().all(|b| b.is_ascii_alphanumeric()) {
+        return false;
+    }
+    let url = format!("https://open.spotify.com/track/{id}");
+    #[cfg(target_os = "android")]
+    return crate::android::open_web_url(&url);
+    #[cfg(not(target_os = "android"))]
+    {
+        std::thread::Builder::new().name("kazzu-open-link".into()).spawn(move || {
+            #[cfg(target_os = "macos")]
+            let (command, args) = ("open", vec![url.as_str()]);
+            #[cfg(target_os = "windows")]
+            let (command, args) = ("rundll32", vec!["url.dll,FileProtocolHandler", url.as_str()]);
+            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+            let (command, args) = ("xdg-open", vec![url.as_str()]);
+            let _ = std::process::Command::new(command).args(args).status();
+        }).is_ok()
+    }
+}

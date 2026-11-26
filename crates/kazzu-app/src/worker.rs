@@ -74,6 +74,8 @@ pub enum Job {
     Scan,
     AddFolder(PathBuf),
     RemoveFolder(PathBuf),
+    BrowseFolders { seq: u64, path: PathBuf, root: PathBuf },
+    ImportAccount { lists: Vec<crate::accounts::Import>, skipped: usize },
     Search { seq: u64, query: String },
     Play { scope: Scope, start_id: Option<String>, shuffle: bool, label: String },
     QueueItems { id: String, mode: QueueMode },
@@ -122,6 +124,8 @@ pub enum JobResult {
     TrackVms { seq: u64, tracks: Vec<TrackVm> },
     /// Lista "Recentes" atualizada (depois de registrar uma escuta).
     Recents(Vec<TrackVm>),
+    ListeningSummary(String),
+    FolderListing { seq: u64, result: Result<FolderListingVm, String> },
     /// Algo falhou: o texto já é para o usuário.
     Failed(String),
     /// Curtida gravada.
@@ -315,6 +319,16 @@ impl Store {
                 self.lib.remove_folder(&path)?;
                 emit(JobResult::FoldersChanged);
             }
+            Job::BrowseFolders { seq, path, root } => {
+                emit(JobResult::FolderListing { seq, result: list_folders(&path, &root) });
+            }
+            Job::ImportAccount { lists, skipped } => {
+                for list in &lists {
+                    self.lib.import_remote_playlist(&list.key, &list.name, &list.tracks)?;
+                }
+                emit(JobResult::Notice(format!("{} coleções importadas, {skipped} listas sem acesso.", lists.len())));
+                emit(JobResult::Refreshed(Box::new(self.snapshot()?)));
+            }
             Job::Search { seq, query } => {
                 self.reload_caches_if_empty()?;
                 let found = self.lib.search(&query, SEARCH_LIMIT)?;
@@ -387,6 +401,7 @@ impl Store {
                     self.reload_caches_if_empty()?;
                     let recents = self.recent_tracks()?.iter().map(|t| self.track_vm(t)).collect();
                     emit(JobResult::Recents(recents));
+                    emit(JobResult::ListeningSummary(self.listening_summary()?));
                 }
             }
             Job::CreatePlaylist { name, add } => {
@@ -416,6 +431,7 @@ impl Store {
                 self.lib.clear_history()?;
                 let recents = self.recent_tracks()?.iter().map(|t| self.track_vm(t)).collect();
                 emit(JobResult::Recents(recents));
+                    emit(JobResult::ListeningSummary(self.listening_summary()?));
                 emit(JobResult::Notice("Histórico de escuta apagado".into()));
             }
             Job::SaveConfig { path, config } => {
@@ -454,6 +470,11 @@ impl Store {
                 None => Ok(()),
             },
         }
+    }
+
+    fn listening_summary(&self) -> Result<String, kazzu_library::Error> {
+        let (minutes, plays) = self.lib.listening_totals()?;
+        Ok(format!("{} min · {} reproduções", format::thousands(minutes), format::thousands(plays)))
     }
 
     fn reload_caches_if_empty(&mut self) -> Result<(), kazzu_library::Error> {
@@ -530,7 +551,7 @@ impl Store {
 
         Ok(Snapshot {
             home: HomeVm { recents, albums, ..Default::default() },
-            library: LibraryVm { albums: order.iter().map(|a| self.album_vm(a)).collect(), artists: self.lib.artists()?.into_iter().map(|a| ArtistVm { id: a.id.0.to_string(), name: a.name, subtitle: format::songs_label(a.track_count as u64), ..Default::default() }).collect(), collections, playlists: playlist_vms },
+            library: LibraryVm { listening_summary: self.listening_summary()?, albums: order.iter().map(|a| self.album_vm(a)).collect(), artists: self.lib.artists()?.into_iter().map(|a| ArtistVm { id: a.id.0.to_string(), name: a.name, subtitle: format::songs_label(a.track_count as u64), ..Default::default() }).collect(), collections, playlists: playlist_vms },
             settings: SettingsVm {
                 folders: folders.iter().map(|p| p.display().to_string()).collect(),
                 summary: format::library_summary(folders.len(), track_count),
@@ -643,7 +664,7 @@ impl Store {
         let tracks = self.tracks_for(&scope)?;
         let total_ms: u64 = tracks.iter().map(|t| t.duration_ms).sum();
         let vms: Vec<TrackVm> = tracks.iter().map(|t| self.track_vm(t)).collect();
-        let ids = vms.iter().map(|t| t.id.clone()).collect();
+        let ids = vms.iter().filter(|t| !t.id.starts_with("sp:")).map(|t| t.id.clone()).collect();
         let subtitle = if subtitle.is_empty() && !vms.is_empty() {
             format!("{}, {} min", format::songs_label(vms.len() as u64), format::thousands(total_ms.div_ceil(60_000)))
         } else {
@@ -676,7 +697,7 @@ impl Store {
                 }
             }
         }
-        let ids = vms.iter().map(|t| t.id.clone()).collect();
+        let ids = vms.iter().filter(|t| !t.id.starts_with("sp:")).map(|t| t.id.clone()).collect();
         let subtitle = if vms.is_empty() { String::new() } else { format!("{}, {} min", format::songs_label(vms.len() as u64), format::thousands(total_ms.div_ceil(60_000))) };
         let state = if vms.is_empty() { LoadStateVm::Empty } else { LoadStateVm::Ready };
         Ok((DetailVm { kind: DetailKindVm::Tracks, state, title, subtitle, empty_text: empty.to_owned(), tracks: vms, cover: first_local_album.and_then(|a| self.detail_cover(Some(a))), ..Default::default() }, ids, remote))
@@ -932,4 +953,23 @@ impl JobQueue {
             }
         }
     }
+}
+
+
+fn list_folders(path: &Path, root: &Path) -> Result<FolderListingVm, String> {
+    let root = root.canonicalize().map_err(|_| "O armazenamento compartilhado não está acessível.")?;
+    let path = path.canonicalize().map_err(|_| "A pasta não está acessível.")?;
+    if !path.starts_with(&root) {
+        return Err("Escolha uma pasta no armazenamento compartilhado.".into());
+    }
+    let mut children = std::fs::read_dir(&path).map_err(|_| "O Android não permitiu listar esta pasta.")?
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
+        .filter_map(|entry| {
+            Some((entry.file_name().to_str()?.to_owned(), entry.path().to_str()?.to_owned()))
+        })
+        .collect::<Vec<_>>();
+    children.sort_by_cached_key(|(name, _)| name.to_lowercase());
+    let parent = if path == root { String::new() } else { path.parent().and_then(Path::to_str).unwrap_or_default().to_owned() };
+    Ok(FolderListingVm { current: path.to_string_lossy().into_owned(), parent, children })
 }

@@ -373,7 +373,8 @@ fn first_run_scans_and_fills_home_library_and_settings() {
     assert!(settings.has_library);
     assert_eq!(providers.len(), 4);
     assert!(providers.iter().any(|p| p.id == "local" && p.connected), "a biblioteca local está ativa");
-    assert!(providers.iter().filter(|p| p.id != "local" && p.id != "ytmusic").all(|p| !p.available), "outros provedores: em breve");
+    assert!(providers.iter().any(|p| p.id == "spotify" && p.available && !p.connected), "a importação do Spotify está disponível sem sessão ativa");
+    assert!(providers.iter().any(|p| p.id == "tidal-qobuz" && !p.available));
     assert!(r.scan_seen > 0, "o scan reportou progresso");
     assert!(r.scan.is_none(), "o banner some quando o scan termina");
 }
@@ -409,6 +410,10 @@ fn progress_labels_follow_position_events_and_seek_works() {
     let (p, pos, rem) = h.rec.borrow().progress.clone();
     assert!(p > 0.0 && p <= 1.0);
     assert!(pos.starts_with("0:") && rem.starts_with('−'), "{pos} / {rem}");
+    // O relógio de teste acelera faixas curtas. Pause para a próxima faixa
+    // não substituir a posição entre o seek e a entrega dos eventos.
+    h.ctrl.toggle_play();
+    h.pump_until("pausado", |r| r.playback.has_now && !r.playback.playing);
     h.ctrl.seek(0.9);
     h.pump_until("pulou", |r| r.progress.0 >= 0.88);
 }

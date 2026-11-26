@@ -49,13 +49,20 @@ pub fn tidy_summary(s: &str) -> String {
     s.replace(" • ", ", ").replace('•', ",")
 }
 
+fn spotify(track: &Track) -> bool {
+    matches!(track.source, TrackSource::Remote { provider: ProviderKind::Spotify, .. })
+}
+pub fn track_ui_id(track: &Track) -> String {
+    if spotify(track) { format!("sp:{}", track.id.as_str()) } else { remote_id(track.id.as_str()) }
+}
+
 pub fn track_vm(t: &Track, liked: bool, why: &str) -> TrackVm {
     let b = match &t.format {
         Some(f) => format::badge(&f.codec.to_string(), f.codec.is_lossless(), f.bit_depth, f.sample_rate, f.bitrate_kbps),
         None => format::Badge::default(),
     };
     TrackVm {
-        id: remote_id(t.id.as_str()),
+        id: track_ui_id(t),
         title: t.title.clone(),
         artist: t.artist_line(),
         album: t.album.as_ref().map(|a| a.title.clone()).unwrap_or_default(),
@@ -66,7 +73,7 @@ pub fn track_vm(t: &Track, liked: bool, why: &str) -> TrackVm {
         detail: b.detail,
         detail_long: b.detail_long,
         hires: b.hires,
-        source: SOURCE_NAME.to_owned(),
+        source: if spotify(t) { "Spotify · Metadados".into() } else { SOURCE_NAME.to_owned() },
         liked,
         playing: false,
         why: why.to_owned(),

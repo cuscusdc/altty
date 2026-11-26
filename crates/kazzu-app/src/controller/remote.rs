@@ -109,7 +109,7 @@ impl<V: View> Controller<V> {
 
     pub(super) fn remember_remote(&mut self, t: &CoreTrack) {
         if matches!(t.source, TrackSource::Remote { .. }) {
-            self.remote_tracks.insert(ytm_vm::remote_id(t.id.as_str()), t.clone());
+            self.remote_tracks.insert(ytm_vm::track_ui_id(t), t.clone());
         }
     }
 
@@ -565,13 +565,16 @@ impl<V: View> Controller<V> {
         self.search_local_albums.clear();
         self.search_local_ids.clear();
         self.search_suggestions.clear();
+        self.search_local_pending = false;
         if self.search_query.is_empty() {
             self.publish_search();
             return;
         }
-        self.search_local_pending = true;
-        self.jobs.submit(Job::Search { seq: self.search_seq, query: self.search_query.clone() });
-        if self.remote_enabled {
+        if self.search_source != 1 {
+            self.search_local_pending = true;
+            self.jobs.submit(Job::Search { seq: self.search_seq, query: self.search_query.clone() });
+        }
+        if self.remote_enabled && self.search_source != 2 {
             self.jobs.submit(Job::Remote(RemoteJob::Search { seq: self.search_seq, query: self.search_query.clone(), kind: self.search_kind }));
             self.jobs.submit(Job::Remote(RemoteJob::Suggest { seq: self.search_seq, prefix: self.search_query.clone() }));
         }
@@ -583,6 +586,11 @@ impl<V: View> Controller<V> {
         self.search_kind = kind;
         let q = self.search_query.clone();
         self.search(&q);
+    }
+
+    pub fn search_source_changed(&mut self, source: i32) {
+        self.search_source = source.clamp(0, 2);
+        self.search(&self.search_query.clone());
     }
 
     pub(super) fn publish_search(&mut self) {
@@ -598,7 +606,7 @@ impl<V: View> Controller<V> {
                 vm.albums.extend(self.search_local_albums.iter().cloned());
             }
             let any = !(vm.songs.is_empty() && vm.albums.is_empty() && vm.artists.is_empty() && vm.playlists.is_empty());
-            let pending = self.search_local_pending || (self.remote_enabled && self.search_remote.is_none() && self.search_remote_failed.is_none());
+            let pending = self.search_local_pending || (self.remote_enabled && self.search_source != 2 && self.search_remote.is_none() && self.search_remote_failed.is_none());
             vm.state = if any {
                 SearchStateVm::Results
             } else if pending {
@@ -633,6 +641,12 @@ impl<V: View> Controller<V> {
     /// Id da faixa → lista de origem → fila. Listas só locais seguem para o motor inteiras; qualquer lista com
     /// faixa remota vira um contexto sob demanda.
     pub(super) fn play_context(&mut self, id: &str) {
+        if let Some(track_id) = id.strip_prefix("sp:") {
+            if !crate::platform::open_spotify_track(track_id) {
+                self.toast("Não foi possível abrir a faixa no Spotify.", true);
+            }
+            return;
+        }
         // ids especiais dos cartões locais
         if let Some(album) = id.strip_prefix("album:") {
             self.jobs.submit(Job::Play { scope: Scope::Album(album.to_owned()), start_id: None, shuffle: false, label: String::new() });

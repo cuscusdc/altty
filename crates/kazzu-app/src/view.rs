@@ -19,6 +19,7 @@ pub trait View {
     fn set_library(&self, library: &LibraryVm);
     fn set_settings(&self, settings: &SettingsVm, providers: &[ProviderVm]);
     fn set_loading(&self, loading: bool);
+    fn set_folder_listing(&self, _listing: Result<&FolderListingVm, &str>) {}
     fn set_queue(&self, queue: &QueueVm);
     fn set_search(&self, search: &SearchVm);
     fn set_detail(&self, detail: &DetailVm);

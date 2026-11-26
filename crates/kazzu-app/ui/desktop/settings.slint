@@ -125,8 +125,11 @@ export component DesktopSettings inherits Rectangle {
                     if root.matches(3, root.keywords[3]) : VerticalLayout {
                         SettingsGroupHead { text: "Fontes de música"; }
                         Gutters {
+                            Button { text: "Contas e importação"; has-icon: true; icon: Icons.user; clicked => { AppState.account-open = true; } }
+                        }
+                        Gutters {
                             Group {
-                                for p in AppState.providers : GroupItem { separator: false; has-icon: true; icon: Icons.cloud; title: p.name; note: p.status-label; value: p.connected ? "Conectado" : p.available ? "Disponível" : "Em breve"; }
+                                for p in AppState.providers : GroupItem { separator: false; has-icon: true; icon: Icons.cloud; title: p.name; note: p.status-label; }
                                 for f in AppState.folders : GroupItem {
                                     title: f;
                                     VerticalLayout { alignment: center; IconButton { icon: Icons.trash; label: "Remover a pasta " + f; clicked => { AppState.remove-folder(f); } } }
@@ -135,7 +138,7 @@ export component DesktopSettings inherits Rectangle {
                                     height: 56px;
                                     ring-radius: Theme.r-group;
                                     label: "Adicionar pasta";
-                                    clicked => { AppState.add-folder(); }
+                                    clicked => { AppState.folder-open = true; }
                                     GroupItem { has-icon: true; icon: Icons.plus; title: "Adicionar pasta"; chevron: true; }
                                 }
                                 if AppState.folders.length > 0 : Pressable {

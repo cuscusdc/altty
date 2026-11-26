@@ -132,6 +132,7 @@ pub struct ExploreVm {
 
 #[derive(Clone, Default)]
 pub struct LibraryVm {
+    pub listening_summary: String,
     pub albums: Vec<AlbumVm>,
     pub artists: Vec<ArtistVm>,
     pub collections: Vec<CollectionVm>,
@@ -402,4 +403,11 @@ pub fn apply_covers(vm: &mut dyn CoverSlots, lookup: &mut dyn FnMut(&str) -> Opt
         }
     });
     n
+}
+
+
+pub struct FolderListingVm {
+    pub current: String,
+    pub parent: String,
+    pub children: Vec<(String, String)>,
 }

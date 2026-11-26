@@ -48,8 +48,8 @@ export component DesktopDetail inherits Rectangle {
             if AppState.detail-state == LoadState.ready && AppState.detail-kind != DetailKind.albums && AppState.detail-tracks.length > 0 : Gutters {
                 HorizontalLayout {
                     spacing: Theme.s-sm;
-                    Button { text: "Tocar"; icon: Icons.play; has-icon: true; primary: true; horizontal-stretch: 1; clicked => { AppState.play-all(); } }
-                    Button { text: "Aleatório"; icon: Icons.shuffle; has-icon: true; horizontal-stretch: 1; clicked => { AppState.shuffle-all(); } }
+                    if AppState.detail-can-play : Button { text: "Tocar"; icon: Icons.play; has-icon: true; primary: true; horizontal-stretch: 1; clicked => { AppState.play-all(); } }
+                    if AppState.detail-can-play : Button { text: "Aleatório"; icon: Icons.shuffle; has-icon: true; horizontal-stretch: 1; clicked => { AppState.shuffle-all(); } }
                     if AppState.detail-can-save : IconButton { icon: AppState.detail-saved ? Icons.heart-fill : Icons.heart; tint: AppState.detail-saved ? Theme.accent : Theme.ink; tonal: true; label: AppState.detail-saved ? "Remover da Biblioteca" : "Salvar na Biblioteca"; clicked => { AppState.toggle-detail-saved(); } }
                 }
             }
@@ -70,7 +70,8 @@ export component DesktopDetail inherits Rectangle {
                     ListView {
                         for t[i] in AppState.detail-tracks : TrackRow {
                             x: Theme.gutter; width: parent.width - 2 * Theme.gutter;
-                            t: t; number: i + 1; separator: false;
+                            t: t;
+                            more: !t.id.starts-with("sp:"); number: i + 1; separator: false;
                             clicked => { AppState.play-track(t.id); }
                             more-clicked => { Nav.open-menu(t); }
                         }

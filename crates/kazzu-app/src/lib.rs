@@ -7,6 +7,7 @@
 //! - `worker`: biblioteca, scan e capas fora da thread de UI.
 
 pub mod accent;
+mod accounts;
 #[cfg(target_os = "android")]
 pub mod android;
 pub mod app;

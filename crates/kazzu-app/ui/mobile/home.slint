@@ -3,8 +3,9 @@ import { Icons } from "../theme/icons.slint";
 import { Metrics } from "../theme/metrics.slint";
 import { MobilePalette } from "../theme/mobile-reference.slint";
 import { Nav } from "../theme/nav-state.slint";
+import { Rail } from "../components/shared.slint";
 import { Theme } from "../theme/tokens.slint";
-import { Icon, IconButton, Pressable } from "../components/atoms.slint";
+import { Icon, IconButton, Pressable, Tile } from "../components/atoms.slint";
 
 component HomeHeading inherits Text {
     color: MobilePalette.ink;
@@ -83,7 +84,7 @@ export component MobileHome inherits Rectangle {
                         alignment: center;
                         IconButton { icon: Icons.clock; tint: MobilePalette.ink; icon-size: 20px; visual: 38px; label: "Histórico"; enabled: AppState.recents.length > 0; clicked => { root.scroll-to(history.y); } }
                         IconButton { icon: Icons.stats; tint: MobilePalette.ink; icon-size: 20px; visual: 38px; label: "Estatísticas"; clicked => { AppState.mobile-feature("As estatísticas"); } }
-                        IconButton { icon: Icons.user; tint: MobilePalette.ink; icon-size: 20px; visual: 38px; label: "Conta e fontes"; clicked => { AppState.settings-section = 3; Nav.go(Tab.settings); } }
+                        IconButton { icon: Icons.user; tint: MobilePalette.ink; icon-size: 20px; visual: 38px; label: "Conta e fontes"; clicked => { AppState.account-open = true; } }
                         Pressable {
                             width: 48px;
                             height: 48px;
@@ -96,7 +97,15 @@ export component MobileHome inherits Rectangle {
                 }
             }
 
-            HomeHeading { text: "Acesso rápido"; }
+            HorizontalLayout {
+                spacing: 8px;
+                HomeHeading { text: "Sua próxima descoberta"; horizontal-stretch: 1; }
+                if !AppState.online : Rectangle {
+                    width: 68px; height: 28px; border-radius: 14px; background: MobilePalette.glass;
+                    Text { text: "Offline"; color: MobilePalette.ink; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+            HomeHeading { text: "Escolha rápida"; }
             Rectangle {
                 height: 2 * root.tile-size + 10px;
                 for slot in [0, 1, 2, 3, 4, 5] : Pressable {
@@ -141,6 +150,19 @@ export component MobileHome inherits Rectangle {
                             background: MobilePalette.paper.with-alpha(0.74);
                             Text { width: parent.width - 10px; text: root.shortcuts[slot].title; color: MobilePalette.ink; font-size: 12px; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
                         }
+                    }
+                }
+            }
+
+            if AppState.mixes.length > 0 : VerticalLayout {
+                HomeHeading { text: "Mixes de músicas"; }
+                Rail {
+                    label: "Mixes de músicas";
+                    card-h: 160px;
+                    for mix in AppState.mixes : Tile {
+                        size: 112px;
+                        cover: mix.cover; title: mix.title; subtitle: mix.subtitle;
+                        clicked => { AppState.open-item(mix.kind, mix.id); }
                     }
                 }
             }

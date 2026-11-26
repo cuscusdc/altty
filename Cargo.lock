@@ -2919,7 +2919,7 @@ dependencies = [
 
 [[package]]
 name = "kazzu-app"
-version = "0.1.0"
+version = "0.5.0-alpha.1"
 dependencies = [
  "android_logger",
  "crossbeam-channel",
@@ -2938,6 +2938,7 @@ dependencies = [
  "pollster",
  "rfd",
  "serde",
+ "serde_json",
  "slint",
  "slint-build",
  "symphonia-adapter-libopus",
@@ -2950,7 +2951,7 @@ dependencies = [
 
 [[package]]
 name = "kazzu-audio"
-version = "0.1.0"
+version = "0.5.0-alpha.1"
 dependencies = [
  "cpal",
  "crossbeam-channel",
@@ -2967,7 +2968,7 @@ dependencies = [
 
 [[package]]
 name = "kazzu-core"
-version = "0.1.0"
+version = "0.5.0-alpha.1"
 dependencies = [
  "async-trait",
  "serde",
@@ -2977,7 +2978,7 @@ dependencies = [
 
 [[package]]
 name = "kazzu-library"
-version = "0.1.0"
+version = "0.5.0-alpha.1"
 dependencies = [
  "directories",
  "hound",
@@ -3013,7 +3014,7 @@ dependencies = [
 
 [[package]]
 name = "kazzu-ui-gallery"
-version = "0.1.0"
+version = "0.5.0-alpha.1"
 dependencies = [
  "i-slint-backend-testing",
  "image",
@@ -3023,7 +3024,7 @@ dependencies = [
 
 [[package]]
 name = "kazzu-ytm"
-version = "0.1.0"
+version = "0.5.0-alpha.1"
 dependencies = [
  "async-trait",
  "blocking",

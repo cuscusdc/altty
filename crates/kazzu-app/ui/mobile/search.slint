@@ -4,7 +4,7 @@ import { Icons } from "../theme/icons.slint";
 import { Metrics } from "../theme/metrics.slint";
 import { AppState, Tab, SearchState, LoadState } from "../theme/app-contract.slint";
 import { Nav } from "../theme/nav-state.slint";
-import { SearchField, Pressable, Icon, IconButton, Tile, TrackRow, MoodTile, SectionHeader, StateCard } from "../components/atoms.slint";
+import { SearchField, Segmented, Pressable, Icon, IconButton, Tile, TrackRow, MoodTile, SectionHeader, StateCard } from "../components/atoms.slint";
 import { FeatureArtwork } from "../components/editorial.slint";
 import { Screen, Rail, Rows, Gutters, AlbumGrid, SkeletonRows } from "../components/shared.slint";
 
@@ -43,6 +43,8 @@ export component MobileSearch inherits Rectangle {
         y: AppState.safe-top + Theme.header-h + Theme.s-xs;
         width: parent.width - 2 * Theme.gutter;
         text <=> AppState.search-text;
+        placeholder: "Artistas, músicas, álbuns e mais";
+        fill: Theme.glass-tint-sheet;
         edited(t) => { AppState.search(t); }
         escaped => { root.set-text(""); }
     }
@@ -56,7 +58,28 @@ export component MobileSearch inherits Rectangle {
             padding-bottom: Metrics.reserve + Theme.s-xs;
             spacing: Theme.s-xl;
             alignment: start;
-            if !root.typing && AppState.new-releases.length == 0 && AppState.library-albums.length > 0 : VerticalLayout {
+            Gutters {
+                Segmented {
+                    options: ["Tudo", "YouTube", "Biblioteca"];
+                    current: AppState.search-source;
+                    changed(source) => { AppState.search-source = source; AppState.search-source-changed(source); }
+                }
+            }
+            if AppState.search-state == SearchState.idle && !root.typing && AppState.recent-searches.length > 0 : VerticalLayout {
+                spacing: Theme.s-sm;
+                SectionHeader { title: "Pesquisas recentes"; action: "Limpar"; action-clicked => { AppState.clear-recent-searches(); } }
+                Rows {
+                    for r[i] in AppState.recent-searches : TermRow {
+                        term: r;
+                        icon: Icons.clock;
+                        removable: true;
+                        separator: i > 0;
+                        clicked => { root.set-text(r); }
+                        remove => { AppState.remove-recent-search(r); }
+                    }
+                }
+            }
+            if !root.typing && AppState.search-source != 1 && AppState.new-releases.length == 0 && AppState.library-albums.length > 0 : VerticalLayout {
                 spacing: Theme.s-xs;
                 SectionHeader { title: "Explore seu acervo"; }
                 Rail {
@@ -68,7 +91,7 @@ export component MobileSearch inherits Rectangle {
             if !root.typing && AppState.library-albums.length == 0 && AppState.moods.length == 0 && AppState.new-releases.length == 0 && AppState.recent-searches.length == 0 && AppState.explore-state != LoadState.loading : Gutters {
                 StateCard { icon: Icons.search; title: "O que você quer ouvir?"; text: "Digite o nome de uma música, artista ou álbum para começar."; }
             }
-            if !root.typing && AppState.moods.length > 0 : VerticalLayout {
+            if !root.typing && AppState.search-source != 2 && AppState.moods.length > 0 : VerticalLayout {
                 spacing: Theme.s-xs;
                 SectionHeader { title: "Explore por momentos e gêneros"; }
                 Rectangle {
@@ -82,11 +105,11 @@ export component MobileSearch inherits Rectangle {
                     }
                 }
             }
-            if !root.typing && AppState.explore-state == LoadState.loading : SkeletonRows { count: 2; }
-            if !root.typing && AppState.explore-state == LoadState.error : Gutters {
+            if !root.typing && AppState.search-source != 2 && AppState.explore-state == LoadState.loading : SkeletonRows { count: 2; }
+            if !root.typing && AppState.search-source != 2 && AppState.explore-state == LoadState.error : Gutters {
                 StateCard { icon: Icons.cloud-off; title: "A descoberta não atualizou"; text: AppState.explore-error-text; primary: "Atualizar"; primary-clicked => { AppState.retry-explore(); } }
             }
-            if !root.typing && AppState.new-releases.length > 0 : VerticalLayout {
+            if !root.typing && AppState.search-source != 2 && AppState.new-releases.length > 0 : VerticalLayout {
                 spacing: Theme.s-xs;
                 SectionHeader { title: "Novos lançamentos"; }
                 Rail {
@@ -95,21 +118,7 @@ export component MobileSearch inherits Rectangle {
                     for a in AppState.new-releases : Tile { cover: a.cover; title: a.title; subtitle: a.artist; clicked => { AppState.open-album(a.id); } }
                 }
             }
-            if AppState.search-state == SearchState.idle && !root.typing && AppState.recent-searches.length > 0 : VerticalLayout {
-                spacing: Theme.s-sm;
-                SectionHeader { title: "Buscas recentes"; action: "Limpar"; action-clicked => { AppState.clear-recent-searches(); } }
-                Rows {
-                    for r[i] in AppState.recent-searches : TermRow {
-                        term: r;
-                        icon: Icons.clock;
-                        removable: true;
-                        separator: i > 0;
-                        clicked => { root.set-text(r); }
-                        remove => { AppState.remove-recent-search(r); }
-                    }
-                }
-            }
-            if !root.typing && AppState.trending.length > 0 : VerticalLayout {
+            if !root.typing && AppState.search-source != 2 && AppState.trending.length > 0 : VerticalLayout {
                 spacing: Theme.s-xs;
                 SectionHeader { title: "Em alta agora"; }
                 Rows { for t[i] in AppState.trending : TrackRow { visible: i < 5; height: i < 5 ? Theme.row-h : 0px; t: t; number: i + 1; ranked: true; separator: false; clicked => { AppState.play-track(t.id); } more-clicked => { Nav.open-menu(t); } } }

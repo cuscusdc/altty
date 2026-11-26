@@ -5,8 +5,7 @@
 //! - guarda banco e configuração em `files/` do app (armazenamento interno, sem permissão);
 //! - lê as músicas da pasta `Music` do armazenamento compartilhado, com a permissão `READ_MEDIA_AUDIO`
 //!   (Android 13+) ou `READ_EXTERNAL_STORAGE` (até o Android 12), pedida em tempo de execução via JNI;
-//! - não tem seletor de pastas (o botão "Adicionar pasta" adiciona/reescaneia `Music`). O seletor do sistema
-//!   (SAF) devolve URIs de conteúdo, não caminhos, e exigiria reescrever o scan; fica para uma próxima etapa.
+//! - adiciona diretórios compartilhados informados pelo usuário. URIs SAF não são caminhos de arquivos.
 //!
 //! Nenhum serviço do Google, nenhuma telemetria: só `INTERNET` (para o YouTube Music, que chega em breve),
 //! o acesso às músicas e o áudio. Ver `docs/ANDROID.md`.
@@ -30,8 +29,7 @@ static APP: OnceLock<AndroidApp> = OnceLock::new();
 thread_local! {
     /// Controller da janela (thread do `android_main`), para reagir à permissão concedida.
     static CONTROLLER: RefCell<Option<Weak<RefCell<Controller<SlintView>>>>> = const { RefCell::new(None) };
-    /// A pasta de músicas já foi entregue à biblioteca nesta execução.
-    static MUSIC_ADDED: RefCell<bool> = const { RefCell::new(false) };
+    static PENDING_FOLDER: RefCell<Option<PathBuf>> = const { RefCell::new(None) };
 }
 
 /// Entrada do app: chamada pelo glue do `android-activity` na thread principal do app (não é a thread de UI do Java).
@@ -55,14 +53,21 @@ fn run(app: &AndroidApp) -> Result<(), AppError> {
     let opts = Options { data_dir: Some(base.join("data")), config_path: Some(base.join("config.toml")), ..Options::default() };
     let kazzu = App::build(&opts)?;
     CONTROLLER.with(|c| *c.borrow_mut() = Some(Rc::downgrade(&kazzu.controller)));
-    ensure_music_folder();
+    // Pastas previamente cadastradas são lidas pelo SQLite. Não reintroduza
+    // uma pasta que o usuário tenha removido.
+    if !has_audio_permission() {
+        request_audio_permission();
+    }
     kazzu.run()
 }
 
 fn on_event(event: &PollEvent<'_>) {
     // Ao voltar do diálogo de permissão (ou de qualquer outra tela), tenta de novo.
     if let PollEvent::Main(MainEvent::Resume { .. }) = event {
-        ensure_music_folder();
+        if has_audio_permission() {
+            let path = PENDING_FOLDER.with(|pending| pending.borrow_mut().take());
+            if let Some(path) = path { submit_folder(path); }
+        }
     }
 }
 
@@ -76,40 +81,20 @@ pub fn music_dir() -> PathBuf {
     root.join("Music")
 }
 
-/// Se há permissão de leitura de áudio, entrega `Music` à biblioteca (uma vez); senão, pede a permissão.
-/// Devolve se a pasta já está (ou acabou de ser) entregue.
-pub fn ensure_music_folder() -> bool {
-    if MUSIC_ADDED.with(|m| *m.borrow()) {
-        return true;
-    }
-    if !has_audio_permission() {
+pub fn request_music_folder(path: PathBuf) {
+    if has_audio_permission() {
+        submit_folder(path);
+    } else {
+        PENDING_FOLDER.with(|pending| *pending.borrow_mut() = Some(path));
         request_audio_permission();
-        return false;
     }
-    MUSIC_ADDED.with(|m| *m.borrow_mut() = true);
-    add_music_folder();
-    true
 }
 
-/// Botão "Adicionar pasta": reentrega `Music` (a biblioteca ignora duplicatas e reescaneia) ou pede a permissão.
-pub fn add_music_folder_from_ui() -> bool {
-    if !has_audio_permission() {
-        request_audio_permission();
-        return false;
-    }
-    MUSIC_ADDED.with(|m| *m.borrow_mut() = true);
-    add_music_folder();
-    true
-}
-
-fn add_music_folder() {
-    // Adia para o laço de eventos: o controller pode estar emprestado neste momento (ex.: dentro de um callback).
-    let _ = slint::invoke_from_event_loop(|| {
+fn submit_folder(path: PathBuf) {
+    let _ = slint::invoke_from_event_loop(move || {
         CONTROLLER.with(|c| {
-            if let Some(rc) = c.borrow().as_ref().and_then(Weak::upgrade)
-                && let Ok(mut ctrl) = rc.try_borrow_mut()
-            {
-                ctrl.add_folder_path(music_dir());
+            if let Some(rc) = c.borrow().as_ref().and_then(Weak::upgrade) {
+                rc.borrow_mut().add_folder_path(path);
             }
         });
     });
@@ -168,4 +153,15 @@ fn request_audio_permission() {
         env.call_method(activity, "requestPermissions", "([Ljava/lang/String;I)V", &[JValue::Object(&array), JValue::Int(1)])?;
         Ok(())
     });
+}
+
+pub fn open_web_url(url: &str) -> bool {
+    with_activity(|env, activity| {
+        let value = env.new_string(url)?;
+        let uri = env.call_static_method("android/net/Uri", "parse", "(Ljava/lang/String;)Landroid/net/Uri;", &[JValue::Object(&value)])?.l()?;
+        let action = env.new_string("android.intent.action.VIEW")?;
+        let intent = env.new_object("android/content/Intent", "(Ljava/lang/String;Landroid/net/Uri;)V", &[JValue::Object(&action), JValue::Object(&uri)])?;
+        env.call_method(activity, "startActivity", "(Landroid/content/Intent;)V", &[JValue::Object(&intent)])?;
+        Ok(())
+    }).is_some()
 }

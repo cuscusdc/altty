@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use rusqlite::{Row, params};
+use rusqlite::{OptionalExtension, Row, params};
 
 use crate::artwork;
 use crate::error::{Error, Result};
@@ -417,6 +417,14 @@ impl Library {
         Ok(out)
     }
 
+    /// Minutos e número de reproduções registrados no histórico local.
+    pub fn listening_totals(&self) -> Result<(u64, u64)> {
+        Ok(self.conn.query_row(
+            "SELECT COALESCE(SUM(listened_ms), 0) / 60000, COUNT(*) FROM play_history",
+            [], |row| Ok((row.get::<_, i64>(0)?.max(0) as u64, row.get::<_, i64>(1)?.max(0) as u64)),
+        )?)
+    }
+
     /// Apaga todo o histórico de reprodução.
     pub fn clear_history(&self) -> Result<()> {
         self.conn.execute("DELETE FROM play_history", [])?;
@@ -523,39 +531,32 @@ impl Library {
         let tx = self
             .conn
             .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-        let mut next: i64 = tx.query_row(
-            "SELECT COALESCE(MAX(position) + 1, 0) FROM playlist_items WHERE playlist_id = ?1",
-            [id.0],
-            |r| r.get(0),
-        )?;
-        let t = now();
-        for tr in tracks {
-            let kazzu_core::TrackSource::Remote { provider, id: rid } = &tr.source else {
-                continue;
-            };
-            let prov = provider_key(*provider)?;
-            let exists = tx
-                .query_row(
-                    "SELECT 1 FROM playlist_items
-                     WHERE playlist_id = ?1 AND remote_provider = ?2 AND remote_id = ?3",
-                    params![id.0, prov, rid],
-                    |_| Ok(()),
-                )
-                .is_ok();
-            if exists {
-                continue;
-            }
-            let json =
-                serde_json::to_string(tr).map_err(|e| Error::InvalidRemote(e.to_string()))?;
-            tx.execute(
-                "INSERT INTO playlist_items(playlist_id, remote_provider, remote_id, remote_json,
-                    position, added_at) VALUES (?1,?2,?3,?4,?5,?6)",
-                params![id.0, prov, rid, json, next, t],
-            )?;
-            next += 1;
-        }
+        insert_remote_tracks(&tx, id, tracks)?;
         tx.commit()?;
         self.touch_playlist(id)
+    }
+
+    /// Imports by stable service identifier. Re-import adds missing entries
+    /// without deleting tracks added locally to the playlist.
+    pub fn import_remote_playlist(&mut self, key: &str, name: &str, tracks: &[kazzu_core::Track]) -> Result<()> {
+        let tx = self.conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        tx.execute_batch("CREATE TABLE IF NOT EXISTS imported_playlists (
+            source_key TEXT PRIMARY KEY,
+            playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE
+        )")?;
+        let existing = tx.query_row("SELECT playlist_id FROM imported_playlists WHERE source_key = ?1", [key], |row| row.get::<_, i64>(0)).optional()?;
+        let id = if let Some(id) = existing {
+            PlaylistId(id)
+        } else {
+            tx.execute("INSERT INTO playlists(name, created_at, updated_at) VALUES (?1, ?2, ?2)", params![name.trim(), now()])?;
+            let id = PlaylistId(tx.last_insert_rowid());
+            tx.execute("INSERT INTO imported_playlists(source_key, playlist_id) VALUES (?1, ?2)", params![key, id.0])?;
+            id
+        };
+        insert_remote_tracks(&tx, id, tracks)?;
+        tx.execute("UPDATE playlists SET updated_at = ?2 WHERE id = ?1", params![id.0, now()])?;
+        tx.commit()?;
+        Ok(())
     }
 
     /// Se a playlist já contém a faixa remota `(provider, remote_id)`;
@@ -681,6 +682,41 @@ fn rewrite_positions(conn: &rusqlite::Connection, items: &[i64]) -> Result<()> {
             "UPDATE playlist_items SET position = ?2 WHERE id = ?1",
             params![item, pos as i64],
         )?;
+    }
+    Ok(())
+}
+
+fn insert_remote_tracks(conn: &rusqlite::Connection, id: PlaylistId, tracks: &[kazzu_core::Track]) -> Result<()> {
+    let mut next: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(position) + 1, 0) FROM playlist_items WHERE playlist_id = ?1",
+        [id.0],
+        |r| r.get(0),
+    )?;
+    let t = now();
+    for tr in tracks {
+        let kazzu_core::TrackSource::Remote { provider, id: rid } = &tr.source else {
+            continue;
+        };
+        let prov = provider_key(*provider)?;
+        let exists = conn
+            .query_row(
+                "SELECT 1 FROM playlist_items
+                 WHERE playlist_id = ?1 AND remote_provider = ?2 AND remote_id = ?3",
+                params![id.0, prov, rid],
+                |_| Ok(()),
+            )
+            .is_ok();
+        if exists {
+            continue;
+        }
+        let json =
+            serde_json::to_string(tr).map_err(|e| Error::InvalidRemote(e.to_string()))?;
+        conn.execute(
+            "INSERT INTO playlist_items(playlist_id, remote_provider, remote_id, remote_json,
+                position, added_at) VALUES (?1,?2,?3,?4,?5,?6)",
+            params![id.0, prov, rid, json, next, t],
+        )?;
+        next += 1;
     }
     Ok(())
 }

@@ -282,6 +282,7 @@ impl View for SlintView {
     }
 
     fn set_library(&self, library: &LibraryVm) {
+        self.with(|w| w.global::<ui::AppState>().set_listening_summary(library.listening_summary.as_str().into()));
         fill(&self.library_artists, &library.artists, artist);
         fill(&self.library_albums, &library.albums, album);
         fill(&self.collections, &library.collections, |c| ui::Collection {
@@ -296,6 +297,27 @@ impl View for SlintView {
             name: p.name.as_str().into(),
             count_label: p.count_label.as_str().into(),
             covers: images(&p.covers),
+        });
+    }
+
+    fn set_folder_listing(&self, listing: Result<&FolderListingVm, &str>) {
+        self.with(|w| {
+            let state = w.global::<ui::AppState>();
+            state.set_folder_listing_pending(false);
+            match listing {
+                Ok(listing) => {
+                    state.set_folder_current(listing.current.as_str().into());
+                    state.set_folder_parent(listing.parent.as_str().into());
+                    state.set_folder_list_error("".into());
+                    state.set_folder_children(slint::ModelRc::new(slint::VecModel::from(
+                        listing.children.iter().map(|(name, path)| ui::FolderChoice {
+                            name: name.as_str().into(),
+                            path: path.as_str().into(),
+                        }).collect::<Vec<_>>()
+                    )));
+                }
+                Err(error) => state.set_folder_list_error(error.into()),
+            }
         });
     }
 
@@ -374,6 +396,7 @@ impl View for SlintView {
             s.set_detail_error_text(detail.error_text.as_str().into());
             s.set_detail_saved(detail.saved);
             s.set_detail_can_save(detail.can_save);
+            s.set_detail_can_play(detail.tracks.iter().any(|track| !track.id.starts_with("sp:")));
         });
     }
 

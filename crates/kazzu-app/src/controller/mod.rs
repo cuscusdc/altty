@@ -52,6 +52,7 @@ pub enum Msg {
     /// Eventos do streaming HTTP (URL vencida, rede caiu).
     Stream(StreamEvent),
     FolderPicked(Option<PathBuf>),
+    AccountFetched(Result<(Vec<crate::accounts::Import>, usize), String>),
     System(SystemPrefs),
     /// Quadros acima do orçamento por tempo demais: oferece "Reduzir transparência".
     SlowFrames,
@@ -148,6 +149,9 @@ pub struct Controller<V: View> {
     search_remote_failed: Option<crate::catalog::ErrorKind>,
     search_suggestions: Vec<String>,
     search_kind: i32,
+    search_source: i32,
+    account_pending: bool,
+    folder_list_seq: u64,
 
     // ---- remoto (YouTube Music) ----
     remote_enabled: bool,
@@ -224,6 +228,9 @@ impl<V: View> Controller<V> {
             search_remote_failed: None,
             search_suggestions: vec![],
             search_kind: 0,
+            search_source: 0,
+            account_pending: false,
+            folder_list_seq: 0,
             remote_enabled: false,
             online: true,
             home_seq: 0,
@@ -305,6 +312,27 @@ impl<V: View> Controller<V> {
     // Mensagens de outras threads
     // ----------------------------------------------------------------------------------------
 
+    pub fn import_account(&mut self, provider: String, token: String) {
+        if self.account_pending {
+            self.toast("Já existe uma importação em andamento.", false);
+            return;
+        }
+        let token = token.trim().to_owned();
+        if token.is_empty() || token.len() > 8192 || token.bytes().any(|b| !b.is_ascii_graphic()) {
+            self.toast("Informe um token de acesso OAuth válido.", true);
+            return;
+        }
+        let sink = self.sink.clone();
+        if std::thread::Builder::new().name("kazzu-account".into()).spawn(move || {
+            sink(Msg::AccountFetched(crate::accounts::fetch(&provider, &token)));
+        }).is_ok() {
+            self.account_pending = true;
+            self.toast("Importando as coleções da conta…", false);
+        } else {
+            self.toast("Não foi possível iniciar a importação.", true);
+        }
+    }
+
     pub fn handle(&mut self, msg: Msg) {
         match msg {
             Msg::Engine(ev) => self.on_engine(ev),
@@ -312,6 +340,13 @@ impl<V: View> Controller<V> {
             Msg::Job(r) => self.on_job(r),
             Msg::FolderPicked(Some(path)) => self.jobs.submit(Job::AddFolder(path)),
             Msg::FolderPicked(None) => {}
+            Msg::AccountFetched(result) => {
+                self.account_pending = false;
+                match result {
+                    Ok((lists, skipped)) => self.jobs.submit(Job::ImportAccount { lists, skipped }),
+                    Err(error) => self.toast(&error, true),
+                }
+            }
             Msg::System(sys) => {
                 if self.cfg.reduce_motion.is_none() {
                     self.cfg.reduce_motion = sys.reduce_motion;
@@ -449,6 +484,15 @@ impl<V: View> Controller<V> {
                 self.recents_ids = list.iter().map(|t| t.id.clone()).collect();
                 self.home.recents = list;
                 self.publish_home();
+            }
+            JobResult::FolderListing { seq, result } => {
+                if seq == self.folder_list_seq {
+                    self.view.set_folder_listing(result.as_ref().map_err(String::as_str));
+                }
+            }
+            JobResult::ListeningSummary(summary) => {
+                self.library.listening_summary = summary;
+                self.view.set_library(&self.library);
             }
             JobResult::Failed(msg) => self.toast(&msg, true),
             JobResult::Notice(msg) => self.toast(&msg, false),
@@ -1016,12 +1060,34 @@ impl<V: View> Controller<V> {
         self.publish_search();
     }
 
-    /// Android: sem seletor de pastas nesta versão; adiciona (ou reescaneia) `Music` e pede a permissão se faltar.
     #[cfg(target_os = "android")]
     pub fn add_folder(&mut self) {
-        if !crate::android::add_music_folder_from_ui() {
-            self.toast("Permita o acesso às músicas para o Kazzu ler a pasta Música do aparelho.", true);
+        crate::android::request_music_folder(crate::android::music_dir());
+    }
+
+    pub fn browse_folders(&mut self, path: &str) {
+        #[cfg(target_os = "android")]
+        {
+            let music = crate::android::music_dir();
+            let root = music.parent().unwrap_or(&music).to_path_buf();
+            let path = if path.is_empty() { root.clone() } else { PathBuf::from(path) };
+            self.folder_list_seq += 1;
+            self.jobs.submit(Job::BrowseFolders { seq: self.folder_list_seq, path, root });
         }
+        #[cfg(not(target_os = "android"))]
+        let _ = path;
+    }
+
+    pub fn add_named_folder(&mut self, folder: &str) {
+        let path = PathBuf::from(folder.trim());
+        if !path.is_absolute() {
+            self.toast("Informe o caminho completo de uma pasta.", true);
+            return;
+        }
+        #[cfg(target_os = "android")]
+        crate::android::request_music_folder(path);
+        #[cfg(not(target_os = "android"))]
+        self.add_folder_path(path);
     }
 
     #[cfg(not(target_os = "android"))]
@@ -1198,12 +1264,12 @@ impl<V: View> Controller<V> {
             ProviderVm {
                 id: "ytmusic".into(),
                 name: ytm_vm::SOURCE_NAME.into(),
-                status_label: if self.remote_enabled { "Ativo e padrão. Sem login.".into() } else { "Desligado".into() },
+                status_label: if self.remote_enabled { "Ativo como visitante.".into() } else { "Desligado".into() },
                 connected: self.remote_enabled,
                 available: self.remote_enabled,
             },
             ProviderVm { id: "local".into(), name: "Arquivos neste aparelho".into(), status_label: self.settings.summary.clone(), connected: self.settings.has_library, available: true },
-            ProviderVm { id: "spotify".into(), name: "Spotify".into(), status_label: "Em breve".into(), connected: false, available: false },
+            ProviderVm { id: "spotify".into(), name: "Spotify".into(), status_label: "Importação de metadados".into(), connected: false, available: true },
             ProviderVm { id: "tidal-qobuz".into(), name: "Tidal e Qobuz".into(), status_label: "Em breve".into(), connected: false, available: false },
         ];
         self.view.set_settings(&self.settings, &providers);

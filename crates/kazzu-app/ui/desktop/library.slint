@@ -105,7 +105,7 @@ export component DesktopLibrary inherits Rectangle {
             }
             if !AppState.loading && AppState.library-category == 4 : VerticalLayout {
                 SectionHeader { title: "Artistas do seu acervo"; }
-                if AppState.library-artists.length == 0 : Gutters { StateCard { icon: Icons.user; title: "Seus artistas vão aparecer aqui"; text: "Adicione uma pasta de músicas com as informações de artista."; primary: "Adicionar pasta"; primary-clicked => { AppState.add-folder(); } } }
+                if AppState.library-artists.length == 0 : Gutters { StateCard { icon: Icons.user; title: "Seus artistas vão aparecer aqui"; text: "Adicione uma pasta de músicas com as informações de artista."; primary: "Adicionar pasta"; primary-clicked => { AppState.folder-open = true; } } }
                 if AppState.library-view == 1 : Rows {
                     for a in AppState.library-artists : Pressable { height: 72px; label: a.name + ", " + a.subtitle; clicked => { AppState.open-collection("artist:" + a.id); }
                         HorizontalLayout { spacing: Theme.s-sm;
@@ -131,7 +131,7 @@ export component DesktopLibrary inherits Rectangle {
                     Pressable { height: 72px; label: "Abrir músicas locais"; clicked => { AppState.open-collection("songs"); }
                         GroupItem { separator: false; has-icon: true; icon: Icons.folder; title: AppState.library-summary != "" ? AppState.library-summary : "Traga seus arquivos"; note: AppState.scanning ? AppState.scan-label : "Sua biblioteca local, sem internet."; chevron: true; }
                     }
-                    Pressable { height: 56px; label: "Adicionar pasta"; clicked => { AppState.add-folder(); } GroupItem { has-icon: true; icon: Icons.plus; title: "Adicionar pasta"; chevron: true; } }
+                    Pressable { height: 56px; label: "Adicionar pasta"; clicked => { AppState.folder-open = true; } GroupItem { has-icon: true; icon: Icons.plus; title: "Adicionar pasta"; chevron: true; } }
                 } }
                 if AppState.scanning : Gutters { Rectangle { height: 6px; border-radius: 3px; background: Theme.paper-3; Rectangle { width: parent.width * (AppState.scan-progress < 0 ? 0.35 : clamp(AppState.scan-progress, 0, 1)); background: Theme.accent; border-radius: 3px; } } }
                 if AppState.recents.length > 0 && AppState.library-view == 0 : Rectangle {

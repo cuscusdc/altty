@@ -24,13 +24,14 @@ component SheetBase inherits Rectangle {
         x: Theme.wide && root.side-panel ? parent.width - self.width - Theme.s-md : (parent.width - self.width) / 2;
         width: min(parent.width, Theme.wide && root.side-panel ? 460px : 552px);
         height: min(root.body-h, parent.height - AppState.safe-top - Theme.s-md);
-        y: (Theme.wide ? (parent.height - self.height) / 2 : parent.height - self.height) - root.shown-lift + (Theme.reduce-motion ? 0px : (1 - root.appear) * 64px);
+        y: max(AppState.safe-top, (Theme.wide ? (parent.height - self.height) / 2 : parent.height - self.height) - root.shown-lift) + (Theme.reduce-motion ? 0px : (1 - root.appear) * 64px);
         opacity: root.appear;
         sheet: true;
         flat-bottom: !Theme.wide;
         accessible-role: groupbox;
         accessible-label: root.title;
         Rectangle { y: 8px; width: 36px; height: 5px; border-radius: 2.5px; background: Theme.muted; x: (parent.width - self.width) / 2; accessible-role: none; }
+        TouchArea {}
         @children
     }
 }
@@ -244,6 +245,95 @@ export component NewPlaylistSheet inherits SheetBase {
             spacing: Theme.s-sm;
             Button { text: "Cancelar"; horizontal-stretch: 1; clicked => { AppState.new-playlist-open = false; } }
             Button { text: "Criar playlist"; primary: true; horizontal-stretch: 1; clicked => { root.create(); } }
+        }
+    }
+}
+
+export component AccountSheet inherits SheetBase {
+    title: "Contas e importação";
+    body-h: 380px;
+    lift: AppState.mobile && token.has-focus ? root.height * 0.2 : 0px;
+    property <bool> spotify: true;
+    close => { AppState.account-open = false; }
+
+    VerticalLayout {
+        padding: 16px; spacing: 8px;
+        alignment: start;
+        SheetHeader { title: root.title; close => { root.close(); } }
+        HorizontalLayout {
+            spacing: 8px;
+            Button { text: "Spotify"; primary: root.spotify; clicked => { token.text = ""; root.spotify = true; } }
+            Button { text: "YouTube"; primary: !root.spotify; clicked => { token.text = ""; root.spotify = false; } }
+        }
+        Text {
+            text: root.spotify ? "Importe playlists e músicas salvas usando um token OAuth com permissão de leitura." : "Importe suas playlists pela API do YouTube com um token OAuth youtube.readonly. A reprodução no YouTube Music continua como visitante.";
+            color: Theme.ink-2; font-size: Theme.text-md; wrap: word-wrap;
+        }
+        token := SearchField { plain: true; secret: true; placeholder: "Token de acesso OAuth"; }
+        HorizontalLayout {
+            spacing: 8px;
+            Button {
+                text: "Importar"; primary: true; enabled: token.text != "";
+                clicked => {
+                    AppState.import-account(root.spotify ? "spotify" : "youtube", token.text);
+                    token.text = "";
+                    root.close();
+                }
+            }
+            TextButton { text: "Usar sem conta"; clicked => { token.text = ""; root.close(); } }
+        }
+    }
+}
+
+export component FolderSheet inherits SheetBase {
+    title: "Adicionar pasta";
+    body-h: AppState.mobile ? 492px : 310px;
+    lift: AppState.mobile && path.has-focus ? root.height * 0.16 : 0px;
+    close => { AppState.folder-open = false; }
+    function browse(directory: string) {
+        AppState.folder-list-error = "";
+        AppState.folder-listing-pending = true;
+        AppState.browse-folders(directory);
+    }
+    init => {
+        if (AppState.mobile) {
+            AppState.folder-current = "";
+            AppState.folder-parent = "";
+            root.browse("");
+        }
+    }
+
+    VerticalLayout {
+        padding: 16px; spacing: 8px;
+        alignment: start;
+        SheetHeader { title: root.title; close => { root.close(); } }
+        Text { text: "Selecione uma pasta ou informe seu caminho completo. A indexação inclui subpastas."; color: Theme.ink-2; font-size: Theme.text-md; wrap: word-wrap; }
+        path := SearchField { plain: true; placeholder: "Caminho completo da pasta"; }
+        HorizontalLayout {
+            spacing: 8px;
+            Button {
+                text: "Adicionar"; primary: true;
+                enabled: path.text != "" || (AppState.mobile && AppState.folder-current != "" && !AppState.folder-listing-pending);
+                clicked => { AppState.add-named-folder(path.text != "" ? path.text : AppState.folder-current); root.close(); }
+            }
+            TextButton { text: AppState.mobile ? "Pasta Música" : "Procurar…"; clicked => { root.close(); AppState.add-folder(); } }
+        }
+        if AppState.mobile : VerticalLayout {
+            spacing: 4px;
+            HorizontalLayout {
+                spacing: 8px;
+                IconButton { icon: Icons.arrow-up; label: "Pasta acima"; enabled: AppState.folder-parent != "" && !AppState.folder-listing-pending; clicked => { root.browse(AppState.folder-parent); } }
+                Text { text: AppState.folder-listing-pending ? "Carregando…" : AppState.folder-current; color: Theme.ink; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+            }
+            if AppState.folder-list-error != "" : Text { text: AppState.folder-list-error; color: Theme.ink-2; wrap: word-wrap; }
+            if !AppState.folder-listing-pending && AppState.folder-list-error == "" : ListView {
+                vertical-stretch: 1;
+                for dir in AppState.folder-children : SheetAction {
+                    icon: Icons.folder;
+                    text: dir.name;
+                    clicked => { path.text = ""; root.browse(dir.path); }
+                }
+            }
         }
     }
 }

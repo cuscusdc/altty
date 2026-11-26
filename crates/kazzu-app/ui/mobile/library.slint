@@ -4,8 +4,8 @@ import { Icons } from "../theme/icons.slint";
 import { Metrics } from "../theme/metrics.slint";
 import { AppState, Tab } from "../theme/app-contract.slint";
 import { Nav } from "../theme/nav-state.slint";
-import { Button, Pressable, Icon, Cover, Mosaic, Tile, LibraryTile, TrackRow, SectionHeader, Group, GroupItem, StateCard, Segmented } from "../components/atoms.slint";
-import { PageHeading } from "../components/editorial.slint";
+import { Button, Pressable, Icon, Cover, Mosaic, Tile, LibraryTile, TrackRow, SectionHeader, Glass, Group, GroupItem, StateCard, Segmented } from "../components/atoms.slint";
+
 import { Screen, Rows, Gutters, SkeletonRows, AlbumGrid } from "../components/shared.slint";
 
 export component MobileLibrary inherits Rectangle {
@@ -21,13 +21,20 @@ export component MobileLibrary inherits Rectangle {
             padding-bottom: Metrics.reserve;
             spacing: Theme.s-xl;
             alignment: start;
-            PageHeading {
-                eyebrow: "DO SEU JEITO";
-                title: "Sua biblioteca";
-                subtitle: AppState.library-summary != "" ? AppState.library-summary : "Tudo o que você guarda, sempre por perto.";
+            Gutters {
+                Glass {
+                    height: 96px;
+                    radius: Theme.r-card;
+                    VerticalLayout {
+                        padding: Theme.s-md;
+                        spacing: Theme.s-xs;
+                        Text { text: "SUA EXPERIÊNCIA DE ESCUTA"; color: Theme.ink-2; font-size: Theme.text-xs; font-weight: 700; }
+                        Text { text: AppState.listening-summary != "" ? AppState.listening-summary : "Sua biblioteca local"; color: Theme.ink; font-size: Theme.text-xl; font-weight: 700; overflow: elide; }
+                    }
+                }
             }
             Gutters {
-                Button { text: "Criar playlist"; has-icon: true; icon: Icons.plus; primary: true; clicked => { AppState.new-playlist-track = ""; AppState.new-playlist-open = true; } }
+                Button { text: "Nova playlist"; has-icon: true; icon: Icons.plus; primary: true; clicked => { AppState.new-playlist-track = ""; AppState.new-playlist-open = true; } }
                 Rectangle { horizontal-stretch: 1; }
                 Segmented { width: Theme.compact ? 148px : 200px; options: ["Grade", "Lista"]; current: AppState.library-view; changed(i) => { AppState.library-view = i; root.save-layout(); } }
             }
@@ -38,7 +45,7 @@ export component MobileLibrary inherits Rectangle {
                         height: 48px;
                         content-width: 540px;
                         interactive: true;
-                        for name[i] in ["Tudo", "Playlists", "Álbuns", "Músicas", "Artistas"] : Pressable {
+                        for name[i] in ["Tudo", "Playlists", "Álbuns", "Faixas", "Artistas"] : Pressable {
                             x: i * 108px;
                             width: 100px;
                             height: 48px;
@@ -98,7 +105,7 @@ export component MobileLibrary inherits Rectangle {
             }
             if !AppState.loading && (AppState.library-category == 0 || AppState.library-category == 1) : VerticalLayout {
                 spacing: Theme.s-sm;
-                SectionHeader { title: "Suas playlists"; }
+                SectionHeader { title: "Playlists"; action: AppState.library-category == 0 ? "Ver tudo" : ""; action-clicked => { AppState.library-category = 1; Metrics.reset-scroll(Tab.library); } }
                 if AppState.playlists.length == 0 : Gutters {
                     StateCard { icon: Icons.library; title: "Dê um lugar às suas favoritas"; text: "Crie uma playlist e adicione músicas pelo menu de cada faixa."; primary: "Criar playlist"; primary-clicked => { AppState.new-playlist-track = ""; AppState.new-playlist-open = true; } }
                 }
@@ -160,7 +167,7 @@ export component MobileLibrary inherits Rectangle {
             if !AppState.loading && AppState.library-category == 4 : VerticalLayout {
                 SectionHeader { title: "Artistas do seu acervo"; }
                 if AppState.library-artists.length == 0 : Gutters {
-                    StateCard { icon: Icons.user; title: "Seus artistas vão aparecer aqui"; text: "Adicione uma pasta de músicas com as informações de artista."; primary: "Adicionar pasta"; primary-clicked => { AppState.add-folder(); } }
+                    StateCard { icon: Icons.user; title: "Seus artistas vão aparecer aqui"; text: "Adicione uma pasta de músicas com as informações de artista."; primary: "Adicionar pasta"; primary-clicked => { AppState.folder-open = true; } }
                 }
                 if AppState.library-view == 1 : Rows {
                     for a in AppState.library-artists : Pressable {
@@ -208,7 +215,7 @@ export component MobileLibrary inherits Rectangle {
                         Pressable {
                             height: 56px;
                             label: "Adicionar pasta";
-                            clicked => { AppState.add-folder(); }
+                            clicked => { AppState.folder-open = true; }
                             GroupItem { has-icon: true; icon: Icons.plus; title: "Adicionar pasta"; chevron: true; }
                         }
                     }

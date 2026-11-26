@@ -76,6 +76,7 @@ fn fill(view: &SlintView) {
         ..Default::default()
     });
     view.set_library(&LibraryVm {
+        listening_summary: "42 min · 13 reproduções".into(),
         albums: albums.clone(),
         artists: vec![ArtistVm { id: "1".into(), name: "Nina Sabiá".into(), subtitle: "5 músicas".into(), ..Default::default() }],
         collections: vec![
@@ -358,6 +359,12 @@ fn every_screen_renders_at_mobile_tablet_and_desktop_sizes_in_both_themes_and_in
     assert_eq!(state.get_tab(), Tab::Settings);
     assert!(ui.invoke_go_back());
     assert_eq!(state.get_tab(), Tab::Library);
+    state.set_folder_open(true);
+    render(&window, 390, 844);
+    click(&window, 10.0, 794.0);
+    assert!(state.get_folder_open(), "o interior da folha não fecha o popup");
+    click(&window, 10.0, 100.0);
+    assert!(!state.get_folder_open(), "o véu fecha a folha");
     state.set_mobile(false);
     render(&window, 1280, 800);
     for expected in [true, false] {

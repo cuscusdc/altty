@@ -40,6 +40,7 @@ export struct Playlist { id: string, name: string, count-label: string, covers: 
 // `soon`: cartão "Em breve" (Baixados).
 export struct Collection { id: string, title: string, count-label: string, covers: [image], soon: bool }
 export struct OutputDevice { id: string, name: string, active: bool }
+export struct FolderChoice { name: string, path: string }
 export struct ProviderRow { id: string, name: string, status-label: string, connected: bool, available: bool }
 
 export global AppState {
@@ -49,6 +50,8 @@ export global AppState {
     in-out property <Tab> tab: Tab.home;
     in-out property <bool> player-open: false;
     in-out property <bool> queue-open: false;
+    in-out property <bool> account-open: false;
+    in-out property <bool> folder-open: false;
     in-out property <bool> mobile-lyrics-open: false;
     // Folhas contextuais (nível 3). `menu-track` é uma cópia da linha que abriu o menu.
     in-out property <bool> menu-open: false;
@@ -152,6 +155,7 @@ export global AppState {
     in property <float> scan-progress: 0.0;         // 0..1 (negativo = indeterminado)
     in property <string> scan-label: "";
     in property <[string]> folders;
+    in property <string> listening-summary: "";
     in property <string> library-summary: "";       // "3 pastas, 1.284 músicas"
     in property <bool> loading: true;               // primeira consulta da biblioteca local
     callback open-collection(string);
@@ -160,6 +164,14 @@ export global AppState {
     callback create-playlist-named(string, string); // nome, id da faixa a adicionar ("" = nenhuma)
     callback add-to-playlist(string, string);       // track id, playlist id
     callback add-folder();
+    callback add-named-folder(string);
+    callback browse-folders(string);
+    in-out property <bool> folder-listing-pending: false;
+    in-out property <string> folder-current: "";
+    in-out property <string> folder-parent: "";
+    in-out property <string> folder-list-error: "";
+    in property <[FolderChoice]> folder-children;
+    callback import-account(string, string);
     callback remove-folder(string);
     callback rescan();
 
@@ -177,6 +189,7 @@ export global AppState {
     in property <string> detail-error-text: "";
     in property <bool> detail-saved: false;         // álbum/playlist salvo na biblioteca (Curtir do cabeçalho)
     in property <bool> detail-can-save: false;
+    in property <bool> detail-can-play: true;
     in property <[Track]> detail-tracks;
     in property <[Album]> detail-albums;
     callback close-detail();
@@ -201,6 +214,8 @@ export global AppState {
     in property <[Highlight]> search-playlists;
     callback search(string);                        // a cada edição; o Rust faz o debounce (≈250 ms)
     callback search-kind-changed(int);
+    in-out property <int> search-source: 0;
+    callback search-source-changed(int);
     callback remove-recent-search(string);
     callback clear-recent-searches();
     callback recognize-ambient();                   // botão "reconhecer pelo som": Em breve (toast honesto)

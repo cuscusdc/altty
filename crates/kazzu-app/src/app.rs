@@ -319,8 +319,6 @@ fn wire(window: &ui::AppWindow, ctrl: &Rc<RefCell<Controller<SlintView>>>) {
                 let st = w.global::<ui::AppState>();
                 st.set_tab(tab);
                 st.set_detail_open(false);
-                st.set_queue_open(false);
-                st.set_player_open(false);
             }
             if let Some(rc) = ctrl.upgrade()
                 && let Ok(mut c) = rc.try_borrow_mut()
@@ -453,11 +451,15 @@ fn wire(window: &ui::AppWindow, ctrl: &Rc<RefCell<Controller<SlintView>>>) {
     s.on_create_playlist_named(cb!(ctrl, |c, name, track| c.create_playlist(&name, &track)));
     s.on_add_to_playlist(cb!(ctrl, |c, track, playlist| c.add_to_playlist(&track, &playlist)));
     s.on_add_folder(cb!(ctrl, |c| c.add_folder()));
+    s.on_browse_folders(cb!(ctrl, |c, path| c.browse_folders(&path)));
+    s.on_add_named_folder(cb!(ctrl, |c, path| c.add_named_folder(&path)));
+    s.on_import_account(cb!(ctrl, |c, provider, token| c.import_account(provider.to_string(), token.to_string())));
     s.on_remove_folder(cb!(ctrl, |c, path| c.remove_folder(&path)));
     s.on_rescan(cb!(ctrl, |c| c.rescan()));
 
     // busca
     s.on_search(cb!(ctrl, |c, text| c.search(&text)));
+    s.on_search_source_changed(cb!(ctrl, |c, source| c.search_source_changed(source)));
     s.on_search_kind_changed(cb!(ctrl, |c, kind| c.search_kind_changed(kind)));
     s.on_clear_recent_searches(cb!(ctrl, |c| c.clear_recent_searches()));
     s.on_remove_recent_search(cb!(ctrl, |c, text| c.remove_recent_search(&text)));
