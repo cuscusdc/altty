@@ -59,6 +59,8 @@ jobs:
     needs: meta
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    outputs:
+      release_key: ${{ steps.sign.outputs.release_key }}
     env:
       CARGO_BUILD_JOBS: "2"
     steps:
@@ -213,7 +215,7 @@ jobs:
 
   release:
     name: Publicar release
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') && needs.android.outputs.release_key == 'true'
     needs: [meta, android, linux, windows]
     runs-on: ubuntu-24.04
     permissions:
