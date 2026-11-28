@@ -2,6 +2,7 @@
 //! Sem Gradle/Kotlin: o `scripts/build-apk.sh` empacota a cdylib direto no APK.
 //! A interface é a v6 mobile (`ui-mobile-v6`), a mesma usada pelo preview.
 
+use slint::ComponentHandle;
 use slint::android::AndroidApp;
 
 #[unsafe(no_mangle)]
