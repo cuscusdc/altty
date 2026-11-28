@@ -27,9 +27,27 @@
 
 <div align="center">
 
-![Capturas de tela do Kazzu](design/v4/shots/key-screens.webp)
+![Interface nova do Kazzu](design/v4/shots/ui-nova/01-home.png)
 
 </div>
+
+## Interface nova (mobile)
+
+Capturas reais da UI Slint em **380×829 dp**, o tamanho lógico do aparelho de teste. Clique em qualquer miniatura para abrir a imagem completa.
+
+| Início | Explorar | Biblioteca | Busca |
+|:---:|:---:|:---:|:---:|
+| [![Início](design/v4/shots/ui-nova/01-home.png)](design/v4/shots/ui-nova/01-home.png) | [![Explorar](design/v4/shots/ui-nova/02-explore.png)](design/v4/shots/ui-nova/02-explore.png) | [![Biblioteca](design/v4/shots/ui-nova/03-library.png)](design/v4/shots/ui-nova/03-library.png) | [![Busca](design/v4/shots/ui-nova/04-search.png)](design/v4/shots/ui-nova/04-search.png) |
+
+| Retrospectiva | Configurações | Detalhes | Aparência |
+|:---:|:---:|:---:|:---:|
+| [![Retrospectiva](design/v4/shots/ui-nova/05-replay.png)](design/v4/shots/ui-nova/05-replay.png) | [![Configurações](design/v4/shots/ui-nova/06-settings.png)](design/v4/shots/ui-nova/06-settings.png) | [![Detalhes](design/v4/shots/ui-nova/07-settings-page.png)](design/v4/shots/ui-nova/07-settings-page.png) | [![Aparência](design/v4/shots/ui-nova/08-appearance.png)](design/v4/shots/ui-nova/08-appearance.png) |
+
+| Tema claro | Player | Fila | Mais opções | Letras |
+|:---:|:---:|:---:|:---:|:---:|
+| [![Tema claro](design/v4/shots/ui-nova/09-light.png)](design/v4/shots/ui-nova/09-light.png) | [![Player](design/v4/shots/ui-nova/10-player.png)](design/v4/shots/ui-nova/10-player.png) | [![Fila](design/v4/shots/ui-nova/11-queue.png)](design/v4/shots/ui-nova/11-queue.png) | [![Mais opções](design/v4/shots/ui-nova/12-more.png)](design/v4/shots/ui-nova/12-more.png) | [![Letras](design/v4/shots/ui-nova/13-lyrics.png)](design/v4/shots/ui-nova/13-lyrics.png) |
+
+---
 
 # Recursos
 
