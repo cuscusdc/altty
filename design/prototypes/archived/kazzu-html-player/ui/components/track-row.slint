@@ -1,0 +1,20 @@
+import { Theme } from "../theme.slint";
+import { Glass } from "glass.slint";
+import { Song } from "../state.slint";
+export component TrackRow inherits Glass {
+    in property <Song> song;
+    in property <bool> current;
+    callback clicked();
+    height: 60px; border-radius: 14px;
+    border-color: root.current ? Theme.accent : #ffffff20;
+    HorizontalLayout {
+        padding: 10px; spacing: 12px;
+        Rectangle { width: 38px; border-radius: 10px; background: @linear-gradient(135deg, root.song.first, root.song.last); }
+        VerticalLayout { alignment: center;
+            Text { text: root.song.title; color: Theme.ink; font-size: 13px; font-weight: 700; overflow: elide; }
+            Text { text: root.song.artist; color: Theme.muted; font-size: 11px; overflow: elide; }
+        }
+        Text { text: root.song.duration; color: Theme.muted; font-size: 11px; vertical-alignment: center; }
+    }
+    TouchArea { clicked => { root.clicked(); } }
+}

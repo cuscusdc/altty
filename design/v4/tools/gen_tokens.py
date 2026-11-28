@@ -175,29 +175,49 @@ def gen_slint():
          "", "export global Theme {",
          "    // ---- ambiente (o Rust escreve) ----",
          "    in-out property <bool> dark: true;",
+         "    in-out property <bool> oled: false;",
+         "    in-out property <int> quality: 1;",
          "    in-out property <bool> reduce-transparency: false;   // Ajustes ou sistema",
          "    in-out property <bool> reduce-motion: false;",
          "    in-out property <bool> blur-supported: true;          // false no renderer software",
          "    in-out property <length> window-w: 390px;",
-         "    out property <bool> glass-on: blur-supported && !reduce-transparency;",
+         "    out property <bool> glass-on: quality > 0 && blur-supported && !reduce-transparency;",
          "    out property <bool> compact: window-w < 600px;",
          "    out property <bool> wide: window-w >= 1100px;",
          "    out property <length> gutter: window-w < 368px ? %dpx : window-w < 600px ? %dpx : 32px;" % (sz["gutter-s"], sz["gutter"]),
          "", "    // ---- cor ----"]
+    palettes = json.loads((ROOT / "html-palettes.json").read_text(encoding="utf-8"))
+    L.append("    in-out property <int> palette: 0;")
+    for key, p in zip(["solar", "cyber", "ametista", "esmeralda", "cobalto", "ouro"], palettes):
+        L.append(f"    out property <color> palette-{key}: {p['primary']};")
+    for token, key in [("accent-primary", "primary"), ("accent-secondary", "secondary"), ("palette-base", "baseDark")]:
+        values = ", ".join(p[key] for p in palettes)
+        L.append(f"    in-out property <color> {token}: [{values}][clamp(palette, 0, 5)];")
+    L.append("    in-out property <color> accent-light: [#a33e00, #b50d49, #7122a9, #047657, #1d58b0, #83501d][clamp(palette, 0, 5)];")
+    L += ["    out property <color> glass-fill-hi: dark ? #ffffff29 : #ffffffcc;",
+          "    out property <color> glass-fill-mid: dark ? #ffffff0a : #ffffff66;",
+          "    out property <color> glass-fill-lo: dark ? #ffffff14 : #ffffff99;",
+          "    out property <length> island-height: 58px;",
+          "    out property <length> island-radius: 22px;",
+          "    out property <length> island-gap: 12px;",
+          "    out property <length> island-margin: 10px;"]
     for k, v in C.items():
-        L.append(f"    out property <color> {k}: dark ? {hexa(v['dark'])} : {hexa(v['light'])};   // {v['use']}")
+        oled = "oled ? #000000 : " if k == "paper" else ""
+        dark_value = {"paper": "palette-base", "accent": "accent-primary", "focus": "accent-secondary", "ink": "#fdf6ec", "ink-2": "#fdf6ecc2", "muted": "#fdf6ec94"}.get(k, hexa(v['dark']))
+        light_value = "accent-light" if k in ("accent", "focus") else hexa(v["light"])
+        L.append(f"    out property <color> {k}: {oled}dark ? {dark_value} : {light_value};   // {v['use']}")
     L.append("")
     L.append("    // ---- vidro ----")
     for k, v in G.items():
         if isinstance(v, dict):
             L.append(f"    out property <color> glass-{k}: dark ? {hexa(v['dark'])} : {hexa(v['light'])};   // {v['use']}")
-    L += [f"    out property <length> glass-blur: {G['blur']}px;", f"    out property <length> glass-blur-sheet: {G['blur-sheet']}px;", f"    out property <length> glass-blur-console: {G['blur-console']}px;", "",
+    L += [f"    out property <length> glass-blur: quality == 1 ? 12px : quality == 2 ? 24px : {G['blur']}px;", f"    out property <length> glass-blur-sheet: quality == 1 ? 16px : quality == 2 ? 28px : {G['blur-sheet']}px;", f"    out property <length> glass-blur-console: {G['blur-console']}px;", "",
           "    // ---- sobre capas e no player (igual nos dois temas) ----",
           f"    out property <color> media-ink: {hexa(M['ink'])};",
           f"    out property <color> media-plate: {hexa(M['plate'])};", f"    out property <color> media-console: {hexa(M['console'])};",
           f"    out property <color> media-scrim: {hexa(M['scrim'])};", f"    out property <color> media-well: {hexa(M['well'])};", f"    out property <color> media-track: {hexa(M['track'])};",
           f"    out property <color> media-edge-hi: {hexa(M['edge-hi'])};", f"    out property <color> media-edge-lo: {hexa(M['edge-lo'])};",
-          f"    out property <color> media-accent: {hexa(M['accent'])};", f"    out property <color> media-shadow: {hexa(M['shadow'])};",
+          "    out property <color> media-accent: accent-secondary;", f"    out property <color> media-shadow: {hexa(M['shadow'])};",
           f"    out property <float> media-dim-min: {M['dim-min']};", f"    out property <float> media-dim-max: {M['dim-max']};", "",
           "    // ---- tipo (Inter; pesos 400, 600, 700) ----",
           f'    out property <string> font: "{ty["family"]}";', f'    out property <string> font-display: "{ty["family-display"]}";']

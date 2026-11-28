@@ -1,0 +1,238 @@
+# Build remoto do Kazzu (somente runners padrão do GitHub Actions).
+#
+# Execução manual em qualquer branch, inclusive feat/cuscusdc:
+#   gh workflow run build.yml --ref feat/cuscusdc
+#
+# Tags v* compilam os três alvos e anexam tudo à release da tag.
+
+name: build
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_RELEASE_STRIP: symbols
+  RUSTFLAGS: "-C debuginfo=0"
+  NDK_VERSION: "30.0.16248370"
+  BUILD_TOOLS: "35.0.1"
+  CI: "true"
+
+jobs:
+  meta:
+    name: Versão
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Calcular versão
+        id: v
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            v="${GITHUB_REF_NAME#v}"
+          else
+            v="$(sed -n 's/^version *= *"\(.*\)"/\1/p' Cargo.toml | head -1)-ci.${GITHUB_RUN_NUMBER}"
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          if [[ "$v" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  android:
+    name: Android ARM64 (APK)
+    needs: meta
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CARGO_BUILD_JOBS: "2"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Rust + alvo Android
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal --target aarch64-linux-android
+          rustup default stable
+
+      - name: SDK/NDK/cmake exatos
+        shell: bash
+        run: |
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses >/dev/null || true
+          "$SDKM" "platforms;android-35" "build-tools;$BUILD_TOOLS" "ndk;$NDK_VERSION" "cmake;3.31.6" >/dev/null
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.ANDROID_HOME }}/ndk/${{ env.NDK_VERSION }}
+            ${{ env.ANDROID_HOME }}/cmake/3.31.6
+          key: android-sdk-${{ runner.os }}-${{ env.NDK_VERSION }}
+          restore-keys: android-sdk-${{ runner.os }}-
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: android-arm64
+          cache-on-failure: true
+
+      - name: Chave de assinatura
+        id: sign
+        shell: bash
+        env:
+          KS_B64: ${{ secrets.KAZZU_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.KAZZU_KEYSTORE_PASSWORD }}
+        run: |
+          if [[ -n "$KS_B64" && -n "$KS_PASS" ]]; then
+            umask 077
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/kazzu-release.jks"
+            printf '%s\n' "$KS_PASS" > "$RUNNER_TEMP/kazzu-release.pass"
+            echo "KAZZU_KEYSTORE=$RUNNER_TEMP/kazzu-release.jks" >> "$GITHUB_ENV"
+            echo "KAZZU_KEYSTORE_PASS_FILE=$RUNNER_TEMP/kazzu-release.pass" >> "$GITHUB_ENV"
+            echo "release_key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "release_key=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Segredos de assinatura ausentes: APK com chave descartável (--debug-sign)."
+          fi
+
+      - name: Compilar e assinar o APK
+        shell: bash
+        run: |
+          flag=""
+          [[ "${{ steps.sign.outputs.release_key }}" == "true" ]] || flag="--debug-sign"
+          scripts/build-apk.sh --abi arm64-v8a --version "${{ needs.meta.outputs.version }}" $flag
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kazzu-android-arm64-${{ needs.meta.outputs.version }}
+          path: |
+            target/android/apk/*.apk
+            target/android/apk/*.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+  linux:
+    name: Linux x86_64 (binário)
+    needs: meta
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependências do sistema
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libasound2-dev pkg-config cmake
+
+      - name: Rust estável
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: linux-x86_64
+          cache-on-failure: true
+
+      - name: Compilar
+        shell: bash
+        run: cargo build --release -p kazzu-app --bin kazzu --features opus-bundled
+
+      - name: Preparar artefato
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp target/release/kazzu dist/kazzu-linux-x86_64
+          chmod +x dist/kazzu-linux-x86_64
+          sha256sum dist/kazzu-linux-x86_64 > dist/kazzu-linux-x86_64.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kazzu-linux-x86_64-${{ needs.meta.outputs.version }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  windows:
+    name: Windows x86_64 (exe)
+    needs: meta
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust estável
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: windows-x86_64
+          cache-on-failure: true
+
+      - name: Compilar
+        shell: bash
+        run: cargo build --release -p kazzu-app --bin kazzu --features opus-bundled
+
+      - name: Preparar artefato
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp target/release/kazzu.exe dist/kazzu-windows-x86_64.exe
+          sha256sum dist/kazzu-windows-x86_64.exe > dist/kazzu-windows-x86_64.exe.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kazzu-windows-x86_64-${{ needs.meta.outputs.version }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publicar release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [meta, android, linux, windows]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Anexar binários à release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          pre=""
+          [[ "${{ needs.meta.outputs.prerelease }}" == "true" ]] && pre="--prerelease"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" $pre \
+            --title "Kazzu $tag" \
+            --notes "APK ARM64 e binários desktop Linux/Windows compilados no GitHub Actions. Ver docs/ANDROID.md."
+          mapfile -t files < <(find dist -type f | sort)
+          gh release upload "$tag" "${files[@]}" --clobber

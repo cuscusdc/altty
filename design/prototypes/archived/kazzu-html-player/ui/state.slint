@@ -1,0 +1,44 @@
+export struct Song { title: string, artist: string, duration: string, first: color, last: color }
+export struct Setting { title: string, subtitle: string, value: string, toggle: bool, checked: bool, group: string }
+export global State {
+    in-out property <int> page: 1;
+    in-out property <int> origin: 1;
+    in-out property <bool> expanded;
+    in-out property <bool> queue;
+    in-out property <bool> lyrics;
+    in-out property <bool> playing;
+    in-out property <bool> liked: true;
+    in-out property <bool> shuffle;
+    in-out property <bool> repeat;
+    in-out property <int> current;
+    in-out property <float> progress;
+    in-out property <float> volume: 0.7;
+    in-out property <string> position;
+    in-out property <string> remaining;
+    in-out property <string> album;
+    in-out property <color> bg-first;
+    in-out property <color> bg-mid;
+    in-out property <color> bg-last;
+    in-out property <[Song]> songs;
+    in-out property <[Song]> results;
+    in-out property <[int]> continue-tracks;
+    in-out property <string> continue-title;
+    in-out property <[string]> lines;
+    in-out property <[Setting]> settings;
+    in-out property <string> query;
+    in-out property <string> settings-query;
+    in-out property <string> toast;
+    in-out property <int> confirm: 0;
+    in-out property <bool> history: true;
+    in-out property <int> palette;
+    in-out property <int> chip;
+    callback command(string);
+    callback select(int, bool);
+    callback seek(float);
+    callback volume-changed(float);
+    callback setting(int);
+    callback theme(int);
+    callback search(string);
+    callback filter-settings(string);
+    public function go(index: int) { if (index != 4) { origin = index; } page = index; }
+}

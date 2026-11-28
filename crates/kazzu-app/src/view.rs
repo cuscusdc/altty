@@ -7,6 +7,7 @@ use crate::vm::*;
 pub trait View {
     fn set_playback(&self, p: &PlaybackVm);
     /// `progress` 0..1.
+    fn set_seek_available(&self, _available: bool) {}
     fn set_progress(&self, progress: f32, position: &str, remaining: &str);
     /// Capa grande, fundo do palco e acento da faixa atual.
     fn set_now_art(&self, art: &NowArtVm);
@@ -18,10 +19,14 @@ pub trait View {
     fn set_explore(&self, explore: &ExploreVm);
     fn set_library(&self, library: &LibraryVm);
     fn set_settings(&self, settings: &SettingsVm, providers: &[ProviderVm]);
+    fn import_status(&self, _pending: bool, _message: &str) {}
     fn set_loading(&self, loading: bool);
     fn set_folder_listing(&self, _listing: Result<&FolderListingVm, &str>) {}
     fn set_queue(&self, queue: &QueueVm);
     fn set_search(&self, search: &SearchVm);
+    fn restore_focus(&self, _key: &str) {}
+    fn detail_scroll(&self) -> f32 { 0.0 }
+    fn restore_detail_scroll(&self, _position: f32) {}
     fn set_detail(&self, detail: &DetailVm);
     fn open_detail(&self, open: bool);
     fn set_scan(&self, scan: Option<&ScanVm>);

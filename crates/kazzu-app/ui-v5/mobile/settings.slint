@@ -1,0 +1,41 @@
+// Ajustes (Android): uma página rolável com busca e categorias; nada de painel lateral.
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { Metrics } from "../theme/metrics.slint";
+import { AppState, Tab, ThemeMode } from "../theme/app-contract.slint";
+import { Pressable, Button, TextButton, IconButton, Switch, Tag, Group, GroupItem, SearchField, Scrubber } from "../components/atoms.slint";
+import { SettingsGroupHead, SettingsChoice } from "../components/settings-controls.slint";
+import { PageHeading } from "../components/editorial.slint";
+import { Screen, Gutters, Narrow } from "../components/shared.slint";
+
+import { SettingsIndex, SettingsSections } from "../components/settings-sections.slint";
+
+export component MobileSettings inherits Rectangle {
+    in-out property <int> section <=> AppState.settings-section;
+    in-out property <string> query <=> AppState.settings-query;
+    Screen {
+        tab: Tab.settings;
+        VerticalLayout {
+            padding-top: AppState.safe-top + Theme.header-h + Theme.s-xs;
+            padding-bottom: Metrics.reserve;
+            spacing: Theme.s-xl;
+            alignment: start;
+            PageHeading { title: "Ajustes"; }
+            Gutters { SearchField { text <=> root.query; placeholder: "Encontrar uma configuração"; edited(t) => { SettingsIndex.choose(-1); } } }
+            Flickable {
+                height: 48px;
+                content-width: tabs.preferred-width;
+                content-height: 48px;
+                tabs := HorizontalLayout {
+                    width: self.preferred-width;
+                    spacing: 8px;
+                    padding-left: Theme.gutter;
+                    padding-right: Theme.gutter;
+                    TextButton { min-width: 48px; text: "Tudo"; ink: root.section == -1 ? Theme.accent : Theme.ink; clicked => { SettingsIndex.choose(-1); } }
+                    for name[i] in SettingsIndex.categories : TextButton { min-width: 48px; text: name; ink: root.section == i ? Theme.accent : Theme.ink; clicked => { SettingsIndex.choose(i); } }
+                }
+            }
+            Narrow { SettingsSections {} }
+        }
+    }
+}

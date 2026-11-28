@@ -7,7 +7,7 @@ license.workspace = true
 [dependencies]
 directories = "6.0.0"
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "webp"] }
-kazzu-core = { version = "0.5.0-alpha.1", path = "../kazzu-core" }
+kazzu-core = { version = "0.6.0", path = "../kazzu-core" }
 lofty = "0.25.5"
 log = "0.4"
 rayon = "1.12.0"

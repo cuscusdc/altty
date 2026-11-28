@@ -1,0 +1,522 @@
+# Inventário do HTML kazzu
+
+Fonte integral de 3.245 linhas. O protótipo abre em Explorar.
+
+## Telas
+
+Início; Explorar; Biblioteca; Pesquisa; Configurações; player expandido; gaveta de fila; letra na capa. Confirmações de cache e histórico serão modais Slint.
+
+## Componentes
+
+Frame central de até 420 × 900; topo/marca/avatar; chips; grade 3×3 (oito faixas e aleatório); trilho Continue ouvindo; dez cards de categorias; banner de estatísticas; três coleções; pesquisa e histórico; perfil; cinco grupos de ajustes; seletor de seis paletas; linhas, toggles e pílulas; mini-player; dock de três abas e bolha de pesquisa; capa/letras; abas áudio/vídeo; transporte; seek; volume; ferramentas; dispositivo; fila; toast; confirmação.
+
+## Interações encontradas
+
+- `applyTheme('ametista')`
+- `applyTheme('cobalto')`
+- `applyTheme('cyber')`
+- `applyTheme('esmeralda')`
+- `applyTheme('ouro')`
+- `applyTheme('solar')`
+- `backFromSettings()`
+- `clearMusicCache()`
+- `clearSearchHistory()`
+- `closePlayer()`
+- `closeQueueDrawer()`
+- `cycleAudioQuality()`
+- `cycleCrossfade()`
+- `cycleThemeNext()`
+- `event.stopPropagation()`
+- `handleShare()`
+- `nextTrack()`
+- `nextTrack(event)`
+- `openPlayer()`
+- `openQueueDrawer()`
+- `openSettings()`
+- `playRandomTrack()`
+- `prevTrack()`
+- `scanLibraryNow()`
+- `selectTrackByName('About A Girl')`
+- `selectTrackByName('Bad Apple!!')`
+- `selectTrackByName('Creep')`
+- `selectTrackByName('Dumb')`
+- `selectTrackByName('Feel Good Inc.')`
+- `selectTrackByName('He Feels Bad')`
+- `selectTrackByName('Schism')`
+- `selectTrackByName('Sunshine Indie')`
+- `showToast('Abrindo Baixados')`
+- `showToast('Abrindo Curtidas')`
+- `showToast('Abrindo Top 100')`
+- `showToast('Atalhos de Teclado kazzu:\nEspaço: Play / Pause\nJ / L: Voltar / Avançar\nS: Modo Aleatório\nR: Repetir\nM: Mudo')`
+- `showToast('Histórico de reprodução')`
+- `showToast('Histórico limpo!')`
+- `showToast('Opções: Adicionar à Playlist, Ver Álbum, Ajustes de Áudio, Equalizador')`
+- `showToast('Pastas indexadas:\n/storage/emulated/0/Music\n/storage/emulated/0/Download')`
+- `showToast('Perfil: cuscusdoce rael\nMembro Free desde Out/2024')`
+- `showToast('Saída: Alto-falantes internos (This phone)')`
+- `showToast('Seletor de saída: Este celular (Padrão) / Bluetooth / Cast')`
+- `showToast('Sleep Timer: Desligar após 30 minutos')`
+- `showToast('kazzu Music Player — v1.4.2\nSuporte e personalização visual de alta fidelidade.')`
+- `showToast('kazzu Music Player\nVersão 1.4.2 (Liquid Glass Edition)\nDesenvolvido com carinho • Licença MIT')`
+- `switchPlayerTab('audio')`
+- `switchPlayerTab('video')`
+- `switchScreen('biblioteca')`
+- `switchScreen('explorar')`
+- `switchScreen('inicio')`
+- `switchScreen('pesquisa')`
+- `toggleLike(event)`
+- `toggleLyricsView()`
+- `togglePlay(event)`
+- `toggleRepeat()`
+- `toggleSetting('toggleAnimations')`
+- `toggleSetting('toggleHistory')`
+- `toggleSetting('toggleLiquidGlass')`
+- `toggleSetting('toggleNormalization')`
+- `toggleShuffle()`
+
+## Limites do original
+
+Chips, Nova playlist, Ver tudo e campo de pesquisa não têm handlers no HTML. Não existe criação de playlist, pesquisa de catálogo, backend, sessão ou áudio real. Estatísticas e conta são dados estáticos do protótipo. Os atalhos são descritos em toast, mas não registrados no JavaScript. A reprodução inicia pausada em Creep, 91 segundos; anterior reinicia acima de quatro segundos; próxima inicia reprodução e zera posição; seleção pela fila preserva posição e fecha a gaveta; repeat repete apenas a faixa. Shuffle exclui a faixa atual.
+
+## Textos integrais extraídos
+
+- kazzu — Music Player & App
+- k
+- kazzu
+- C
+- Todos
+- Podcasts
+- Energia
+- Romance
+- Para o trânsito
+- ⚡
+- Ver tudo
+- 🎵
+- Feel Good Inc.
+- Gorillaz
+- 🎵
+- Schism
+- TOOL
+- 🎵
+- Bad Apple!!
+- nomico
+- 🎵
+- Creep
+- Radiohead
+- 🎵
+- About A Girl
+- Nirvana
+- 🎵
+- He Feels Bad
+- Helmet
+- 🎵
+- Dumb
+- Nirvana
+- 🎵
+- Sunshine Indie
+- Clima alegre
+- ⚄
+- Aleatório
+- Surpreenda-me
+- 💿
+- Histórico
+- 📻
+- Creep
+- Radiohead • Pablo Honey
+- 🎸
+- About A Girl
+- Nirvana • Bleach
+- 🎧
+- Dumb
+- Nirvana • In Utero
+- Explorar
+- C
+- Clima alegre
+- Em trânsito
+- Energia
+- Festa
+- Foco
+- Lofi Loft
+- Games
+- Hanukkah
+- Músicas para relaxar
+- Natal
+- Funk de Natal
+- Romance
+- Biblioteca
+- + Nova playlist
+- C
+- Playlists
+- Faixas
+- Artistas
+- Álbuns
+- SUA EXPERIÊNCIA DE ESCUTA
+- Membro desde 10/26
+- 694
+- MINUTOS OUVIDOS
+- • cuscusdoce rael · 170 reproduções totais
+- Coleções
+- ♥
+- Curtidas
+- 48 faixas
+- ↓
+- Baixados
+- Offline
+- ↗
+- Top 100
+- Mais ouvidas
+- Biblioteca
+- Pesquisas recentes
+- Limpar
+- 📻
+- Creep
+- Radiohead • Pablo Honey
+- ↗
+- 🎸
+- About A Girl
+- Nirvana • Bleach
+- ↗
+- Configurações
+- C
+- cuscusdoce rael
+- ✦
+- 🎵
+- Qualidade de áudio
+- Alta fidelidade Lossless • 320 kbps
+- 320k
+- Normalização de volume
+- Mesmo nível sonoro entre faixas
+- Transição contínua (Crossfade)
+- Fusão suave entre músicas
+- 4s
+- Saída de áudio padrão
+- Alto-falante integrado (Este celular)
+- ✨
+- Paletas Temáticas do App
+- Laranja Solar
+- Laranja Solar
+- Âmbar Padrão
+- Rosa Cyber
+- Neon Berry
+- Ametista
+- Roxo Elétrico
+- Esmeralda
+- Menta Liquid
+- Azul Cobalto
+- Ciano Deep
+- Obsidian Ouro
+- Champagne Lux
+- Tema do app
+- Escuro (Liquid Glass Laranja Solar)
+- Laranja Solar
+- Efeito Liquid Glass
+- Desfoque dinâmico e refrações em tempo real
+- Animações fluidas
+- Transições suaves de 60fps
+- 📁
+- Pastas locais indexadas
+- /storage/emulated/0/Music
+- Escanear biblioteca agora
+- Último escaneamento hoje às 14:20
+- Escanear
+- Cache offline e downloads
+- 2.4 GB utilizados • 82 faixas
+- Limpar
+- 🔒
+- Histórico de reprodução e buscas
+- Personalizar recomendações e estatísticas
+- Limpar histórico recente
+- Apaga buscas recentes do dispositivo
+- ℹ️
+- Atalhos de teclado
+- Comandos rápidos para teclado físico
+- Versão do kazzu
+- v1.4.2 (Liquid Glass Edition) • Código Aberto
+- v1.4.2
+- ♫
+- Creep
+- Radiohead
+- Início
+- Explorar
+- Biblioteca
+- Áudio
+- Vídeo
+- PABLO HONEY
+- Pablo Honey
+- LETRA AO VIVO
+- Voltar à capa
+- When you were here before
+- Couldn't look you in the eye
+- You're just like an angel
+- Your skin makes me cry
+- You float like a feather
+- In a beautiful world
+- I wish I was special
+- You're so fucking special
+- But I'm a creep, I'm a weirdo
+- What the hell am I doing here?
+- I don't belong here
+- Creep
+- Radiohead
+- 1:31
+- -2:27
+- This phone
+- Fila de reprodução
+
+## Ajustes
+
+- Qualidade de áudio — Alta fidelidade Lossless • 320 kbps
+- Normalização de volume — Mesmo nível sonoro entre faixas
+- Transição contínua (Crossfade) — Fusão suave entre músicas
+- Saída de áudio padrão — Alto-falante integrado (Este celular)
+- Tema do app — Escuro (Liquid Glass Laranja Solar)
+- Efeito Liquid Glass — Desfoque dinâmico e refrações em tempo real
+- Animações fluidas — Transições suaves de 60fps
+- Pastas locais indexadas — /storage/emulated/0/Music
+- Escanear biblioteca agora — Último escaneamento hoje às 14:20
+- Cache offline e downloads — 2.4 GB utilizados • 82 faixas
+- Histórico de reprodução e buscas — Personalizar recomendações e estatísticas
+- Limpar histórico recente — Apaga buscas recentes do dispositivo
+- Atalhos de teclado — Comandos rápidos para teclado físico
+- Versão do kazzu — v1.4.2 (Liquid Glass Edition) • Código Aberto
+
+## Nós textuais e rótulos acessíveis em ordem do documento
+
+- kazzu — Music Player & App
+- k
+- kazzu
+- Histórico
+- Configurações
+- Abrir Perfil e Configurações
+- C
+- Todos
+- Podcasts
+- Energia
+- Romance
+- Para o trânsito
+- ⚡
+- Escolha rápida
+- Ver tudo
+- 🎵
+- Feel Good Inc.
+- Gorillaz
+- 🎵
+- Schism
+- TOOL
+- 🎵
+- Bad Apple!!
+- nomico
+- 🎵
+- Creep
+- Radiohead
+- 🎵
+- About A Girl
+- Nirvana
+- 🎵
+- He Feels Bad
+- Helmet
+- 🎵
+- Dumb
+- Nirvana
+- 🎵
+- Sunshine Indie
+- Clima alegre
+- ⚄
+- Aleatório
+- Surpreenda-me
+- 💿
+- Continue ouvindo
+- Histórico
+- 📻
+- Creep
+- Radiohead • Pablo Honey
+- 🎸
+- About A Girl
+- Nirvana • Bleach
+- 🎧
+- Dumb
+- Nirvana • In Utero
+- Explorar
+- Abrir Perfil e Configurações
+- C
+- Clima alegre
+- Sunshine
+- Indie
+- Em trânsito
+- Feel-Good
+- Hip-Hop and R&B
+- Energia
+- Pop de
+- bombeamento
+- Festa
+- Festa
+- Sertaneja
+- Foco
+- Lofi Loft
+- Games
+- GAMING
+- HITS
+- Hanukkah
+- Músicas para relaxar
+- Coffee Shop
+- Blend
+- Natal
+- Funk de Natal
+- Romance
+- Pagode &
+- Sertanejo
+- Biblioteca
+- + Nova playlist
+- Configurações
+- C
+- Playlists
+- Faixas
+- Artistas
+- Álbuns
+- SUA EXPERIÊNCIA DE ESCUTA
+- Membro desde 10/26
+- 694
+- MINUTOS OUVIDOS
+- • cuscusdoce rael · 170 reproduções totais
+- Coleções
+- ♥
+- Curtidas
+- 48 faixas
+- ↓
+- Baixados
+- Offline
+- ↗
+- Top 100
+- Mais ouvidas
+- Artistas, músicas ou letras...
+- YouTube
+- Biblioteca
+- Pesquisas recentes
+- Limpar
+- 📻
+- Creep
+- Radiohead • Pablo Honey
+- ↗
+- 🎸
+- About A Girl
+- Nirvana • Bleach
+- ↗
+- Voltar
+- Configurações
+- Ajuda
+- Pesquisar ajustes...
+- C
+- cuscusdoce rael
+- ✦
+- Membro Free • Gerenciar conta
+- 🎵
+- Reprodução & Áudio
+- Qualidade de áudio
+- Alta fidelidade Lossless • 320 kbps
+- 320k
+- Normalização de volume
+- Mesmo nível sonoro entre faixas
+- Transição contínua (Crossfade)
+- Fusão suave entre músicas
+- 4s
+- Saída de áudio padrão
+- Alto-falante integrado (Este celular)
+- ✨
+- Aparência & Estilo
+- Paletas Temáticas do App
+- Laranja Solar
+- Laranja Solar
+- Âmbar Padrão
+- Rosa Cyber
+- Neon Berry
+- Ametista
+- Roxo Elétrico
+- Esmeralda
+- Menta Liquid
+- Azul Cobalto
+- Ciano Deep
+- Obsidian Ouro
+- Champagne Lux
+- Tema do app
+- Escuro (Liquid Glass Laranja Solar)
+- Laranja Solar
+- Efeito Liquid Glass
+- Desfoque dinâmico e refrações em tempo real
+- Animações fluidas
+- Transições suaves de 60fps
+- 📁
+- Fontes de Música & Biblioteca
+- Pastas locais indexadas
+- /storage/emulated/0/Music
+- Escanear biblioteca agora
+- Último escaneamento hoje às 14:20
+- Escanear
+- Cache offline e downloads
+- 2.4 GB utilizados • 82 faixas
+- Limpar
+- 🔒
+- Privacidade & Dados
+- Histórico de reprodução e buscas
+- Personalizar recomendações e estatísticas
+- Limpar histórico recente
+- Apaga buscas recentes do dispositivo
+- ℹ️
+- Sobre & Atalhos
+- Atalhos de teclado
+- Comandos rápidos para teclado físico
+- Versão do kazzu
+- v1.4.2 (Liquid Glass Edition) • Código Aberto
+- v1.4.2
+- ♫
+- Creep
+- Radiohead
+- Play/Pause
+- Avançar
+- Início
+- Explorar
+- Biblioteca
+- Pesquisar
+- Recolher player
+- Áudio
+- Áudio
+- Vídeo
+- Vídeo
+- PABLO HONEY
+- Pablo Honey
+- LETRA AO VIVO
+- Voltar à capa
+- ✕
+- When you were here before
+- Couldn't look you in the eye
+- You're just like an angel
+- Your skin makes me cry
+- You float like a feather
+- In a beautiful world
+- I wish I was special
+- You're so fucking special
+- But I'm a creep, I'm a weirdo
+- What the hell am I doing here?
+- I don't belong here
+- Creep
+- Radiohead
+- Compartilhar
+- Curtir
+- Controles de reprodução
+- Progresso
+- 1:31
+- -2:27
+- Modo aleatório
+- Faixa anterior
+- Reproduzir ou pausar
+- Próxima faixa
+- Repetir faixa
+- Volume
+- 76
+- Fila de reprodução
+- Ver letra na capa
+- Temporizador de sono
+- Mais opções
+- Saída de áudio
+- This phone
+- Fila de reprodução
+- Fechar fila

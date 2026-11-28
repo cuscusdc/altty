@@ -1,0 +1,23 @@
+import { Theme } from "../theme.slint";
+import { State } from "../state.slint";
+import { Glass } from "../components/glass.slint";
+import { Action } from "../components/action.slint";
+import { Heading } from "../components/heading.slint";
+import { Chips } from "../components/chips.slint";
+export component Biblioteca inherits VerticalLayout {
+    spacing: 12px;
+    Action { text: "+ Nova playlist"; clicked => { State.command("playlist"); } }
+    Chips { options: ["Playlists", "Faixas", "Artistas", "Álbuns"]; }
+    Glass { height: 130px;
+        VerticalLayout { padding: 16px; spacing: 8px;
+            Text { text: "SUA EXPERIÊNCIA DE ESCUTA"; color: Theme.secondary; font-size: 11px; }
+            Text { text: "Membro desde 10/26"; color: Theme.muted; font-size: 11px; }
+            Text { text: "694 MINUTOS OUVIDOS"; color: Theme.ink; font-size: 24px; font-weight: 900; }
+            Text { text: "• cuscusdoce rael · 170 reproduções totais"; color: Theme.muted; font-size: 11px; wrap: word-wrap; }
+        }
+    }
+    Heading { text: "Coleções"; }
+    HorizontalLayout { spacing: 9px;
+        for title in ["♥ Curtidas", "↓ Baixados", "↗ Top 100"] : Action { height: 104px; text: title; filled: true; clicked => { State.command(title); } }
+    }
+}

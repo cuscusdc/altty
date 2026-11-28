@@ -1,0 +1,24 @@
+import { Theme } from "../theme.slint";
+export component Scrubber inherits Rectangle {
+    in property <float> value;
+    in property <string> label;
+    in property <length> thickness: 6px;
+    callback changed(float);
+    height: 44px; min-width: 44px;
+    accessible-role: slider;
+    accessible-label: root.label;
+    accessible-value: root.value * 100;
+    Rectangle { y: (parent.height - self.height) / 2; height: root.thickness; width: parent.width; border-radius: 999px; background: #ffffff33;
+        Rectangle { width: parent.width * clamp(root.value, 0, 1); border-radius: 999px; background: Theme.secondary; }
+    }
+    Rectangle { x: clamp(root.value, 0, 1) * (parent.width - 14px); y: (parent.height - 14px) / 2; width: 14px; height: 14px; border-radius: 7px; background: white; }
+    touch := TouchArea {
+        pointer-event(event) => { if (event.kind == PointerEventKind.down || event.kind == PointerEventKind.up) { root.changed(clamp(self.mouse-x / self.width, 0, 1)); } }
+        moved => { if (self.pressed) { root.changed(clamp(self.mouse-x / self.width, 0, 1)); } }
+    }
+    FocusScope { key-pressed(event) => {
+        if (event.text == Key.LeftArrow) { root.changed(max(0, root.value - 0.01)); return accept; }
+        if (event.text == Key.RightArrow) { root.changed(min(1, root.value + 0.01)); return accept; }
+        return reject;
+    } }
+}

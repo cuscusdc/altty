@@ -1,0 +1,47 @@
+import { AppState } from "../theme/app-contract.slint";
+import { Nav } from "../theme/nav-state.slint";
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { IconButton, Cover } from "../components/atoms.slint";
+import { PlayerConsole } from "../components/player-console.slint";
+
+export component MobilePlayer inherits Rectangle {
+    accessible-role: groupbox;
+    accessible-label: "Reprodução";
+    background: Theme.media-console;
+    clip: true;
+    property <length> top: AppState.safe-top + 56px;
+    property <length> usable: root.height - root.top - AppState.safe-bottom;
+    property <bool> spread: root.width >= 640px && root.width > root.height * 0.85;
+    property <length> controls-w: min(root.spread ? root.width * 0.51 : root.width, 500px);
+    property <length> controls-h: min(root.usable, AppState.player-error != "" ? 448px : 365px);
+    property <length> art: max(0px, min(root.spread ? root.width * 0.40 : root.width - 48px, root.spread ? root.usable - 20px : root.usable - root.controls-h - 20px, 500px));
+    if Theme.glass-on && AppState.artwork-background : Image { source: AppState.backdrop-wide; image-fit: cover; opacity: 0.62; }
+    Rectangle { background: @linear-gradient(180deg, transparent, Theme.media-console.with-alpha(0.94)); }
+    if root.art > 32px : Cover {
+        x: root.spread ? (root.width - root.controls-w - self.width) / 2 : (root.width - self.width) / 2;
+        y: root.top + (root.usable - (root.spread ? 0px : root.controls-h) - self.height) / 2;
+        size: root.art; radius: Theme.r-card;
+        source: AppState.now-art.width > 0 ? AppState.now-art : AppState.now.cover;
+        TouchArea {
+            property <length> anchor;
+            pointer-event(e) => {
+                if (e.kind == PointerEventKind.down) { self.anchor = self.mouse-y; }
+                if (e.kind == PointerEventKind.up && self.mouse-y - self.anchor > 90px) { Nav.close-player(); }
+            }
+        }
+    }
+    PlayerConsole {
+        x: root.spread ? root.width - root.controls-w : (root.width - self.width) / 2;
+        y: root.top + (root.spread ? (root.usable - self.height) / 2 : root.usable - self.height);
+        width: root.controls-w; height: root.controls-h;
+        pad-x: root.width < 370px ? 8px : 16px; pad-top: 0px; pad-bottom: 4px;
+    }
+    HorizontalLayout {
+        y: AppState.safe-top; height: 52px; width: root.width;
+        padding-left: 8px; padding-right: 8px;
+        IconButton { icon: Icons.chevron-down; tint: Theme.media-ink; label: "Recolher player"; clicked => { Nav.close-player(); } }
+        Text { text: AppState.now-origin != "" ? AppState.now-origin : "Tocando agora"; color: Theme.media-ink; horizontal-stretch: 1; horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
+        IconButton { icon: Icons.more; tint: Theme.media-ink; label: "Opções da faixa"; clicked => { Nav.open-menu(AppState.now); } }
+    }
+}

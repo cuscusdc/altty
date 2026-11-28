@@ -1,0 +1,48 @@
+// Native immersive player: responsive inset artwork, atmospheric backdrop and an adaptive control console.
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { AppState, RepeatMode } from "../theme/app-contract.slint";
+import { Nav } from "../theme/nav-state.slint";
+import { MediaGlass, MediaIconButton, Cover, Pressable, Icon, IconButton, TextButton, Scrubber, Spinner } from "../components/atoms.slint";
+
+import { PlayerConsole } from "../components/player-console.slint";
+
+// One responsive stage: inset artwork on phones, a separate console on wide windows.
+export component DesktopPlayer inherits Rectangle {
+    property <float> reveal: 0;
+    property <bool> wide: root.width >= 900px && root.height - AppState.safe-top - AppState.safe-bottom >= 520px;
+    property <length> top: AppState.safe-top + 64px;
+    property <length> usable: root.height - root.top - AppState.safe-bottom;
+    property <length> console-h: min(root.usable, root.wide ? 480px : AppState.player-error != "" ? 440px : 368px);
+    property <length> art: max(0px, min(500px, root.width * (root.wide ? 0.42 : 0.84), root.wide ? root.usable - 40px : root.usable - root.console-h - 20px));
+    property <length> console-w: min(480px, root.wide ? root.width * 0.43 : root.width);
+    property <length> left: (root.width - root.art - (root.wide ? root.console-w + 56px : 0px)) / 2;
+    init => { root.reveal = 1; }
+    animate reveal { duration: Theme.dur-long; easing: cubic-bezier(0.2, 0.9, 0.2, 1); }
+    background: Theme.media-console; clip: true;
+    accessible-role: groupbox; accessible-label: "Player";
+    if Theme.glass-on && AppState.artwork-background : Image { source: AppState.backdrop-wide; width: 100%; height: 100%; image-fit: ImageFit.cover; opacity: 0.7; }
+    Rectangle { background: @linear-gradient(180deg, Theme.media-console.with-alpha(0.35) 0%, Theme.media-console.with-alpha(0.7) 70%, Theme.media-console 100%); }
+    if root.art > 24px : Cover {
+        x: root.left;
+        y: root.top + (root.usable - (root.wide ? 0px : root.console-h) - root.art) / 2;
+        size: root.art; radius: Theme.r-card;
+        opacity: root.reveal;
+        source: AppState.now-art.width > 0 ? AppState.now-art : AppState.now.cover;
+    }
+    PlayerConsole {
+        x: root.wide ? root.left + root.art + 56px : (root.width - self.width) / 2;
+        y: root.top + (root.wide ? (root.usable - self.height) / 2 : root.usable - self.height);
+        width: root.console-w; height: root.console-h;
+        pad-x: root.width < 370px ? 8px : 20px; pad-top: 0px; pad-bottom: 8px;
+    }
+    Rectangle {
+        y: AppState.safe-top + 8px; height: 48px;
+        IconButton { x: 16px; icon: Icons.chevron-down; tint: Theme.media-ink; media: true; label: "Fechar o player"; clicked => { Nav.close-player(); } }
+        VerticalLayout { x: 72px; width: root.width - 144px; alignment: center;
+            Text { text: "TOCANDO AGORA"; color: Theme.media-accent; font-size: Theme.text-xs; letter-spacing: 1.4px; font-weight: 600; horizontal-alignment: center; }
+            Text { text: AppState.now-origin; color: Theme.media-ink; font-size: Theme.text-sm; horizontal-alignment: center; overflow: elide; }
+        }
+        IconButton { x: parent.width - 64px; icon: Icons.more; tint: Theme.media-ink; media: true; label: "Mais ações"; clicked => { Nav.open-menu(AppState.now); } }
+    }
+}

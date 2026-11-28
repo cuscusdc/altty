@@ -1,0 +1,305 @@
+import { UI } from "state.slint";
+
+export component Ink inherits Text {
+    color: UI.palette.ink;
+    font-size: 14px;
+    font-weight: 550;
+    overflow: elide;
+}
+
+export component Glass inherits Rectangle {
+    in property <color> tint: UI.palette.high;
+    in property <length> radius: UI.card-radius;
+    border-radius: root.radius;
+    background: UI.battery ? root.tint : root.tint.brighter((UI.glass[3] - 100) / 150).with-alpha((92 - UI.glass[2] * 0.8) / 100);
+    border-width: 1px;
+    border-color: UI.palette.ink.with-alpha(0.11 + UI.glass[0] / 600);
+    backdrop-blur: UI.battery ? 0px : UI.glass[1] * 1px * (UI.radios[4] == 1 ? 0.5 : 1);
+    inner-shadow-color: UI.battery ? transparent : #ffffff.with-alpha(UI.glass[0] / 420);
+    inner-shadow-blur: 12px;
+    inner-shadow-spread: 1px;
+    Rectangle {
+        x: 12px; y: 1px; width: max(0px, parent.width - 24px); height: 1px;
+        background: @linear-gradient(90deg, transparent, #ffffff.with-alpha(UI.glass[0] / 220), transparent);
+        visible: !UI.battery;
+    }
+}
+
+export component Icon inherits Image {
+    in property <color> tint: UI.palette.ink;
+    colorize: root.tint;
+    image-fit: contain;
+}
+
+export component Action inherits Rectangle {
+    in property <image> glyph;
+    in property <string> title;
+    in property <color> ink: UI.palette.ink;
+    in property <brush> fill: transparent;
+    in property <length> size: 40px;
+    in property <length> visual-width: root.size;
+    in property <length> radius: root.size / 2;
+    in property <length> glyph-size: 20px;
+    in property <bool> enabled: true;
+    callback activated;
+    width: 48px;
+    height: 48px;
+    accessible-role: button;
+    accessible-label: root.title;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if (root.enabled) { root.activated(); } }
+    Rectangle {
+        width: min(root.visual-width, parent.width);
+        height: min(root.size, parent.height);
+        border-radius: pointer.pressed && UI.motion ? root.radius * 0.65 : root.radius;
+        background: pointer.pressed ? UI.palette.ink.with-alpha(0.17) : root.fill;
+        animate border-radius { duration: 180ms; easing: ease-out; }
+        Icon { width: root.glyph-size; height: self.width; source: root.glyph; tint: root.ink; }
+    }
+    pointer := TouchArea { enabled: root.enabled; clicked => { root.activated(); } }
+}
+
+export component Pill inherits Rectangle {
+    in property <string> title;
+    in property <bool> selected;
+    in property <image> glyph;
+    in property <bool> inverse;
+    callback activated;
+    in property <length> side-padding: 12px;
+    min-width: label.preferred-width + 2 * root.side-padding + (root.glyph.width > 0 ? 20px : 0px);
+    min-height: 32px;
+    border-radius: self.height / 2;
+    background: root.selected ? (root.inverse ? UI.palette.ink : UI.palette.accent) : (tap.pressed ? UI.palette.high : UI.palette.ink.with-alpha(0.07));
+    accessible-role: button;
+    accessible-label: root.title;
+    accessible-action-default => { root.activated(); }
+    HorizontalLayout {
+        alignment: center;
+        spacing: 5px;
+        if root.glyph.width > 0 : Rectangle {
+            width: 15px;
+            Icon {
+                source: root.glyph;
+                width: 15px;
+                height: 15px;
+                tint: root.selected ? (root.inverse ? UI.palette.bg : UI.palette.on-accent) : UI.palette.ink;
+            }
+        }
+        label := Ink {
+            text: root.title;
+            font-size: 12px;
+            font-weight: 700;
+            color: root.selected ? (root.inverse ? UI.palette.bg : UI.palette.on-accent) : UI.palette.ink;
+            vertical-alignment: center;
+        }
+    }
+    tap := TouchArea { clicked => { root.activated(); } }
+}
+
+export component Artwork inherits Rectangle {
+    in property <image> art;
+    in property <color> tone: UI.palette.high;
+    in property <string> glyph;
+    border-radius: UI.tile-radius;
+    background: root.tone;
+    clip: true;
+    if root.art.width > 0 : Image { width: root.width; height: root.height; source: root.art; image-fit: cover; }
+    if root.art.width == 0 : Ink {
+        text: root.glyph;
+        color: white;
+        font-size: 30px;
+        font-weight: 800;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+export component Section inherits HorizontalLayout {
+    in property <string> title;
+    in property <string> link;
+    callback activated;
+    min-height: 34px;
+    spacing: 8px;
+    Ink { text: root.title; font-weight: 800; font-size: 22px; letter-spacing: -0.6px; vertical-alignment: center; horizontal-stretch: 1; }
+    if !root.link.is-empty : Rectangle {
+        min-width: link-text.preferred-width + 8px;
+        accessible-role: button;
+        accessible-label: root.link;
+        accessible-action-default => { root.activated(); }
+        link-text := Ink { text: root.link; color: UI.palette.accent; font-size: 13px; font-weight: 700; horizontal-alignment: right; vertical-alignment: center; }
+        TouchArea { clicked => { root.activated(); } }
+    }
+}
+
+export component Row inherits Rectangle {
+    in property <string> title;
+    in property <string> sub;
+    in property <string> detail;
+    in property <string> tag;
+    in property <image> glyph;
+    in property <image> art;
+    in property <bool> enabled: true;
+    in property <bool> interactive: true;
+    in property <bool> checked;
+    in property <bool> selected;
+    in property <bool> has-toggle;
+    in property <bool> checked-toggle;
+    in property <bool> chevron: true;
+    callback activated;
+    callback toggled;
+    min-height: 56px;
+    preferred-height: max(56px, copy.preferred-height + 18px);
+    border-radius: UI.tile-radius;
+    opacity: root.enabled ? 1 : 0.5;
+    background: root.selected ? UI.palette.selected : (row-tap.pressed ? UI.palette.high : UI.palette.card);
+    border-width: root.selected ? 1px : 0px;
+    border-color: UI.palette.accent;
+    HorizontalLayout {
+        padding: 8px;
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 9px;
+        if root.art.width > 0 : Artwork { art: root.art; width: 40px; height: 40px; border-radius: 10px; }
+        if root.glyph.width > 0 : Rectangle {
+            width: 22px;
+            Icon { source: root.glyph; width: 22px; height: 22px; }
+        }
+        copy := VerticalLayout {
+            alignment: center;
+            spacing: 3px;
+            horizontal-stretch: 1;
+            Ink { text: root.title; font-size: 15px; font-weight: 650; wrap: word-wrap; overflow: clip; }
+            if !root.sub.is-empty : Ink { text: root.sub; color: UI.palette.muted; font-size: 12px; wrap: word-wrap; overflow: clip; }
+        }
+        if !root.detail.is-empty : Ink { text: root.detail; color: UI.palette.muted; font-size: 12px; vertical-alignment: center; }
+        if !root.tag.is-empty : Ink { text: root.tag; color: UI.palette.accent; font-size: 9px; font-weight: 800; vertical-alignment: center; }
+        if root.checked || (root.chevron && !root.has-toggle) : Rectangle {
+            width: 18px;
+            Icon {
+                source: root.checked ? @image-url("assets/check.svg") : @image-url("assets/chev.svg");
+                tint: root.checked ? UI.palette.accent : UI.palette.outline;
+                width: 17px; height: 17px;
+            }
+        }
+        if root.has-toggle : Rectangle { width: 48px; }
+    }
+    row-tap := TouchArea {
+        enabled: root.interactive && root.enabled;
+        clicked => { root.activated(); }
+    }
+    if root.interactive : Rectangle {
+        accessible-role: button;
+        accessible-label: root.title;
+        accessible-description: root.sub;
+        accessible-enabled: root.enabled;
+        accessible-action-default => { if (root.enabled) { root.activated(); } }
+    }
+    if root.has-toggle : Rectangle {
+        x: parent.width - 57px;
+        width: 52px;
+        height: parent.height;
+        accessible-role: checkbox;
+        accessible-label: root.title;
+        accessible-checked: root.checked-toggle;
+        accessible-action-default => { if (root.enabled) { root.toggled(); } }
+        Rectangle {
+            width: 42px;
+            height: 24px;
+            border-radius: 14px;
+            background: root.checked-toggle ? UI.palette.accent : UI.palette.high;
+            border-width: 1px;
+            border-color: root.checked-toggle ? transparent : UI.palette.outline;
+            Rectangle {
+                x: root.checked-toggle ? parent.width - 21px : 3px;
+                width: 18px;
+                height: 18px;
+                border-radius: 9px;
+                background: root.checked-toggle ? UI.palette.on-accent : UI.palette.outline;
+                animate x { duration: UI.motion ? 160ms : 0ms; easing: ease-out; }
+            }
+        }
+        TouchArea { enabled: root.enabled; clicked => { root.toggled(); } }
+    }
+}
+
+export component Scrubber inherits Rectangle {
+    in property <string> label;
+    in property <float> value;
+    in property <color> tint: UI.palette.accent;
+    in property <bool> waveform;
+    in property <int> seed;
+    callback changed(float);
+    private property <length> left: root.waveform ? 3px : 5px;
+    private property <length> cursor: root.left + (root.width - root.left * 2) * root.value;
+    accessible-role: slider;
+    accessible-label: root.label;
+    accessible-value: "\{round(root.value * 100)}%";
+    accessible-value-minimum: 0;
+    accessible-value-maximum: 100;
+    accessible-value-step: 1;
+    accessible-action-increment => { root.changed(min(1, root.value + 0.01)); }
+    accessible-action-decrement => { root.changed(max(0, root.value - 0.01)); }
+
+    if !root.waveform : Rectangle {
+        x: root.left;
+        width: parent.width - root.left * 2;
+        height: 4px;
+        border-radius: 2px;
+        background: UI.palette.ink.with-alpha(0.22);
+        Rectangle { x: 0; width: parent.width * root.value; height: parent.height; border-radius: 2px; background: root.tint; }
+    }
+    if root.waveform : Rectangle {
+        for bar in 72 : Rectangle {
+            x: bar * parent.width / 72;
+            width: max(1px, parent.width / 72 - 2px);
+            height: max(4px, parent.height * (0.19 + mod(bar * bar * 17 + bar * root.seed * 31 + 19, 67) / 100));
+            border-radius: self.width / 2;
+            background: self.x <= root.cursor ? root.tint : UI.palette.ink.with-alpha(0.28);
+        }
+    }
+    Rectangle {
+        x: root.cursor - self.width / 2;
+        width: root.waveform ? 3px : 10px;
+        height: root.waveform ? parent.height - 14px : 10px;
+        border-radius: self.width / 2;
+        background: root.waveform ? UI.palette.ink : root.tint;
+    }
+    touch := TouchArea {
+        changed pressed => { if (self.pressed) { root.seek(self.mouse-x); } }
+        moved => { if (self.pressed) { root.seek(self.mouse-x); } }
+    }
+    function seek(x: length) {
+        root.changed(clamp((x - root.left) / max(1px, root.width - root.left * 2), 0, 1));
+    }
+}
+
+export component Vinyl inherits Rectangle {
+    in property <image> art;
+    in property <float> turns;
+    border-radius: self.width / 2;
+    background: #101015;
+    border-width: 1px;
+    border-color: #ffffff30;
+    drop-shadow-color: UI.battery ? transparent : #00000070;
+    drop-shadow-blur: 18px;
+    drop-shadow-offset-y: 8px;
+    for groove in 18 : Rectangle {
+        width: parent.width * (0.98 - groove * 0.024);
+        height: self.width;
+        border-radius: self.width / 2;
+        border-width: 0.5px;
+        border-color: mod(groove, 3) == 0 ? #ffffff27 : #ffffff13;
+    }
+    Rectangle {
+        transform-rotation: root.turns * 360deg;
+        border-radius: self.width / 2;
+        clip: true;
+        Rectangle {
+            background: @linear-gradient(138deg, transparent 20%, #e6dbff2b 42%, transparent 56%, #9dafe71f 72%, transparent 90%);
+            border-radius: self.width / 2;
+        }
+        Artwork { width: parent.width * 0.38; height: self.width; art: root.art; border-radius: self.width / 2; }
+        Rectangle { x: parent.width * 0.53; y: parent.height * 0.36; width: max(2px, parent.width * 0.016); height: self.width; border-radius: self.width / 2; background: white; }
+    }
+    Rectangle { width: clamp(parent.width * 0.036, 4px, 10px); height: self.width; border-radius: self.width / 2; background: #111116; }
+}

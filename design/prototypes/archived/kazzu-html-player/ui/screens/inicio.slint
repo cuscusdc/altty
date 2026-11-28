@@ -1,0 +1,20 @@
+import { State } from "../state.slint";
+import { TrackCard } from "../components/track-card.slint";
+import { Heading } from "../components/heading.slint";
+import { Chips } from "../components/chips.slint";
+export component Inicio inherits VerticalLayout {
+    spacing: 12px;
+    Chips { options: ["Todos", "Podcasts", "Energia", "Romance", "Para o trânsito"]; }
+    Heading { text: "⚡ Escolha rápida"; }
+    for row in 3 : HorizontalLayout { spacing: 9px;
+        for column in 3 : TrackCard { horizontal-stretch: 1; song: State.songs[mod(row * 3 + column + 5, 8)]; random: row == 2 && column == 2;
+            clicked => { if (row == 2 && column == 2) { State.command("random"); } else { State.select(mod(row * 3 + column + 5, 8), false); State.expanded = true; } }
+        }
+    }
+    Heading { text: State.continue-title; }
+    Flickable { height: 206px; content-height: self.height; content-width: 459px;
+        rail := HorizontalLayout { width: 459px; spacing: 12px;
+            for index in State.continue-tracks : TrackCard { width: 145px; height: 190px; song: State.songs[index]; clicked => { State.select(index, false); State.expanded = true; } }
+        }
+    }
+}

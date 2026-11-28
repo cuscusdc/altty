@@ -1,0 +1,230 @@
+import { ScrollView } from "std-widgets.slint";
+import { UI, Screen, Sheet } from "state.slint";
+import { Home, Explore, Library, Search, Replay } from "browse.slint";
+import { Settings, SettingsPage, Appearance } from "settings.slint";
+import { BottomIsland, Player, PlayerSheet } from "player.slint";
+import { Ink, Artwork } from "components.slint";
+
+export { UI, Screen, Sheet }
+
+export component KazzuPreview inherits Window {
+    title: "Kazzu";
+    icon: @image-url("assets/kazzu-app-coral-256.png");
+    width: 390px;
+    height: 780px;
+    default-font-family: "Roboto";
+    background: UI.palette.bg;
+    private property <bool> high-effects: UI.radios[4] == 2 && UI.motion;
+    private property <float> ambient-cycle: root.high-effects ? animation-tick() / 1s : 0;
+
+    in property <length> safe-top: self.safe-area-insets.top;
+    in property <length> safe-bottom: self.safe-area-insets.bottom;
+    in property <length> safe-left: self.safe-area-insets.left;
+    in property <length> safe-right: self.safe-area-insets.right;
+    private property <bool> player-visible: UI.player-open;
+    private property <bool> spinning-player: UI.playing && UI.player-open && !UI.lyrics && UI.vinyl-mode < 2;
+    private property <bool> spinning-deck: UI.playing && UI.screen == Screen.explore && !UI.player-open && UI.placed-record == UI.track-index;
+    private property <bool> shared-cover;
+    private property <bool> restore-focus;
+    changed player-visible => {
+        self.restore-focus = true;
+        self.shared-cover = UI.motion && UI.vinyl-mode > 0 && !UI.lyrics && self.preview.is-empty;
+    }
+    Timer { interval: 390ms; running: root.shared-cover; triggered => { root.shared-cover = false; } }
+    Timer {
+        interval: 1ms;
+        running: root.restore-focus;
+        triggered => { root.restore-focus = false; keyboard.focus(); }
+    }
+
+    // Presets for visual checks with slint-viewer --load-data.
+    in-out property <string> preview: "";
+    changed preview => {
+        if (self.preview == "explore") { UI.screen = Screen.explore; }
+        else if (self.preview == "library") { UI.screen = Screen.library; }
+        else if (self.preview == "search") { UI.screen = Screen.search; }
+        else if (self.preview == "replay") { UI.screen = Screen.replay; }
+        else if (self.preview == "settings") { UI.screen = Screen.settings; }
+        else if (self.preview == "settings-page") { UI.screen = Screen.settings-page; UI.page = 11; }
+        else if (self.preview == "appearance" || self.preview == "light") {
+            UI.screen = Screen.appearance;
+            UI.toggles[1] = self.preview != "light";
+        } else if (self.preview == "player" || self.preview == "queue" || self.preview == "more" || self.preview == "lyrics") {
+            UI.player-open = true;
+            UI.lyrics = self.preview == "lyrics";
+            UI.sheet = self.preview == "queue" ? Sheet.queue : (self.preview == "more" ? Sheet.more : Sheet.none);
+        }
+    }
+
+    Timer {
+        interval: 1000ms;
+        running: UI.playing;
+        triggered => { UI.tick(); }
+    }
+    Timer {
+        interval: 33ms;
+        running: root.spinning-player || root.spinning-deck;
+        triggered => {
+            if (root.spinning-player) { UI.spin += 33 / 3600; }
+            if (root.spinning-deck) { UI.platter-spin += 33 / 1800; }
+        }
+    }
+    Timer {
+        interval: 100ms;
+        running: UI.toast-ms > 0;
+        triggered => { UI.toast-ms = max(0, UI.toast-ms - 100); }
+    }
+
+    Timer {
+        running: UI.record-phase == 1;
+        interval: 460ms;
+        triggered => { UI.record-phase = 2; }
+    }
+    Timer {
+        running: UI.record-phase == 2;
+        interval: 720ms;
+        triggered => { UI.finish-record(); }
+    }
+    Timer {
+        running: UI.record-phase == 3;
+        interval: 450ms;
+        triggered => { UI.record-phase = 4; }
+    }
+    Timer {
+        running: UI.record-phase == 4;
+        interval: 640ms;
+        triggered => {
+            UI.placed-record = -1;
+            if (UI.pending-record >= 0) { UI.record-phase = 1; }
+            else { UI.finish-record(); }
+        }
+    }
+    keyboard := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Back || event.text == Key.Escape) { UI.back(); return accept; }
+            if (event.text == " ") { UI.playing = !UI.playing; return accept; }
+            if (event.text.to-lowercase() == "j") { UI.previous(); return accept; }
+            if (event.text.to-lowercase() == "l") { UI.next(); return accept; }
+            if (event.text.to-lowercase() == "s") { UI.shuffle = !UI.shuffle; return accept; }
+            if (event.text.to-lowercase() == "r") { UI.repeat = !UI.repeat; return accept; }
+            if (event.text.to-lowercase() == "m") { UI.mute(); return accept; }
+            return reject;
+        }
+
+        Rectangle {
+            if !UI.battery : Rectangle {
+                x: -root.width * (0.56 + sin(root.ambient-cycle * 16deg) * 0.11);
+                y: -root.height * (0.47 + cos(root.ambient-cycle * 12deg) * 0.06);
+                width: root.width * 1.8;
+                height: root.height * 1.42;
+                background: @radial-gradient(circle, UI.track.art.with-alpha(UI.dark ? 0.20 : 0.22), transparent 58%);
+            }
+            if !UI.battery : Rectangle {
+                x: -root.width * (0.17 + sin(root.ambient-cycle * 12deg) * 0.10);
+                y: root.height * (0.20 + cos(root.ambient-cycle * 18deg) * 0.08);
+                width: root.width * 1.78;
+                height: root.height * 1.12;
+                background: @radial-gradient(circle, UI.palette.secondary.with-alpha(UI.dark ? 0.13 : 0.21), transparent 56%);
+            }
+
+            if !UI.battery : Rectangle {
+                x: -root.width * (0.16 + cos(root.ambient-cycle * 14deg) * 0.11);
+                y: -root.height * 0.24;
+                width: root.width * 1.85;
+                height: root.height * 1.32;
+                background: @radial-gradient(circle, UI.palette.selected.with-alpha(UI.dark ? 0.29 : 0.45), transparent 53%);
+            }
+            browse := ScrollView {
+                width: parent.width;
+                height: parent.height;
+                visible: !UI.player-open;
+                horizontal-scrollbar-policy: always-off;
+                vertical-scrollbar-policy: always-off;
+                content-width: self.width;
+                content-height: page-layout.preferred-height;
+                property <Screen> active-screen: UI.screen;
+                property <int> active-page: UI.page;
+                property <bool> entering;
+                changed active-screen => { self.reset-page(); }
+                changed active-page => { self.reset-page(); }
+                function reset-page() {
+                    self.content-y = 0px;
+                    root.restore-focus = true;
+                    self.entering = UI.motion && root.preview.is-empty;
+                }
+                Timer { running: browse.entering; interval: 14ms; triggered => { browse.entering = false; } }
+
+                page-layout := VerticalLayout {
+                    x: 0; y: browse.entering ? 12px : 0px; width: browse.width; height: self.preferred-height;
+                    opacity: browse.entering ? 0.55 : 1;
+                    animate opacity, y { duration: UI.motion && !browse.entering ? 380ms : 0ms; easing: ease-out; }
+                    alignment: start;
+                    padding-left: root.safe-left + 16px;
+                    padding-right: root.safe-right + 16px;
+                    padding-top: root.safe-top + 15px;
+                    padding-bottom: 160px + root.safe-bottom;
+                    if UI.screen == Screen.home : Home {}
+                    if UI.screen == Screen.explore : Explore {}
+                    if UI.screen == Screen.library : Library {}
+                    if UI.screen == Screen.search : Search { }
+                    if UI.screen == Screen.replay : Replay {}
+                    if UI.screen == Screen.settings : Settings {}
+                    if UI.screen == Screen.settings-page : SettingsPage {}
+                    if UI.screen == Screen.appearance : Appearance {}
+                }
+            }
+            if !UI.player-open : Rectangle {
+                x: 0; y: parent.height - self.height;
+                height: 158px + root.safe-bottom;
+                background: @linear-gradient(180deg, transparent, UI.palette.bg.with-alpha(0.28) 45%, UI.palette.bg.with-alpha(0.65));
+            }
+            island := BottomIsland {
+                y: parent.height - self.height;
+                width: parent.width;
+                bottom-inset: root.safe-bottom; left-inset: root.safe-left; right-inset: root.safe-right;
+                visible: !UI.player-open;
+                shared-cover: root.shared-cover;
+            }
+        }
+        player := Player {
+            x: 0;
+            y: UI.player-open ? 0px : parent.height;
+            width: parent.width; height: parent.height;
+            top-inset: root.safe-top; bottom-inset: root.safe-bottom; left-inset: root.safe-left; right-inset: root.safe-right;
+            visible: self.y < parent.height;
+            shared-cover: root.shared-cover;
+            animate y { duration: UI.motion ? 380ms : 0ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+        }
+        Artwork {
+            x: UI.player-open ? player.cover-x : island.cover-x;
+            y: UI.player-open ? player.cover-y : island.y + island.cover-y;
+            width: UI.player-open ? player.cover-size : 42px;
+            height: self.width;
+            art: UI.track.cover;
+            border-radius: UI.player-open ? UI.card-radius : 12px;
+            visible: root.shared-cover;
+            animate x, y, width, border-radius { duration: root.shared-cover ? 380ms : 0ms; easing: cubic-bezier(0.22, 1, 0.36, 1); }
+        }
+        if !UI.battery && UI.glass[4] > 0 : Image {
+            width: parent.width; height: parent.height;
+            source: @image-url("assets/grain.png");
+            opacity: UI.glass[4] / 100 * 0.055;
+            image-fit: fill;
+        }
+        PlayerSheet { bottom-inset: root.safe-bottom; }
+        if UI.toast-ms > 0 : Rectangle {
+            y: parent.height - 114px - root.safe-bottom - self.height;
+            width: min(parent.width - 30px, toast.preferred-width + 30px);
+            height: 42px;
+            border-radius: 22px; background: #140e16eb;
+            accessible-role: text;
+            accessible-label: UI.toast-text;
+            toast := Ink {
+                x: 11px; width: parent.width - 22px; text: UI.toast-text; color: white;
+                horizontal-alignment: center; vertical-alignment: center; font-size: 13px;
+            }
+        }
+    }
+    init => { keyboard.focus(); }
+    forward-focus: keyboard;
+}

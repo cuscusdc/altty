@@ -50,6 +50,7 @@ pub enum Scope {
 pub enum DetailRef {
     Artist(String),
     ArtistOfTrack(String),
+    History,
     Songs,
     Album(String),
     Liked,
@@ -59,6 +60,14 @@ pub enum DetailRef {
     Genre(String),
     /// O álbum a que a faixa (id local) pertence.
     AlbumOfTrack(String),
+}
+
+#[derive(Debug, Clone)]
+pub enum PlaylistEdit {
+    Rename(String),
+    Delete,
+    Remove { index: usize, track: String },
+    MoveUp { index: usize, track: String },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,6 +83,7 @@ pub enum Job {
     Scan,
     AddFolder(PathBuf),
     RemoveFolder(PathBuf),
+    EditPlaylist { id: String, edit: PlaylistEdit },
     BrowseFolders { seq: u64, path: PathBuf, root: PathBuf },
     ImportAccount { lists: Vec<crate::accounts::Import>, skipped: usize },
     Search { seq: u64, query: String },
@@ -113,6 +123,9 @@ pub struct Snapshot {
 }
 
 pub enum JobResult {
+    DetailFailed { seq: u64, message: String },
+    PlaylistEdited { id: String, deleted: bool },
+    AccountImported(Result<String, String>),
     Refreshed(Box<Snapshot>),
     ScanProgress(ScanVm),
     ScanDone(Result<ScanReport, String>),
@@ -323,10 +336,9 @@ impl Store {
                 emit(JobResult::FolderListing { seq, result: list_folders(&path, &root) });
             }
             Job::ImportAccount { lists, skipped } => {
-                for list in &lists {
-                    self.lib.import_remote_playlist(&list.key, &list.name, &list.tracks)?;
-                }
-                emit(JobResult::Notice(format!("{} coleções importadas, {skipped} listas sem acesso.", lists.len())));
+                let result = lists.iter().try_for_each(|list| self.lib.import_remote_playlist(&list.key, &list.name, &list.tracks));
+                emit(JobResult::AccountImported(result.map(|()| format!("{} coleções importadas, {skipped} listas sem acesso.", lists.len()))
+                    .map_err(|error| format!("A gravação parou. Coleções já gravadas foram preservadas. {error}"))));
                 emit(JobResult::Refreshed(Box::new(self.snapshot()?)));
             }
             Job::Search { seq, query } => {
@@ -360,9 +372,10 @@ impl Store {
                 }
             }
             Job::OpenDetail { seq, what } => {
-                self.reload_caches_if_empty()?;
-                let (detail, ids, remote_tracks) = self.detail(&what)?;
-                emit(JobResult::Detail { seq, detail: Box::new(detail), ids, remote_tracks });
+                match self.reload_caches_if_empty().and_then(|()| self.detail(&what)) {
+                    Ok((detail, ids, remote_tracks)) => emit(JobResult::Detail { seq, detail: Box::new(detail), ids, remote_tracks }),
+                    Err(error) => emit(JobResult::DetailFailed { seq, message: format!("Não foi possível abrir esta coleção. {error}") }),
+                }
             }
             Job::NowArt { seq, cover } => {
                 let art = match cover.as_deref().and_then(art::load) {
@@ -403,6 +416,32 @@ impl Store {
                     emit(JobResult::Recents(recents));
                     emit(JobResult::ListeningSummary(self.listening_summary()?));
                 }
+            }
+            Job::EditPlaylist { id, edit } => {
+                let pid = PlaylistId(parse_id(&id).ok_or(kazzu_library::Error::NotFound("playlist"))?);
+                let deleted = matches!(edit, PlaylistEdit::Delete);
+                match edit {
+                    PlaylistEdit::Rename(name) => self.lib.rename_playlist(pid, name.trim())?,
+                    PlaylistEdit::Delete => self.lib.delete_playlist(pid)?,
+                    PlaylistEdit::Remove { index, ref track } | PlaylistEdit::MoveUp { index, ref track } => {
+                        let entries = self.lib.playlist_entries(pid)?;
+                        let current = entries.get(index).map(|entry| match entry {
+                            PlaylistEntry::Local(track) => track.id.0.to_string(),
+                            PlaylistEntry::Remote(track) => ytm_vm::track_ui_id(track),
+                        });
+                        if current.as_ref() != Some(track) {
+                            emit(JobResult::Failed("A lista mudou. Abra-a novamente antes de editar.".into()));
+                            return Ok(());
+                        }
+                        if matches!(edit, PlaylistEdit::Remove { .. }) {
+                            self.lib.remove_from_playlist(pid, index)?;
+                        } else if index > 0 {
+                            self.lib.reorder_playlist(pid, index, index - 1)?;
+                        }
+                    }
+                }
+                emit(JobResult::PlaylistEdited { id, deleted });
+                emit(JobResult::Refreshed(Box::new(self.snapshot()?)));
             }
             Job::CreatePlaylist { name, add } => {
                 let name = name.trim();
@@ -530,7 +569,7 @@ impl Store {
         let covers_of_albums: Vec<Pixels> = all_albums.iter().filter_map(|a| self.album_vm(a).cover).take(3).collect();
         let liked_covers = self.distinct_covers(&liked_tracks, 1);
         let collections = vec![
-            CollectionVm { id: "downloads".into(), title: "Baixados".into(), count_label: "Em breve".into(), covers: vec![], soon: true },
+            CollectionVm { id: "history".into(), title: "Ouvidas recentemente".into(), count_label: "Histórico local".into(), covers: vec![], soon: false },
             CollectionVm { id: "liked".into(), title: "Curtidos".into(), count_label: format::songs_label((liked_tracks.len() + remote_liked.len()) as u64), covers: liked_covers, soon: false },
             CollectionVm { id: "albums".into(), title: "Álbuns".into(), count_label: format::albums_label(all_albums.len() as u64), covers: covers_of_albums, soon: false },
             CollectionVm {
@@ -551,7 +590,7 @@ impl Store {
 
         Ok(Snapshot {
             home: HomeVm { recents, albums, ..Default::default() },
-            library: LibraryVm { listening_summary: self.listening_summary()?, albums: order.iter().map(|a| self.album_vm(a)).collect(), artists: self.lib.artists()?.into_iter().map(|a| ArtistVm { id: a.id.0.to_string(), name: a.name, subtitle: format::songs_label(a.track_count as u64), ..Default::default() }).collect(), collections, playlists: playlist_vms },
+            library: LibraryVm { listening_summary: self.listening_summary()?, albums: all_albums.iter().map(|a| self.album_vm(a)).collect(), artists: self.lib.artists()?.into_iter().map(|a| ArtistVm { id: a.id.0.to_string(), name: a.name, subtitle: format::songs_label(a.track_count as u64), ..Default::default() }).collect(), collections, playlists: playlist_vms },
             settings: SettingsVm {
                 folders: folders.iter().map(|p| p.display().to_string()).collect(),
                 summary: format::library_summary(folders.len(), track_count),
@@ -620,6 +659,10 @@ impl Store {
             };
         }
         let (title, subtitle, empty, scope) = match r {
+            DetailRef::History => {
+                let tracks = self.lib.recent(200)?;
+                return self.mixed_detail("Ouvidas recentemente".into(), "O histórico aparece após ouvir músicas locais.", tracks.into_iter().map(PlaylistEntry::Local).collect());
+            }
             DetailRef::Songs => ("Músicas".into(), String::new(), "Adicione uma pasta para ouvir suas músicas aqui.".into(), Scope::All),
             DetailRef::AlbumOfTrack(_) | DetailRef::ArtistOfTrack(_) | DetailRef::Artist(_) => unreachable_detail(),
             DetailRef::Album(id) => {
@@ -657,7 +700,10 @@ impl Store {
                     .and_then(|i| self.lib.playlists().ok()?.into_iter().find(|p| p.id.0 == i))
                     .map(|p| p.name)
                     .unwrap_or_else(|| "Playlist".into());
-                return self.mixed_detail(name, "Esta playlist ainda está vazia.", parse_id(id).map_or_else(Vec::new, |pid| self.lib.playlist_entries(PlaylistId(pid)).unwrap_or_default()));
+                let entries = self.lib.playlist_entries(PlaylistId(parse_id(id).ok_or(kazzu_library::Error::NotFound("playlist"))?))?;
+                let (mut detail, tracks, remote) = self.mixed_detail(name, "Esta playlist ainda está vazia.", entries)?;
+                detail.editable_playlist = id.clone();
+                return Ok((detail, tracks, remote));
             }
             DetailRef::Genre(g) => (g.clone(), String::new(), "Nenhuma música com este gênero.".into(), Scope::Genre(g.clone())),
         };

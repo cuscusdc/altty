@@ -1,0 +1,53 @@
+// Ajustes (v4): grupos sólidos com linhas de 56+. "Sem telemetria" é uma constante (nenhum controle). Recursos que ainda não
+// existem aparecem como "Em breve", sem interruptor falso.
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { Metrics } from "../theme/metrics.slint";
+import { AppState, Tab, ThemeMode } from "../theme/app-contract.slint";
+import { Nav } from "../theme/nav-state.slint";
+import { Pressable, Button, TextButton, IconButton, Switch, Segmented, Tag, Group, GroupItem, SearchField, Scrubber } from "../components/atoms.slint";
+import { SettingsGroupHead, SettingsChoice } from "../components/settings-controls.slint";
+import { PageHeading } from "../components/editorial.slint";
+import { Screen, Gutters, Narrow } from "../components/shared.slint";
+
+import { SettingsIndex, SettingsSections } from "../components/settings-sections.slint";
+
+export component DesktopSettings inherits Rectangle {
+    in-out property <int> section <=> AppState.settings-section;
+    in-out property <string> query <=> AppState.settings-query;
+    if root.width >= 900px : Flickable {
+        x: 20px; y: AppState.safe-top + 24px; width: 172px; height: parent.height - self.y - Metrics.reserve;
+        content-height: max(self.height, categories.preferred-height);
+        categories := VerticalLayout { height: self.preferred-height; alignment: start; spacing: 6px;
+            Text { text: "PREFERÊNCIAS"; color: Theme.muted; font-size: Theme.text-xs; font-weight: 600; height: 32px; }
+            for name[i] in SettingsIndex.categories : Pressable {
+                height: 48px; label: name; ring-radius: 16px;
+                clicked => { SettingsIndex.choose(i); }
+                Rectangle { border-radius: 16px; background: root.section == i ? Theme.accent.with-alpha(0.15) : parent.hovered ? Theme.paper-3 : transparent; }
+                Text { x: 12px; text: name; color: root.section == i ? Theme.accent : Theme.ink; font-size: Theme.text-md; vertical-alignment: center; }
+            }
+            TextButton { text: "Ver tudo"; clicked => { SettingsIndex.choose(-1); } }
+        }
+    }
+    Screen {
+        x: root.width >= 900px ? 204px : 0px;
+        width: root.width - self.x;
+        tab: Tab.settings;
+        VerticalLayout {
+            padding-top: AppState.safe-top + Theme.s-xl;
+            padding-bottom: Metrics.reserve;
+            spacing: Theme.s-xl;
+            alignment: start;
+            VerticalLayout { PageHeading { title: "Ajustes"; } }
+            Gutters { SearchField { text <=> root.query; placeholder: "Encontrar uma configuração"; edited(t) => { SettingsIndex.choose(-1); } } }
+            if root.width < 900px : Flickable {
+                height: 48px; content-width: tabs.preferred-width; content-height: 48px;
+                tabs := HorizontalLayout { width: self.preferred-width; spacing: 8px; padding-left: Theme.gutter; padding-right: Theme.gutter;
+                    TextButton { min-width: 48px; text: "Tudo"; ink: root.section == -1 ? Theme.accent : Theme.ink; clicked => { SettingsIndex.choose(-1); } }
+                    for name[i] in SettingsIndex.categories : TextButton { min-width: 48px; text: name; ink: root.section == i ? Theme.accent : Theme.ink; clicked => { SettingsIndex.choose(i); } }
+                }
+            }
+            Narrow { SettingsSections {} }
+        }
+    }
+}

@@ -39,6 +39,19 @@ pub enum NavTab {
     Settings,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum DetailRoute {
+    Library(DetailRef),
+    Catalog(RemoteRef),
+}
+
+#[derive(Clone)]
+struct PageVisit {
+    route: DetailRoute,
+    scroll: f32,
+    focus: String,
+}
+
 /// Preferências lidas do sistema operacional na inicialização.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct SystemPrefs {
@@ -125,6 +138,8 @@ pub struct Controller<V: View> {
     queue_seq: u64,
     vm_cache: Lru<String, TrackVm>,
     detail_seq: u64,
+    visits: HashMap<NavTab, Vec<PageVisit>>,
+    section_focus: HashMap<NavTab, String>,
     cfg_dirty: bool,
     art_seq: u64,
     now_art: NowArtVm,
@@ -135,6 +150,7 @@ pub struct Controller<V: View> {
     pending_likes: HashMap<String, bool>,
     home: HomeVm,
     library: LibraryVm,
+    library_descending: bool,
     settings: SettingsVm,
     scanning: bool,
     auto_scanned: bool,
@@ -207,6 +223,8 @@ impl<V: View> Controller<V> {
             queue_seq: 0,
             vm_cache: Lru::new(VM_CACHE_MAX),
             detail_seq: 0,
+            visits: HashMap::new(),
+            section_focus: HashMap::new(),
             cfg_dirty: false,
             art_seq: 0,
             now_art: NowArtVm::default(),
@@ -215,6 +233,7 @@ impl<V: View> Controller<V> {
             pending_likes: HashMap::new(),
             home: HomeVm::default(),
             library: LibraryVm::default(),
+            library_descending: false,
             settings: SettingsVm::default(),
             scanning: false,
             auto_scanned: false,
@@ -312,6 +331,40 @@ impl<V: View> Controller<V> {
     // Mensagens de outras threads
     // ----------------------------------------------------------------------------------------
 
+    fn finish_import(&mut self, result: Result<String, String>) {
+        self.account_pending = false;
+        let (message, error) = match result {
+            Ok(message) => (message, false),
+            Err(message) => (message, true),
+        };
+        self.view.import_status(false, &message);
+        self.toast(&message, error);
+    }
+
+    fn sort_library(&mut self) {
+        self.library.albums.sort_by_cached_key(|a| a.title.to_lowercase());
+        self.library.artists.sort_by_cached_key(|a| a.name.to_lowercase());
+        self.library.playlists.sort_by_cached_key(|p| p.name.to_lowercase());
+        if self.library_descending {
+            self.library.albums.reverse();
+            self.library.artists.reverse();
+            self.library.playlists.reverse();
+        }
+    }
+
+    pub fn library_order(&mut self, descending: bool) {
+        self.library_descending = descending;
+        self.sort_library();
+        self.view.set_library(&self.library);
+    }
+
+    pub fn edit_playlist(&mut self, edit: crate::worker::PlaylistEdit) {
+        let id = self.detail_vm.editable_playlist.clone();
+        if self.detail_open && !id.is_empty() {
+            self.jobs.submit(Job::EditPlaylist { id, edit });
+        }
+    }
+
     pub fn import_account(&mut self, provider: String, token: String) {
         if self.account_pending {
             self.toast("Já existe uma importação em andamento.", false);
@@ -319,7 +372,7 @@ impl<V: View> Controller<V> {
         }
         let token = token.trim().to_owned();
         if token.is_empty() || token.len() > 8192 || token.bytes().any(|b| !b.is_ascii_graphic()) {
-            self.toast("Informe um token de acesso OAuth válido.", true);
+            self.finish_import(Err("Informe um token de acesso OAuth válido.".into()));
             return;
         }
         let sink = self.sink.clone();
@@ -327,9 +380,9 @@ impl<V: View> Controller<V> {
             sink(Msg::AccountFetched(crate::accounts::fetch(&provider, &token)));
         }).is_ok() {
             self.account_pending = true;
-            self.toast("Importando as coleções da conta…", false);
+            self.view.import_status(true, "Importando coleções…");
         } else {
-            self.toast("Não foi possível iniciar a importação.", true);
+            self.finish_import(Err("Não foi possível iniciar a importação.".into()));
         }
     }
 
@@ -341,10 +394,9 @@ impl<V: View> Controller<V> {
             Msg::FolderPicked(Some(path)) => self.jobs.submit(Job::AddFolder(path)),
             Msg::FolderPicked(None) => {}
             Msg::AccountFetched(result) => {
-                self.account_pending = false;
                 match result {
                     Ok((lists, skipped)) => self.jobs.submit(Job::ImportAccount { lists, skipped }),
-                    Err(error) => self.toast(&error, true),
+                    Err(error) => self.finish_import(Err(error)),
                 }
             }
             Msg::System(sys) => {
@@ -384,6 +436,7 @@ impl<V: View> Controller<V> {
                     self.home.albums = snap.home.albums;
                 }
                 self.library = snap.library;
+                self.sort_library();
                 self.settings = snap.settings;
                 self.view.set_loading(false);
                 self.publish_home();
@@ -391,6 +444,29 @@ impl<V: View> Controller<V> {
                 self.publish_settings();
                 if self.pb.now.is_none() {
                     self.view.set_ambient(snap.ambient.as_ref());
+                }
+            }
+            JobResult::PlaylistEdited { id, deleted } => {
+                let current = self.detail_open && self.detail_vm.editable_playlist == id;
+                let route = DetailRoute::Library(DetailRef::Playlist(id));
+                if deleted {
+                    for pages in self.visits.values_mut() {
+                        pages.retain(|p| p.route != route);
+                    }
+                }
+                if current {
+                    if deleted {
+                        self.detail_open = false;
+                        self.detail_seq += 1;
+                        self.view.open_detail(false);
+                    }
+                    self.restore_visit();
+                }
+            }
+            JobResult::AccountImported(result) => self.finish_import(result),
+            JobResult::DetailFailed { seq, message } => {
+                if seq == self.detail_seq {
+                    self.show_detail(DetailVm { state: LoadStateVm::Error, error_text: message, ..Default::default() });
                 }
             }
             JobResult::ScanProgress(p) => {
@@ -455,6 +531,7 @@ impl<V: View> Controller<V> {
                 self.detail_what = None;
                 self.detail_album = None;
                 self.show_detail(vm);
+                self.restore_detail_scroll();
                 self.view.open_detail(true);
                 self.detail_open = true;
             }
@@ -809,6 +886,7 @@ impl<V: View> Controller<V> {
             Some(d) if !d.is_zero() => (self.position.as_secs_f32() / d.as_secs_f32()).clamp(0.0, 1.0),
             _ => 0.0,
         };
+        self.view.set_seek_available(self.duration.is_some_and(|d| !d.is_zero()));
         self.view.set_progress(progress, &format::duration_label(self.position), &format::remaining_label(self.position, self.duration));
     }
 
@@ -832,7 +910,12 @@ impl<V: View> Controller<V> {
     // ----------------------------------------------------------------------------------------
 
     pub fn navigate(&mut self, tab: NavTab) {
+        self.save_detail_scroll();
+        if self.tab == tab {
+            self.visits.remove(&tab);
+        }
         self.tab = tab;
+        self.view.open_detail(false);
         self.detail_open = false;
         self.detail_seq += 1; // um detalhe pedido antes desta troca de aba não pode abrir depois dela
         if matches!(tab, NavTab::Home | NavTab::Explore | NavTab::Search) && self.remote_enabled && !self.explore_requested {
@@ -849,11 +932,75 @@ impl<V: View> Controller<V> {
                 NavTab::Library | NavTab::Settings => {}
             }
         }
+        self.restore_visit();
+    }
+
+    fn save_detail_scroll(&mut self) {
+        if self.detail_open {
+            if let Some(page) = self.visits.get_mut(&self.tab).and_then(|stack| stack.last_mut()) {
+                page.scroll = self.view.detail_scroll();
+            }
+        }
+    }
+
+    fn visit(&mut self, route: DetailRoute) {
+        self.save_detail_scroll();
+        let pages = self.visits.entry(self.tab).or_default();
+        if pages.last().is_none_or(|page| page.route != route) {
+            pages.push(PageVisit { route: route.clone(), scroll: 0.0, focus: String::new() });
+        }
+        self.load_route(route);
+    }
+
+    fn restore_visit(&mut self) {
+        if let Some(page) = self.visits.get(&self.tab).and_then(|stack| stack.last()).cloned() {
+            self.load_route(page.route);
+        } else {
+            self.view.restore_focus(self.section_focus.get(&self.tab).map_or("", String::as_str));
+        }
+    }
+
+    fn restore_detail_scroll(&self) {
+        if let Some(page) = self.visits.get(&self.tab).and_then(|stack| stack.last()) {
+            self.view.restore_detail_scroll(page.scroll);
+            self.view.restore_focus(&page.focus);
+        }
+    }
+
+    pub fn remember_focus(&mut self, key: &str) {
+        if self.detail_open {
+            if let Some(page) = self.visits.get_mut(&self.tab).and_then(|pages| pages.last_mut()) {
+                page.focus = key.to_owned();
+            }
+        } else {
+            self.section_focus.insert(self.tab, key.to_owned());
+        }
+    }
+
+    fn load_route(&mut self, route: DetailRoute) {
+        self.view.restore_focus("");
+        match route {
+            DetailRoute::Catalog(what) => self.load_remote_page(what),
+            DetailRoute::Library(what) => {
+                self.detail_seq += 1;
+                self.detail_what = None;
+                self.detail_ids.clear();
+                self.detail_album = None;
+                if self.detail_open {
+                    self.show_detail(DetailVm { state: LoadStateVm::Loading, ..Default::default() });
+                }
+                self.jobs.submit(Job::OpenDetail { seq: self.detail_seq, what });
+            }
+        }
     }
 
     pub fn detail_closed(&mut self) {
         self.detail_open = false;
         self.detail_seq += 1;
+        if let Some(pages) = self.visits.get_mut(&self.tab) {
+            pages.pop();
+        }
+        self.restore_visit();
     }
 
     pub fn toggle_play(&mut self) {
@@ -937,6 +1084,7 @@ impl<V: View> Controller<V> {
 
     pub fn open_collection(&mut self, id: &str) {
         match id {
+            "history" => self.request_detail(DetailRef::History),
             "songs" => self.request_detail(DetailRef::Songs),
             _ if id.starts_with("artist:") => self.request_detail(DetailRef::Artist(id.trim_start_matches("artist:").to_owned())),
             "downloads" => self.request_detail(DetailRef::Downloads),
@@ -950,8 +1098,7 @@ impl<V: View> Controller<V> {
     }
 
     fn request_detail(&mut self, what: DetailRef) {
-        self.detail_seq += 1;
-        self.jobs.submit(Job::OpenDetail { seq: self.detail_seq, what });
+        self.visit(DetailRoute::Library(what));
     }
 
     pub fn open_genre(&mut self, id: &str) {
@@ -1183,8 +1330,13 @@ impl<V: View> Controller<V> {
         self.view.set_perf_offer(false);
     }
 
+    pub fn set_color_palette(&mut self, palette: i32) {
+        self.cfg.color_palette = palette.clamp(0, 5);
+        self.save_config();
+    }
+
     pub fn set_visual_style(&mut self, style: i32, artwork: bool) {
-        self.cfg.glass_style = style.clamp(0, 2);
+        self.cfg.glass_style = style.clamp(0, 3);
         self.cfg.artwork_background = artwork;
         self.save_config();
     }

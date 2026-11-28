@@ -1,0 +1,111 @@
+// Home: editorial discovery followed by personal listening, with independent provider states.
+import { QuickPicksGrid } from "quick-picks-grid.slint";
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { Metrics } from "../theme/metrics.slint";
+import { AppState, Tab, LoadState } from "../theme/app-contract.slint";
+import { Nav } from "../theme/nav-state.slint";
+import { Tile, TrackRow, MoodTile, SectionHeader, StateCard, Banner } from "../components/atoms.slint";
+import { CollectionShortcut, FeatureArtwork } from "../components/editorial.slint";
+import { Screen, Rail, Rows, Gutters, SkeletonRows } from "../components/shared.slint";
+
+export component DiscoveryFeed inherits Rectangle {
+    property <int> recent-cols: root.width >= 900px ? 3 : root.width >= 600px ? 2 : 1;
+    property <int> cols: root.width < 600px ? 3 : 4;
+    property <length> shortcut-w: (root.width - 2 * Theme.gutter - (root.cols - 1) * Theme.s-sm) / root.cols;
+    property <bool> has-home: AppState.home-state == LoadState.ready || AppState.home-stale;
+    Screen {
+        tab: AppState.tab == Tab.explore ? Tab.explore : Tab.home;
+        VerticalLayout {
+            padding-top: AppState.safe-top + Theme.s-xl;
+            padding-bottom: Metrics.reserve;
+            spacing: Theme.s-xl; alignment: start;
+            @children
+            if AppState.quick-picks.length > 0 || AppState.recents.length > 0 : VerticalLayout {
+                spacing: Theme.s-xs;
+                SectionHeader { title: "Escolha rápida"; }
+                Gutters { QuickPicksGrid { tracks: AppState.quick-picks.length > 0 ? AppState.quick-picks : AppState.recents; horizontal-stretch: 1; } }
+            }
+
+            if root.has-home && AppState.highlights.length > 0 : Rail {
+                label: "Para ouvir agora"; card-h: Theme.compact ? 304px : 252px;
+                for h in AppState.highlights : FeatureArtwork { focus-key: "discovery-feed/highlights/" + h.id; cover: h.cover; title: h.title; subtitle: h.subtitle; clicked => { AppState.open-item(h.kind, h.id); } play => { AppState.play-item(h.kind, h.id); } }
+            }
+            if AppState.highlights.length == 0 && AppState.library-albums.length > 0 : Rail {
+                label: "Sua música, agora"; card-h: Theme.compact ? 304px : 252px;
+                for a in AppState.library-albums : FeatureArtwork { focus-key: "discovery-feed/library-albums/" + a.id; cover: a.cover; title: a.title; subtitle: a.artist; clicked => { AppState.open-album(a.id); } play => { AppState.play-item("album", a.id); } }
+            }
+            if AppState.first-run-banner : Gutters {
+                Banner { icon: Icons.badge-check; title: "Ouvir como visitante"; text: "Pesquise no YouTube Music ou adicione suas pastas na Biblioteca."; action: "Continuar"; action-clicked => { AppState.dismiss-first-run-banner(); } }
+            }
+            // Personal collections remain immediately available, even while discovery is loading/offline.
+            Rectangle {
+                height: ceil(AppState.collections.length / root.cols) * 116px;
+                for c[i] in AppState.collections : CollectionShortcut { focus-key: "discovery-feed/collections/" + c.id + "/" + i;
+                    x: Theme.gutter + mod(i, root.cols) * (root.shortcut-w + Theme.s-sm);
+                    y: floor(i / root.cols) * 116px;
+                    width: root.shortcut-w; stacked: true; title: c.title; subtitle: c.count-label; available: !c.soon;
+                    icon: c.id == "liked" ? Icons.heart : c.id == "downloads" ? Icons.download : c.id == "albums" ? Icons.disc : Icons.library;
+                    clicked => { Nav.collection(c.id); }
+                }
+            }
+            if !AppState.online || AppState.home-state == LoadState.offline : Gutters {
+                Banner { icon: Icons.cloud-off; title: "Você está offline"; text: "Sua música local continua disponível."; action: "Atualizar"; action-clicked => { AppState.retry-home(); AppState.retry-explore(); } }
+            }
+            if AppState.home-state == LoadState.loading : SkeletonRows { count: 4; }
+            if AppState.home-state == LoadState.error : Gutters {
+                StateCard { icon: Icons.cloud-off; title: AppState.home-error-title != "" ? AppState.home-error-title : "Não deu para atualizar"; text: AppState.home-error-text; primary: "Tentar de novo"; secondary: "Minha biblioteca"; primary-clicked => { AppState.retry-home(); } secondary-clicked => { Nav.go(Tab.library); } }
+            }
+            if AppState.recents.length > 0 : VerticalLayout {
+                spacing: Theme.s-xs;
+                SectionHeader { title: "Continue ouvindo"; action: "Biblioteca"; action-clicked => { Nav.go(Tab.library); } }
+                Rectangle {
+                    height: ceil(min(AppState.recents.length, root.recent-cols * 3) / root.recent-cols) * Theme.row-h;
+                    for t[i] in AppState.recents : TrackRow { focus-key: "discovery-feed/recents/" + t.id + "/" + i;
+                        visible: i < root.recent-cols * 3;
+                        x: Theme.gutter + mod(i, root.recent-cols) * self.width;
+                        y: floor(i / root.recent-cols) * Theme.row-h;
+                        width: (root.width - 2 * Theme.gutter) / root.recent-cols;
+                        t: t; separator: false;
+                        clicked => { AppState.play-track(t.id); } more-clicked => { Nav.open-menu(t); }
+                    }
+                }
+            }
+            if root.has-home && AppState.mixes.length > 0 : VerticalLayout {
+                spacing: Theme.s-xs; SectionHeader { title: "Uma trilha para cada momento"; }
+                Rail { label: "Mixes"; card-h: (Theme.compact ? 148px : 172px) + 52px;
+                    for m in AppState.mixes : Tile { focus-key: "discovery-feed/mixes/" + m.id; cover: m.cover; title: m.title; subtitle: m.subtitle; clicked => { AppState.open-item(m.kind, m.id); } }
+                }
+            }
+            if AppState.albums.length > 0 : VerticalLayout {
+                spacing: Theme.s-xs; SectionHeader { title: "Álbuns para explorar"; }
+                Rail { label: "Álbuns"; card-h: (Theme.compact ? 148px : 172px) + 52px;
+                    for a in AppState.albums : Tile { focus-key: "discovery-feed/albums/" + a.id; cover: a.cover; title: a.title; subtitle: a.artist; clicked => { AppState.open-album(a.id); } }
+                }
+            }
+            if AppState.explore-state == LoadState.loading && AppState.online : SkeletonRows { count: 2; }
+            if AppState.explore-state == LoadState.error : Gutters {
+                Banner { icon: Icons.info; title: "A descoberta não atualizou"; text: AppState.explore-error-text; action: "Tentar de novo"; action-clicked => { AppState.retry-explore(); } }
+            }
+            if AppState.new-releases.length > 0 : VerticalLayout {
+                spacing: Theme.s-xs; SectionHeader { title: "Acabaram de chegar"; }
+                Rail { label: "Lançamentos"; card-h: (Theme.compact ? 148px : 172px) + 52px;
+                    for a in AppState.new-releases : Tile { focus-key: "discovery-feed/new-releases/" + a.id; cover: a.cover; title: a.title; subtitle: a.artist; clicked => { AppState.open-album(a.id); } }
+                }
+            }
+            if AppState.trending.length > 0 : VerticalLayout {
+                spacing: Theme.s-xs; SectionHeader { title: "Em alta agora"; }
+                Rows { for t[i] in AppState.trending : TrackRow { focus-key: "discovery-feed/trending/" + t.id + "/" + i; t: t; number: i + 1; ranked: true; separator: false; clicked => { AppState.play-track(t.id); } more-clicked => { Nav.open-menu(t); } } }
+            }
+            if AppState.moods.length > 0 : VerticalLayout {
+                SectionHeader { title: "Gêneros e momentos"; }
+                Rail { label: "Gêneros e momentos"; card-h: 84px;
+                    for m in AppState.moods : MoodTile { focus-key: "discovery-feed/moods/" + m.id; title: m.title; clicked => { AppState.open-item(m.kind, m.id); } }
+                }
+            }
+            if AppState.home-state == LoadState.empty || (AppState.home-state != LoadState.loading && !AppState.has-library && AppState.highlights.length == 0 && AppState.recents.length == 0) : Gutters {
+                StateCard { icon: Icons.disc; title: "Sua próxima descoberta começa aqui"; text: "Busque uma música ou traga seus arquivos para a biblioteca."; primary: "Buscar música"; secondary: "Adicionar pasta"; primary-clicked => { Nav.go(Tab.search); } secondary-clicked => { AppState.folder-open = true; } }
+            }
+        }
+    }
+}

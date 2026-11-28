@@ -1,0 +1,3 @@
+import { Glass } from "glass.slint";
+import { Theme } from "../theme.slint";
+export component Toast inherits Glass { in property <string> message; height: 64px; border-radius: 22px; Text { x: 14px; width: parent.width - 28px; text: root.message; color: Theme.ink; font-size: 13px; wrap: word-wrap; vertical-alignment: center; } }

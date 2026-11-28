@@ -157,7 +157,7 @@ fn out_dir() -> PathBuf {
 }
 
 fn assert_light_transport_contrast(img: &image::RgbaImage, y: u32) {
-    let dark_pixels = (284..312)
+    let dark_pixels = (332..360)
         .flat_map(|x| (y..y + 22).map(move |row| img.get_pixel(x, row)))
         .filter(|pixel| pixel.0[..3].iter().all(|channel| *channel < 100))
         .count();
@@ -223,11 +223,11 @@ fn every_screen_renders_at_mobile_tablet_and_desktop_sizes_in_both_themes_and_in
             assert!(distinct(&img, 0, 0, 390, 844) > 200, "{theme} android {name} parece em branco");
             assert!(distinct(&img, 12, 764, 366, 64) > 20, "{theme} android {name}: sem a barra inferior");
             if theme == "light" && tab == Tab::Home {
-                let lit_pixels = (242..270)
-                    .flat_map(|x| (725..750).map(move |y| (x, y)))
-                    .filter(|&(x, y)| img.get_pixel(x, y).0[..3].iter().all(|channel| *channel > 190))
+                let ink_pixels = (278..304)
+                    .flat_map(|x| (724..750).map(move |y| (x, y)))
+                    .filter(|&(x, y)| img.get_pixel(x, y).0[..3].iter().all(|channel| *channel < 100))
                     .count();
-                assert!(lit_pixels > 8, "o transporte da ilha precisa de contraste no fundo escuro");
+                assert!(ink_pixels > 8, "o transporte do mini-player precisa de contraste em tema claro");
             }
         }
         state.set_tab(Tab::Home);
@@ -240,6 +240,51 @@ fn every_screen_renders_at_mobile_tablet_and_desktop_sizes_in_both_themes_and_in
         assert!(distinct(&img, 392, 724, 496, 64) > 20, "{theme} android largo: sem a barra inferior");
         state.set_mobile(false);
     }
+
+    // Android in landscape uses the artwork and console side by side. Use the
+    // actual palette setter and the top-left collapse control at both sizes.
+    view.set_prefs(&prefs(ThemePref::Oled));
+    assert!(ui.global::<Theme>().get_oled());
+    state.set_mobile(true);
+    state.set_tab(Tab::Home);
+    for (name, width, height) in [("paisagem", 844, 390), ("tablet", 1024, 768)] {
+        state.set_player_open(true);
+        let img = render(&window, width, height);
+        img.save(dir.join(format!("oled-android-{name}-player.png"))).unwrap();
+        let art = img.get_pixel(width / 4, height / 2);
+        assert!(art[0] > art[2].saturating_add(50), "a capa da faixa deve aparecer à esquerda em {name}");
+        click(&window, 32.0, 26.0);
+        assert!(!state.get_player_open(), "o player deve recolher em {name}");
+    }
+    state.set_mobile(false);
+    view.set_prefs(&prefs(ThemePref::Light));
+
+    // The HTML palette is part of the real app and the mobile rows reserve their full height.
+    state.set_mobile(true);
+    state.set_color_palette(0);
+    state.set_tab(Tab::Home);
+    render(&window, 390, 844);
+    let solar = ui.global::<Theme>().get_accent_primary();
+    state.set_color_palette(1);
+    render(&window, 390, 844);
+    assert_ne!(ui.global::<Theme>().get_accent_primary(), solar);
+    for safe_bottom in [0.0, 34.0] {
+        state.set_safe_bottom(safe_bottom);
+        render(&window, 390, 844);
+        let theme = ui.global::<Theme>();
+        let metrics = ui.global::<kazzu_app::ui::Metrics>();
+        assert_eq!(theme.get_island_height(), 58.0);
+        assert_eq!(metrics.get_dock_reserve(), safe_bottom + 138.0);
+        // Select the search bubble and then the separate mini-player above it.
+        click(&window, 350.0, 805.0 - safe_bottom);
+        assert_eq!(state.get_tab(), Tab::Search);
+        click(&window, 110.0, 735.0 - safe_bottom);
+        assert!(state.get_player_open());
+        assert!(ui.invoke_go_back());
+    }
+    state.set_safe_bottom(0.0);
+    state.set_color_palette(0);
+    state.set_mobile(false);
 
     // Artwork arriving for an already-open detail must not dismiss an expanded player.
     state.set_detail_open(true);
@@ -280,7 +325,7 @@ fn every_screen_renders_at_mobile_tablet_and_desktop_sizes_in_both_themes_and_in
     state.set_queue_open(false);
     state.set_tab(Tab::Settings);
     for (label, w, h) in [("phone", 390, 844), ("desktop", 1280, 800)] {
-        for section in 0..7 {
+        for section in 0..12 {
             state.set_settings_section(section);
             let img = render(&window, w, h);
             img.save(dir.join(format!("settings-{label}-{section}.png"))).expect("settings category snapshot");
@@ -329,7 +374,7 @@ fn every_screen_renders_at_mobile_tablet_and_desktop_sizes_in_both_themes_and_in
         state.on_navigate(move |t| ev.borrow_mut().push(format!("navigate:{t:?}")));
     }
     render(&window, 390, 844);
-    click(&window, 36.0, 192.0); // Buscar na barra lateral recolhida
+    click(&window, 36.0, 252.0); // Buscar na barra lateral recolhida
     window.dispatch_event(WindowEvent::WindowActiveChanged(true));
     assert_eq!(state.get_tab(), Tab::Search, "o clique em Buscar chegou: {:?}", events.borrow());
 
@@ -359,6 +404,16 @@ fn every_screen_renders_at_mobile_tablet_and_desktop_sizes_in_both_themes_and_in
     assert_eq!(state.get_tab(), Tab::Settings);
     assert!(ui.invoke_go_back());
     assert_eq!(state.get_tab(), Tab::Library);
+    state.set_tab(Tab::Home);
+    render(&window, 390, 844);
+    click(&window, 350.0, 803.0);
+    assert_eq!(state.get_tab(), Tab::Search, "Pesquisa deve ser destino próprio da ilha");
+    click(&window, 115.0, 736.0);
+    assert!(state.get_player_open(), "tocar o mini-player independente deve abrir o player");
+    state.set_queue_open(true);
+    render(&window, 390, 844);
+    assert!(ui.invoke_go_back() && state.get_player_open());
+    assert!(ui.invoke_go_back() && !state.get_player_open());
     state.set_folder_open(true);
     render(&window, 390, 844);
     click(&window, 10.0, 794.0);
@@ -366,6 +421,10 @@ fn every_screen_renders_at_mobile_tablet_and_desktop_sizes_in_both_themes_and_in
     click(&window, 10.0, 100.0);
     assert!(!state.get_folder_open(), "o véu fecha a folha");
     state.set_mobile(false);
+    render(&window, 1280, 800);
+    // A pesquisa recebe texto. Fora dela, F controla o player.
+    click(&window, 56.0, 96.0);
+    assert_eq!(state.get_tab(), Tab::Home);
     render(&window, 1280, 800);
     for expected in [true, false] {
         window.dispatch_event(WindowEvent::KeyPressed { text: "f".into() });

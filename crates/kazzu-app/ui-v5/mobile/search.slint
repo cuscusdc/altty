@@ -1,0 +1,209 @@
+// Busca (Android): campo fixo abaixo da barra de topo, histórico, sugestões e resultados por tipo.
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { Metrics } from "../theme/metrics.slint";
+import { AppState, Tab, SearchState, LoadState } from "../theme/app-contract.slint";
+import { Nav } from "../theme/nav-state.slint";
+import { SearchField, Segmented, Pressable, Icon, IconButton, Tile, TrackRow, MoodTile, SectionHeader, StateCard } from "../components/atoms.slint";
+import { FeatureArtwork } from "../components/editorial.slint";
+import { Screen, Rail, Rows, Gutters, AlbumGrid, SkeletonRows } from "../components/shared.slint";
+
+import { TermRow, SourcePicker } from "../components/search-controls.slint";
+
+export component MobileSearch inherits Rectangle {
+    property <[string]> kinds: AppState.search-source == 2 ? ["Tudo", "Músicas", "Álbuns"] : ["Tudo", "Músicas", "Álbuns", "Artistas", "Playlists"];
+    property <int> cols: root.width < 600px ? 2 : 3;
+    property <length> mood-w: (root.width - 2 * Theme.gutter - (root.cols - 1) * Theme.s-sm) / root.cols;
+    property <bool> typing: AppState.search-text != "";
+    function set-text(t: string) { AppState.search-text = t; AppState.search(t); field.focus-input(); }
+    function set-kind(k: int) { AppState.search-kind = k; AppState.search-kind-changed(k); }
+    init => { field.focus-input(); }
+    field := SearchField {
+        x: Theme.gutter;
+        y: AppState.safe-top + Theme.header-h + Theme.s-xs;
+        width: parent.width - 2 * Theme.gutter;
+        text <=> AppState.search-text;
+        placeholder: "Artistas, músicas, álbuns e mais";
+        fill: Theme.glass-tint-sheet;
+        edited(t) => { AppState.search(t); }
+        escaped => { root.set-text(""); }
+    }
+    Screen {
+        y: field.y + field.height + Theme.s-xs;
+        width: parent.width;
+        height: parent.height - self.y;
+        tab: Tab.search;
+        VerticalLayout {
+            padding-top: Theme.s-xs;
+            padding-bottom: Metrics.reserve + Theme.s-xs;
+            spacing: Theme.s-xl;
+            alignment: start;
+            SourcePicker {}
+            if AppState.search-state == SearchState.idle && !root.typing && AppState.recent-searches.length > 0 : VerticalLayout {
+                spacing: Theme.s-sm;
+                SectionHeader { title: "Pesquisas recentes"; action: "Limpar"; action-clicked => { AppState.clear-recent-searches(); } }
+                Rows {
+                    for r[i] in AppState.recent-searches : TermRow {
+                        term: r;
+                        icon: Icons.clock;
+                        removable: true;
+                        separator: i > 0;
+                        clicked => { root.set-text(r); }
+                        remove => { AppState.remove-recent-search(r); }
+                    }
+                }
+            }
+            if !root.typing && AppState.search-source != 1 && (AppState.search-source == 2 || AppState.new-releases.length == 0) && AppState.library-albums.length > 0 : VerticalLayout {
+                spacing: Theme.s-xs;
+                SectionHeader { title: "Explore seu acervo"; }
+                Rail {
+                    label: "Seu acervo";
+                    card-h: 148px + 52px;
+                    for a in AppState.library-albums : Tile { focus-key: "search/library-albums/" + a.id; cover: a.cover; title: a.title; subtitle: a.artist; clicked => { AppState.open-album(a.id); } }
+                }
+            }
+            if !root.typing && AppState.library-albums.length == 0 && AppState.moods.length == 0 && (AppState.search-source == 2 || AppState.new-releases.length == 0) && AppState.recent-searches.length == 0 && AppState.explore-state != LoadState.loading : Gutters {
+                StateCard { icon: Icons.search; title: "O que você quer ouvir?"; text: "Digite o nome de uma música, artista ou álbum para começar."; }
+            }
+            if !root.typing && AppState.search-source != 2 && AppState.moods.length > 0 : VerticalLayout {
+                spacing: Theme.s-xs;
+                SectionHeader { title: "Explore por momentos e gêneros"; }
+                Rectangle {
+                    height: ceil(AppState.moods.length / root.cols) * 68px;
+                    for m[i] in AppState.moods : MoodTile { focus-key: "search/moods/" + m.id + "/" + i;
+                        x: Theme.gutter + mod(i, root.cols) * (root.mood-w + Theme.s-sm);
+                        y: floor(i / root.cols) * 68px;
+                        width: root.mood-w;
+                        title: m.title;
+                        clicked => { AppState.open-item(m.kind, m.id); }
+                    }
+                }
+            }
+            if !root.typing && AppState.search-source != 2 && AppState.explore-state == LoadState.loading : SkeletonRows { count: 2; }
+            if !root.typing && AppState.search-source != 2 && AppState.explore-state == LoadState.error : Gutters {
+                StateCard { icon: Icons.cloud-off; title: "A descoberta não atualizou"; text: AppState.explore-error-text; primary: "Atualizar"; primary-clicked => { AppState.retry-explore(); } }
+            }
+            if !root.typing && AppState.search-source != 2 && AppState.new-releases.length > 0 : VerticalLayout {
+                spacing: Theme.s-xs;
+                SectionHeader { title: "Novos lançamentos"; }
+                Rail {
+                    label: "Lançamentos";
+                    card-h: 148px + 52px;
+                    for a in AppState.new-releases : Tile { focus-key: "search/new-releases/" + a.id; cover: a.cover; title: a.title; subtitle: a.artist; clicked => { AppState.open-album(a.id); } }
+                }
+            }
+            if !root.typing && AppState.search-source != 2 && AppState.trending.length > 0 : VerticalLayout {
+                spacing: Theme.s-xs;
+                SectionHeader { title: "Em alta agora"; }
+                Rows { for t[i] in AppState.trending : TrackRow { focus-key: "search/trending/" + t.id + "/" + i; visible: i < 5; height: i < 5 ? Theme.row-h : 0px; t: t; number: i + 1; ranked: true; separator: false; clicked => { AppState.play-track(t.id); } more-clicked => { Nav.open-menu(t); } } }
+            }
+            if root.typing && AppState.search-suggestions.length > 0 && (AppState.search-state == SearchState.idle || AppState.search-state == SearchState.loading) : Rows {
+                for s[i] in AppState.search-suggestions : TermRow { term: s; icon: Icons.search; separator: i > 0; clicked => { root.set-text(s); } }
+            }
+            if root.typing : Rail {
+                label: "Tipos de resultado";
+                card-h: 48px;
+                for kind[i] in root.kinds : Pressable {
+                    width: 108px;
+                    height: 48px;
+                    label: kind;
+                    accessible-role: tab;
+                    accessible-item-selected: AppState.search-kind == i;
+                    ring-radius: Theme.r-pill;
+                    Rectangle { border-radius: Theme.r-pill; background: AppState.search-kind == i ? Theme.accent : Theme.paper-2; }
+                    Text { text: kind; color: AppState.search-kind == i ? Theme.accent-ink : Theme.ink; font-size: Theme.text-md; horizontal-alignment: center; vertical-alignment: center; }
+                    clicked => { root.set-kind(i); }
+                }
+            }
+            if AppState.search-state == SearchState.loading : SkeletonRows { count: 5; }
+            if AppState.search-state == SearchState.empty : Gutters {
+                StateCard {
+                    icon: Icons.search;
+                    title: AppState.search-source == 1 && !AppState.catalog-available ? "YouTube Music está desativado" : AppState.search-empty-text != "" ? AppState.search-empty-text : "Nada para esta busca";
+                    text: AppState.search-source == 1 && !AppState.catalog-available ? "Selecione Biblioteca para pesquisar neste aparelho." : "Confira a grafia ou tente o nome do artista.";
+                    primary: AppState.search-kind != 0 ? "Buscar em tudo" : "";
+                    primary-clicked => { root.set-kind(0); }
+                }
+            }
+            if AppState.search-state == SearchState.error : Gutters {
+                StateCard {
+                    icon: Icons.cloud-off;
+                    title: "Não deu para buscar";
+                    text: AppState.search-error-text != "" ? AppState.search-error-text : "O YouTube Music não respondeu. Tente de novo em instantes.";
+                    primary: "Tentar de novo";
+                    primary-clicked => { AppState.search(AppState.search-text); }
+                }
+            }
+            if AppState.search-state == SearchState.offline : Gutters {
+                StateCard {
+                    icon: Icons.cloud-off;
+                    title: "Sem conexão";
+                    text: "A busca no YouTube Music precisa de internet. A música do aparelho continua tocando.";
+                    primary: "Tentar de novo";
+                    primary-clicked => { AppState.search(AppState.search-text); }
+                }
+            }
+            if AppState.search-state == SearchState.results : VerticalLayout {
+                spacing: Theme.s-xl;
+                if AppState.search-kind == 0 && AppState.search-has-best : VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Melhor resultado"; }
+                    Rail {
+                        label: "Melhor resultado";
+                        card-h: 304px;
+                        FeatureArtwork {
+                            cover: AppState.search-best.cover;
+                            title: AppState.search-best.title;
+                            subtitle: AppState.search-best.subtitle;
+                            clicked => { AppState.open-item(AppState.search-best.kind, AppState.search-best.id); }
+                            play => { AppState.play-item(AppState.search-best.kind, AppState.search-best.id); }
+                        }
+                    }
+                }
+                if (AppState.search-kind == 0 || AppState.search-kind == 1) && AppState.search-songs.length > 0 : VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Músicas"; action: AppState.search-kind == 0 && AppState.search-songs.length > 5 ? "Ver todas" : ""; action-clicked => { root.set-kind(1); } }
+                    Rows {
+                        for t[i] in AppState.search-songs : TrackRow { focus-key: "search/search-songs/" + t.id + "/" + i;
+                            property <bool> shown: AppState.search-kind == 1 || i < 5;
+                            visible: shown;
+                            height: shown ? Theme.row-h : 0px;
+                            t: t;
+                            separator: i > 0;
+                            clicked => { AppState.play-track(t.id); }
+                            more-clicked => { Nav.open-menu(t); }
+                        }
+                    }
+                }
+                if (AppState.search-kind == 0 || AppState.search-kind == 2) && AppState.search-albums.length > 0 : VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Álbuns"; }
+                    if AppState.search-kind == 0 : Rail {
+                        label: "Álbuns";
+                        card-h: 148px + 52px;
+                        for a in AppState.search-albums : Tile { focus-key: "search/search-albums/" + a.id; cover: a.cover; title: a.title; subtitle: a.artist; clicked => { AppState.open-album(a.id); } }
+                    }
+                    if AppState.search-kind == 2 : AlbumGrid { albums: AppState.search-albums; }
+                }
+                if (AppState.search-kind == 0 || AppState.search-kind == 3) && AppState.search-artists.length > 0 : VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Artistas"; }
+                    Rail {
+                        label: "Artistas";
+                        card-h: 148px + 52px;
+                        for a in AppState.search-artists : Tile { focus-key: "search/search-artists/" + a.id; round: true; cover: a.cover; title: a.name; subtitle: a.subtitle; clicked => { AppState.open-item("artist", a.id); } }
+                    }
+                }
+                if (AppState.search-kind == 0 || AppState.search-kind == 4) && AppState.search-playlists.length > 0 : VerticalLayout {
+                    spacing: Theme.s-sm;
+                    SectionHeader { title: "Playlists"; }
+                    Rail {
+                        label: "Playlists";
+                        card-h: 148px + 52px;
+                        for p in AppState.search-playlists : Tile { focus-key: "search/search-playlists/" + p.id; cover: p.cover; title: p.title; subtitle: p.subtitle; clicked => { AppState.open-item(p.kind, p.id); } }
+                    }
+                }
+            }
+        }
+    }
+}

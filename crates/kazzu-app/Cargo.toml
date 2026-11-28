@@ -16,6 +16,8 @@ default = ["demo"]
 demo = ["dep:hound", "dep:flacenc", "dep:lofty"]
 # Renderer Skia (opt-in; baixa binários do Skia no build). Útil para iOS/Android no futuro.
 skia = ["slint/renderer-skia"]
+# libopus estática (CI desktop Windows, sem libopus do sistema).
+opus-bundled = ["kazzu-audio/opus-bundled"]
 
 [dependencies]
 kazzu-core = { path = "../kazzu-core" }

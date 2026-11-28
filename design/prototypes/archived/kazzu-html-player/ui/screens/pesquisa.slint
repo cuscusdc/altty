@@ -1,0 +1,16 @@
+import { State } from "../state.slint";
+import { Field } from "../components/field.slint";
+import { Action } from "../components/action.slint";
+import { Heading } from "../components/heading.slint";
+import { TrackRow } from "../components/track-row.slint";
+import { Chips } from "../components/chips.slint";
+export component Pesquisa inherits VerticalLayout {
+    spacing: 8px;
+    Field { height: 48px; placeholder-text: "Artistas, músicas ou letras..."; text <=> State.query; edited(text) => { State.search(text); } }
+    Chips { options: ["YouTube", "Biblioteca"]; }
+    HorizontalLayout { Heading { text: "Pesquisas recentes"; } Action { text: "Limpar"; clicked => { State.confirm = 2; } } }
+    if State.history && State.query == "" : VerticalLayout {
+        for i in [0, 1] : TrackRow { song: State.songs[i]; clicked => { State.select(i, false); State.expanded = true; } }
+    }
+    for song in State.results : TrackRow { song: song; clicked => { State.command("find:" + song.title); State.expanded = true; } }
+}

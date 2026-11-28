@@ -1,0 +1,114 @@
+[
+  {
+    "title": "Qualidade de áudio",
+    "sub": "Alta fidelidade Lossless • 320 kbps",
+    "action": "cycleAudioQuality()",
+    "value": "320k",
+    "toggle": false,
+    "group": "🎵 Reprodução & Áudio"
+  },
+  {
+    "title": "Normalização de volume",
+    "sub": "Mesmo nível sonoro entre faixas",
+    "action": "toggleSetting('toggleNormalization')",
+    "value": "",
+    "toggle": true,
+    "group": "🎵 Reprodução & Áudio"
+  },
+  {
+    "title": "Transição contínua (Crossfade)",
+    "sub": "Fusão suave entre músicas",
+    "action": "cycleCrossfade()",
+    "value": "4s",
+    "toggle": false,
+    "group": "🎵 Reprodução & Áudio"
+  },
+  {
+    "title": "Saída de áudio padrão",
+    "sub": "Alto-falante integrado (Este celular)",
+    "action": "showToast('Seletor de saída: Este celular (Padrão) / Bluetooth / Cast')",
+    "value": "",
+    "toggle": false,
+    "group": "🎵 Reprodução & Áudio"
+  },
+  {
+    "title": "Tema do app",
+    "sub": "Escuro (Liquid Glass Laranja Solar)",
+    "action": "cycleThemeNext()",
+    "value": "Laranja Solar",
+    "toggle": false,
+    "group": "✨ Aparência & Estilo"
+  },
+  {
+    "title": "Efeito Liquid Glass",
+    "sub": "Desfoque dinâmico e refrações em tempo real",
+    "action": "toggleSetting('toggleLiquidGlass')",
+    "value": "",
+    "toggle": true,
+    "group": "✨ Aparência & Estilo"
+  },
+  {
+    "title": "Animações fluidas",
+    "sub": "Transições suaves de 60fps",
+    "action": "toggleSetting('toggleAnimations')",
+    "value": "",
+    "toggle": true,
+    "group": "✨ Aparência & Estilo"
+  },
+  {
+    "title": "Pastas locais indexadas",
+    "sub": "/storage/emulated/0/Music",
+    "action": "showToast('Pastas indexadas:\\n/storage/emulated/0/Music\\n/storage/emulated/0/Download')",
+    "value": "",
+    "toggle": false,
+    "group": "📁 Fontes de Música & Biblioteca"
+  },
+  {
+    "title": "Escanear biblioteca agora",
+    "sub": "Último escaneamento hoje às 14:20",
+    "action": "scanLibraryNow()",
+    "value": "Escanear",
+    "toggle": false,
+    "group": "📁 Fontes de Música & Biblioteca"
+  },
+  {
+    "title": "Cache offline e downloads",
+    "sub": "2.4 GB utilizados • 82 faixas",
+    "action": "clearMusicCache()",
+    "value": "Limpar",
+    "toggle": false,
+    "group": "📁 Fontes de Música & Biblioteca"
+  },
+  {
+    "title": "Histórico de reprodução e buscas",
+    "sub": "Personalizar recomendações e estatísticas",
+    "action": "toggleSetting('toggleHistory')",
+    "value": "",
+    "toggle": true,
+    "group": "🔒 Privacidade & Dados"
+  },
+  {
+    "title": "Limpar histórico recente",
+    "sub": "Apaga buscas recentes do dispositivo",
+    "action": "clearSearchHistory()",
+    "value": "",
+    "toggle": false,
+    "group": "🔒 Privacidade & Dados"
+  },
+  {
+    "title": "Atalhos de teclado",
+    "sub": "Comandos rápidos para teclado físico",
+    "action": "showToast('Atalhos de Teclado kazzu:\\nEspaço: Play / Pause\\nJ / L: Voltar / Avançar\\nS: Modo Aleatório\\nR: Repetir\\nM: Mudo')",
+    "value": "",
+    "toggle": false,
+    "group": "ℹ️ Sobre & Atalhos"
+  },
+  {
+    "title": "Versão do kazzu",
+    "sub": "v1.4.2 (Liquid Glass Edition) • Código Aberto",
+    "action": "showToast('kazzu Music Player\\nVersão 1.4.2 (Liquid Glass Edition)\\nDesenvolvido com carinho • Licença MIT')",
+    "value": "v1.4.2",
+    "toggle": false,
+    "group": "ℹ️ Sobre & Atalhos"
+  }
+]

@@ -1,0 +1,9 @@
+import { Action } from "action.slint";
+export component Chips inherits Flickable {
+    in property <[string]> options;
+    in-out property <int> selected;
+    height: 44px; content-height: self.height; content-width: root.options.length * 118px;
+    line := HorizontalLayout { width: root.content-width; spacing: 8px;
+        for text[i] in root.options : Action { width: 110px; text: text; active: root.selected == i; filled: true; clicked => { root.selected = i; } }
+    }
+}

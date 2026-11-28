@@ -225,6 +225,10 @@ impl View for SlintView {
         });
     }
 
+    fn set_seek_available(&self, available: bool) {
+        self.with(|w| w.global::<ui::AppState>().set_can_seek(available));
+    }
+
     fn set_progress(&self, progress: f32, position: &str, remaining: &str) {
         self.with(|w| {
             let s = w.global::<ui::AppState>();
@@ -332,8 +336,17 @@ impl View for SlintView {
         });
         self.with(|w| {
             let s = w.global::<ui::AppState>();
+            s.set_catalog_available(providers.iter().any(|p| p.id == "ytmusic" && p.available));
             s.set_library_summary(settings.summary.as_str().into());
             s.set_has_library(settings.has_library);
+        });
+    }
+
+    fn import_status(&self, pending: bool, message: &str) {
+        self.with(|w| {
+            let state = w.global::<ui::AppState>();
+            state.set_import_pending(pending);
+            state.set_import_status(message.into());
         });
     }
 
@@ -375,6 +388,22 @@ impl View for SlintView {
         });
     }
 
+    fn restore_focus(&self, key: &str) {
+        self.with(|w| w.global::<ui::AppState>().set_focus_return(key.into()));
+    }
+
+    fn detail_scroll(&self) -> f32 {
+        self.ui.upgrade().map_or(0.0, |w| w.global::<ui::Metrics>().get_scroll_detail())
+    }
+
+    fn restore_detail_scroll(&self, position: f32) {
+        self.with(|w| {
+            let metrics = w.global::<ui::Metrics>();
+            metrics.set_detail_target(position);
+            metrics.set_detail_revision(metrics.get_detail_revision().wrapping_add(1));
+        });
+    }
+
     fn set_detail(&self, detail: &DetailVm) {
         fill(&self.detail_tracks, &detail.tracks, track);
         fill(&self.detail_albums, &detail.albums, album);
@@ -387,6 +416,7 @@ impl View for SlintView {
                 DetailKindVm::Artist => ui::DetailKind::Artist,
             });
             s.set_detail_state(load_state(detail.state));
+            s.set_editable_playlist(detail.editable_playlist.as_str().into());
             s.set_detail_title(detail.title.as_str().into());
             s.set_detail_description(detail.description.as_str().into());
             s.set_detail_subtitle(detail.subtitle.as_str().into());
@@ -405,11 +435,9 @@ impl View for SlintView {
             let s = w.global::<ui::AppState>();
             if open && !s.get_detail_open() {
                 s.set_player_open(false);
-            }
-            s.set_detail_open(open);
-            if open {
                 s.set_queue_open(false);
             }
+            s.set_detail_open(open);
         });
     }
 
@@ -466,6 +494,7 @@ impl View for SlintView {
                 ThemePref::Auto => ui::ThemeMode::Auto,
                 ThemePref::Light => ui::ThemeMode::Light,
                 ThemePref::Dark => ui::ThemeMode::Dark,
+                ThemePref::Oled => ui::ThemeMode::Oled,
             });
             s.set_stream_quality(prefs.stream_quality.index());
             s.set_autoplay_radio(prefs.autoplay_radio);

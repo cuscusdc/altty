@@ -1,0 +1,138 @@
+[
+  {
+    "title": "Creep",
+    "artist": "Radiohead",
+    "album": "Pablo Honey",
+    "sub": "PABLO HONEY",
+    "duration": 238,
+    "pos": 91,
+    "bgGradient": "linear-gradient(180deg, #5c431b 0%, #362512 40%, #151119 100%)",
+    "artGradient": "radial-gradient(circle at 50% 40%, #f7e6a1 0%, #d4a339 60%, #573f15 100%)",
+    "lyrics": [
+      "When you were here before",
+      "Couldn't look you in the eye",
+      "You're just like an angel",
+      "Your skin makes me cry",
+      "You float like a feather",
+      "In a beautiful world",
+      "I wish I was special",
+      "You're so fucking special",
+      "But I'm a creep, I'm a weirdo",
+      "What the hell am I doing here?",
+      "I don't belong here"
+    ]
+  },
+  {
+    "title": "About A Girl",
+    "artist": "Nirvana",
+    "album": "Bleach",
+    "sub": "BLEACH",
+    "duration": 168,
+    "pos": 76,
+    "bgGradient": "linear-gradient(180deg, #6e414c 0%, #462c33 45%, #14111d 100%)",
+    "artGradient": "radial-gradient(circle at 50% 30%, #fff7ce 0%, #ecd98a 50%, #b8a95e 100%)",
+    "lyrics": [
+      "I'll take advantage while",
+      "You're hanging out to dry",
+      "I need an easy friend",
+      "I do, with an ear to lend",
+      "I do think you fit this shoe",
+      "I do, won't you have a clue"
+    ]
+  },
+  {
+    "title": "He Feels Bad",
+    "artist": "Helmet",
+    "album": "Meantime",
+    "sub": "MEANTIME",
+    "duration": 244,
+    "pos": 112,
+    "bgGradient": "linear-gradient(180deg, #6b1418 0%, #3d0a0d 45%, #12090b 100%)",
+    "artGradient": "linear-gradient(160deg, #d62828 0%, #7c111c 50%, #200406 100%)",
+    "lyrics": [
+      "He feels bad, but it won't last long",
+      "Turn it over, keep moving strong",
+      "Concrete rhythm, distortion wall",
+      "Listen to the echo in the hall"
+    ]
+  },
+  {
+    "title": "Dumb",
+    "artist": "Nirvana",
+    "album": "In Utero",
+    "sub": "IN UTERO",
+    "duration": 173,
+    "pos": 24,
+    "bgGradient": "linear-gradient(180deg, #544c2c 0%, #332d18 45%, #131211 100%)",
+    "artGradient": "radial-gradient(circle at 50% 40%, #e6d8a7 0%, #a89f68 60%, #585334 100%)",
+    "lyrics": [
+      "I'm not like them, but I can pretend",
+      "The sun is gone, but I have a light",
+      "The day is done, but I'm having fun",
+      "I think I'm dumb or maybe just happy"
+    ]
+  },
+  {
+    "title": "Sunshine Indie",
+    "artist": "kazzu Curadoria",
+    "album": "Clima alegre",
+    "sub": "SUNSHINE INDIE",
+    "duration": 215,
+    "pos": 40,
+    "bgGradient": "linear-gradient(180deg, #1b4f2c 0%, #13331d 45%, #0f1c13 100%)",
+    "artGradient": "radial-gradient(circle at center, #6fd384 10%, #2f733d 90%)",
+    "lyrics": [
+      "Sunlight streaming through my window",
+      "Acoustic strings and coffee glow",
+      "Nothing on my mind today",
+      "Just watching sweet clouds drift away"
+    ]
+  },
+  {
+    "title": "Feel Good Inc.",
+    "artist": "Gorillaz",
+    "album": "Demon Days",
+    "sub": "DEMON DAYS",
+    "duration": 223,
+    "pos": 45,
+    "bgGradient": "linear-gradient(180deg, #3d4a36 0%, #252e20 45%, #111511 100%)",
+    "artGradient": "radial-gradient(circle at 50% 40%, #b3c5a6 0%, #7a8f6d 60%, #394432 100%)",
+    "lyrics": [
+      "City's breaking down on a camel's back",
+      "They just have to go 'cause they don't know wack",
+      "So while you fill the streets, it's appealing to see",
+      "You won't get out the county, 'cause you're bad and free"
+    ]
+  },
+  {
+    "title": "Schism",
+    "artist": "TOOL",
+    "album": "Lateralus",
+    "sub": "LATERALUS",
+    "duration": 407,
+    "pos": 90,
+    "bgGradient": "linear-gradient(180deg, #5c3f2b 0%, #382417 45%, #151114 100%)",
+    "artGradient": "radial-gradient(circle at 50% 30%, #ecd3b6 0%, #9e7552 60%, #402613 100%)",
+    "lyrics": [
+      "I know the pieces fit 'cause I watched them fall away",
+      "Mildewed and smoldering, fundamental differing",
+      "Pure intention juxtaposed will set two lovers' souls in motion"
+    ]
+  },
+  {
+    "title": "Bad Apple!!",
+    "artist": "nomico",
+    "album": "Alstroemeria",
+    "sub": "ALSTROEMERIA",
+    "duration": 254,
+    "pos": 60,
+    "bgGradient": "linear-gradient(180deg, #44375e 0%, #291e3e 45%, #13101b 100%)",
+    "artGradient": "radial-gradient(circle at 50% 30%, #dedede 0%, #888888 60%, #222222 100%)",
+    "lyrics": [
+      "Nagareteku toki no naka de demo",
+      "Kedarusa ga hora guruguru mawatte",
+      "Watashi kara hanareru kokoro mo",
+      "Mienaiwa sou shiranai"
+    ]
+  }
+]

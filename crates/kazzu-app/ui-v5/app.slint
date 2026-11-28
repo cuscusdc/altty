@@ -1,0 +1,177 @@
+// Janela raiz do Kazzu (v4). DUAS árvores: Android (`AppState.mobile`, definido pelo Rust) usa o shell de celular;
+// desktop usa o shell adaptativo (barra lateral >= 1100, cromo compacto abaixo disso). Overlays, folhas e o aviso
+// vivem aqui, acima dos dois. Fundo liso: toda a cor vem das capas.
+import "fonts/Inter-Regular.ttf";
+import "fonts/Inter-SemiBold.ttf";
+import "fonts/Inter-Bold.ttf";
+import "fonts/InterDisplay-Bold.ttf";
+
+import { Palette } from "std-widgets.slint";
+import { Theme } from "theme/tokens.slint";
+import { Metrics } from "theme/metrics.slint";
+import { Nav } from "theme/nav-state.slint";
+import { AppState, Tab, RepeatMode, SearchState, ThemeMode, DetailKind, LoadState, Track, Album, Highlight, Artist, Playlist, Collection, OutputDevice, ProviderRow } from "theme/app-contract.slint";
+import { Glass, Button, TextButton } from "components/atoms.slint";
+import { Toast } from "components/toast.slint";
+import { LyricsSheet, EditPlaylistSheet, AudioInfoSheet, AccountSheet, FolderSheet, MenuSheet, PlaylistSheet, NewPlaylistSheet, QueueSheet } from "components/sheets.slint";
+import { MobileShell } from "mobile/shell.slint";
+import { DesktopShell } from "desktop/shell.slint";
+import { MobilePlayer } from "mobile/player.slint";
+import { DesktopPlayer } from "desktop/player.slint";
+
+export { Metrics, Nav, Theme, AppState, Tab, RepeatMode, SearchState, ThemeMode, DetailKind, LoadState, Track, Album, Highlight, Artist, Playlist, Collection, OutputDevice, ProviderRow }
+
+export component AppWindow inherits Window {
+    title: "Kazzu";
+    icon: @image-url("assets/brand/icone-app/kazzu-app-coral-256.png");
+    default-font-family: Theme.font;
+    default-font-size: Theme.text-lg;
+    background: Theme.paper;
+    min-width: 320px;
+    min-height: AppState.mobile ? 280px : 480px;
+    // desktop abre largo (barra lateral); no Android a janela ocupa a tela e estes valores não contam
+    preferred-width: 1280px;
+    preferred-height: 800px;
+
+    init => { Theme.window-w = self.width; copy-insets(); Theme.quality = AppState.glass-style; Theme.palette = AppState.color-palette; apply-theme(); keys.focus(); }
+    // Áreas seguras: o backend (Android) alimenta Window.safe-area-inset-*; a UI só lê AppState.safe-* (a galeria pode forçar).
+    function copy-insets() {
+        AppState.safe-top = self.safe-area-insets.top;
+        AppState.safe-bottom = self.safe-area-insets.bottom;
+        AppState.safe-left = self.safe-area-insets.left;
+        AppState.safe-right = self.safe-area-insets.right;
+    }
+    property <length> inset-t: self.safe-area-insets.top;
+    property <length> inset-b: self.safe-area-insets.bottom;
+    property <length> inset-l: self.safe-area-insets.left;
+    property <length> inset-r: self.safe-area-insets.right;
+    changed inset-t => { AppState.safe-top = self.inset-t; }
+    changed inset-b => { AppState.safe-bottom = self.inset-b; }
+    changed inset-l => { AppState.safe-left = self.inset-l; }
+    changed inset-r => { AppState.safe-right = self.inset-r; }
+    changed width => { Theme.window-w = self.width; }
+
+    // Tema: "Auto" segue o sistema (Palette do Slint); Claro/Escuro são fixos. O Rust chama apply-theme ao mudar a preferência.
+    property <bool> sys-dark: Palette.color-scheme != ColorScheme.light;
+    changed sys-dark => { root.apply-theme(); }
+    property <ThemeMode> cur-mode: AppState.theme-mode;
+    changed cur-mode => { root.apply-theme(); }
+    property <int> palette: AppState.color-palette;
+    changed palette => { Theme.palette = root.palette; }
+    property <int> quality: AppState.glass-style;
+    changed quality => { Theme.quality = self.quality; }
+    public function apply-theme() {
+        Theme.oled = AppState.theme-mode == ThemeMode.oled;
+        Theme.dark = Theme.oled || AppState.theme-mode == ThemeMode.dark || (AppState.theme-mode == ThemeMode.auto && root.sys-dark);
+    }
+    /// Voltar (Esc; o Rust chama no botão Voltar do Android). false = já está no Início sem nada aberto (o sistema sai do app).
+    public function go-back() -> bool { return Nav.back(); }
+
+    // O foco volta ao atalho global quando algo abre/fecha (sem isso Espaço/setas ficariam mudos). A Busca pede o foco ao campo.
+    property <Tab> cur-tab: AppState.tab;
+    property <bool> cur-player: AppState.player-open;
+    property <bool> cur-queue: AppState.queue-open;
+    property <bool> cur-detail: AppState.detail-open;
+    changed cur-tab => { if (AppState.tab != Tab.search && AppState.focus-return == "") { keys.focus(); } }
+    changed cur-player => { keys.focus(); }
+    changed cur-queue => { keys.focus(); }
+    changed cur-detail => { if (AppState.focus-return == "" && (self.cur-detail || AppState.tab != Tab.search)) { keys.focus(); } }
+
+    property <bool> sheet-up: AppState.edit-playlist-open || AppState.audio-info-open || AppState.account-open || AppState.folder-open || AppState.mobile-lyrics-open || AppState.queue-open || AppState.menu-open || AppState.playlist-sheet-open || AppState.new-playlist-open;
+
+    keys := FocusScope {
+        width: 100%;
+        height: 100%;
+        key-pressed(e) => {
+            // Esc (desktop) e Voltar do Android (Key.Back): só "accept" se algo foi fechado; senão o sistema fecha o app
+            if (e.text == Key.Escape || e.text == Key.Back) { return root.go-back() ? accept : reject; }
+            if (root.sheet-up) { return reject; }
+            // Atalhos de desktop (no Android o teclado físico também funciona, mas a barra de atalhos é outra)
+            if (!AppState.mobile && e.modifiers.control) {
+                if (e.text == "f" || e.text == "k") { Nav.go(Tab.search); return accept; }
+                if (e.text == ",") { Nav.go(Tab.settings); return accept; }
+                if (e.text == "1") { Nav.go(Tab.home); return accept; }
+                if (e.text == "2") { Nav.go(Tab.library); return accept; }
+                if (e.text == "3") { Nav.go(Tab.search); return accept; }
+            }
+            if (!AppState.mobile && AppState.has-now && !root.sheet-up && !e.modifiers.control && !e.modifiers.alt && !e.modifiers.meta && e.text == "f") {
+                if (AppState.player-open) { Nav.close-player(); } else { Nav.open-player(); }
+                return accept;
+            }
+            if (e.text == " ") { AppState.toggle-play(); return accept; }
+            if (e.text == Key.LeftArrow) { AppState.seek-relative(-5); return accept; }
+            if (e.text == Key.RightArrow) { AppState.seek-relative(5); return accept; }
+            if (e.text == Key.UpArrow) { AppState.volume-step(1); return accept; }
+            if (e.text == Key.DownArrow) { AppState.volume-step(-1); return accept; }
+            return reject;
+        }
+
+        // Cached artwork atmosphere: no animated blur or per-row effects.
+        if Theme.glass-on && AppState.artwork-background && AppState.has-now : Image {
+            source: AppState.backdrop-wide;
+            width: parent.width; height: parent.height;
+            image-fit: ImageFit.cover;
+            opacity: Theme.dark ? 0.36 : 0.18;
+        }
+        if Theme.glass-on && AppState.artwork-background && !AppState.has-now && AppState.highlights.length > 0 : Image {
+            source: AppState.highlights[0].cover;
+            width: parent.width; height: min(parent.height, 640px);
+            image-fit: ImageFit.cover; opacity: Theme.dark ? 0.12 : 0.08;
+        }
+        Rectangle { background: @linear-gradient(180deg, Theme.paper.with-alpha(0.12) 0%, Theme.paper.with-alpha(0.72) 65%, Theme.paper 100%); }
+
+        // ---- o shell da plataforma (as telas e o cromo próprio de cada família)
+        if AppState.mobile : MobileShell { x: AppState.safe-left; width: parent.width - AppState.safe-left - AppState.safe-right; height: 100%; }
+        if !AppState.mobile : DesktopShell { width: 100%; height: 100%; }
+
+        // ---- oferta de desempenho (aviso nível 2): aceitar liga Reduzir transparência
+        if AppState.perf-offer && !Theme.reduce-transparency : Glass {
+            radius: Theme.r-card;
+            width: min(560px, root.width - 2 * Theme.s-md);
+            x: (root.width - self.width) / 2;
+            y: AppState.safe-top + Theme.s-xs;
+            height: offer-col.preferred-height + 2 * Theme.s-md;
+            accessible-role: groupbox;
+            accessible-label: "Deixar mais leve?";
+            offer-col := VerticalLayout {
+                padding: Theme.s-md;
+                spacing: Theme.s-xxs;
+                Text { text: "Deixar mais leve?"; color: Theme.ink; font-size: Theme.text-lg; font-weight: 600; accessible-role: AccessibleRole.text; }
+                Text { text: "O app está lento neste aparelho. Reduzir a transparência ajuda."; color: Theme.ink; font-size: Theme.text-md; wrap: word-wrap; accessible-role: AccessibleRole.text; }
+                HorizontalLayout {
+                    spacing: Theme.s-xs;
+                    alignment: end;
+                    TextButton { text: "Agora não"; ink: Theme.ink; width: 112px; clicked => { AppState.perf-offer-dismiss(); } }
+                    Button { text: "Reduzir transparência"; primary: true; clicked => { Theme.reduce-transparency = true; AppState.reduce-transparency-changed(true); AppState.perf-offer-accept(); } }
+                }
+            }
+        }
+
+        // ---- player (folha cheia, sempre escura) e folhas
+        if AppState.player-open && AppState.mobile : MobilePlayer { x: AppState.safe-left; width: parent.width - AppState.safe-left - AppState.safe-right; height: 100%; }
+        if AppState.player-open && !AppState.mobile : DesktopPlayer { width: 100%; height: 100%; }
+        if AppState.queue-open : QueueSheet { width: 100%; height: 100%; }
+        if AppState.mobile-lyrics-open && AppState.services.lyrics : LyricsSheet { width: 100%; height: 100%; }
+        if AppState.edit-playlist-open : EditPlaylistSheet { width: 100%; height: 100%; }
+        if AppState.audio-info-open : AudioInfoSheet { width: 100%; height: 100%; }
+        if AppState.menu-open : MenuSheet { width: 100%; height: 100%; }
+        if AppState.playlist-sheet-open : PlaylistSheet { width: 100%; height: 100%; }
+        if AppState.new-playlist-open : NewPlaylistSheet { width: 100%; height: 100%; }
+
+        if AppState.account-open : AccountSheet { width: 100%; height: 100%; }
+        if AppState.folder-open : FolderSheet { width: 100%; height: 100%; }
+
+        // ---- aviso: 8 acima do cromo (em cima de tudo)
+        Toast {
+            message: AppState.toast-text;
+            error: AppState.toast-error;
+            action-label: AppState.toast-action-label;
+            seq: AppState.toast-seq;
+            avail: root.width;
+            x: (root.width - self.width) / 2;
+            y: root.height - ((AppState.player-open || root.sheet-up) ? Theme.s-xl + AppState.safe-bottom : Metrics.chrome-top) - Theme.s-xs - self.height;
+            action => { AppState.toast-action(); }
+            dismissed => { AppState.dismiss-toast(); }
+        }
+    }
+}

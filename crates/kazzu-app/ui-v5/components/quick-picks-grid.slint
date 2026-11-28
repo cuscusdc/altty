@@ -1,0 +1,45 @@
+import { Theme } from "../theme/tokens.slint";
+import { Track, AppState } from "../theme/app-contract.slint";
+import { Glass, Pressable, Cover, Icon } from "atoms.slint";
+import { Icons } from "../theme/icons.slint";
+
+export component QuickPicksGrid inherits Rectangle {
+    in property <[Track]> tracks;
+    property <int> count: min(root.tracks.length, 8);
+    property <int> columns: root.width >= 700px ? 6 : 3;
+    property <length> cell-width: max(0px, (root.width - (root.columns - 1) * 9px) / root.columns);
+    property <length> cell-height: max(120px, root.cell-width * 1.05);
+    height: root.count == 0 ? 0px : ceil((root.count + 1) / root.columns) * (root.cell-height + 9px);
+    for track[i] in root.tracks : Pressable {
+        visible: i < root.count;
+        x: mod(i, root.columns) * (root.cell-width + 9px);
+        y: floor(i / root.columns) * (root.cell-height + 9px);
+        width: root.cell-width; height: root.cell-height;
+        focus-key: "home/quick-grid/" + track.id;
+        label: track.title + ", " + track.artist;
+        clicked => { AppState.play-track(track.id); }
+        Glass { radius: 16px; shadow: false;
+            VerticalLayout { padding: 8px; spacing: 4px;
+                Cover { size: max(0px, root.cell-width - 16px); height: max(0px, root.cell-height - 52px); radius: 12px; source: track.cover; }
+                Text { text: track.title; color: Theme.ink; font-size: 12px; font-weight: 700; overflow: elide; }
+                Text { text: track.artist; color: Theme.ink-2; font-size: 11px; overflow: elide; }
+            }
+        }
+    }
+    if root.count > 0 : Pressable {
+        x: mod(root.count, root.columns) * (root.cell-width + 9px);
+        y: floor(root.count / root.columns) * (root.cell-height + 9px);
+        width: root.cell-width; height: root.cell-height;
+        label: "Aleatório, surpreenda-me";
+        clicked => { AppState.play-random-shortcut(); }
+        Glass { radius: 16px; shadow: false;
+            VerticalLayout { padding: 8px; spacing: 4px;
+                Rectangle { height: max(0px, root.cell-height - 52px); border-radius: 12px; background: Theme.accent.with-alpha(0.12);
+                    Icon { source: Icons.shuffle; tint: Theme.accent; size: 30px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; }
+                }
+                Text { text: "Aleatório"; color: Theme.accent; font-size: 12px; font-weight: 700; }
+                Text { text: "Surpreenda-me"; color: Theme.ink-2; font-size: 11px; overflow: elide; }
+            }
+        }
+    }
+}

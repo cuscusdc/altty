@@ -1,0 +1,41 @@
+import { Icons } from "../icons.slint";
+import { State } from "../state.slint";
+import { Theme } from "../theme.slint";
+import { Action } from "../components/action.slint";
+import { Glass } from "../components/glass.slint";
+import { Scrubber } from "../components/scrubber.slint";
+export component Player inherits Rectangle {
+    background: @linear-gradient(180deg, State.bg-first, State.bg-mid 40%, State.bg-last);
+    Flickable { width: parent.width; height: parent.height; content-width: self.width;
+        VerticalLayout { width: parent.width; padding: 16px; spacing: 10px;
+            HorizontalLayout { height: 44px;
+                Action { width: 44px; text: "Recolher player"; icon: Icons.collapse; clicked => { State.expanded = false; } }
+                Action { text: "Áudio"; bright: true; }
+                Action { text: "Vídeo"; clicked => { State.command("video"); } }
+            }
+            Rectangle { height: min(290px, self.width); width: min(290px, parent.width - 32px); border-radius: 26px; background: @linear-gradient(135deg, State.songs[State.current].first, State.songs[State.current].last);
+                if !State.lyrics : Text { y: parent.height - 74px; height: 60px; width: parent.width; text: State.album; color: #241612; font-size: 26px; font-family: "serif"; font-weight: 700; horizontal-alignment: center; overflow: elide; }
+                if !State.lyrics : TouchArea { clicked => { State.lyrics = true; } }
+                if State.lyrics : Glass { VerticalLayout { padding: 12px;
+                    Action { text: "LETRA AO VIVO · Voltar à capa"; clicked => { State.lyrics = false; } }
+                    Flickable { content-width: self.width; VerticalLayout { width: parent.width; spacing: 12px; for line[i] in State.lines : Text { text: line; font-size: i == 2 || i == 3 ? 17px : 15px; color: i == 2 || i == 3 ? Theme.ink : Theme.muted; wrap: word-wrap; } } }
+                } }
+            }
+            HorizontalLayout { height: 56px;
+                VerticalLayout { Text { text: State.songs[State.current].title; color: Theme.ink; font-size: 21px; font-weight: 800; overflow: elide; } Text { text: State.songs[State.current].artist; color: Theme.muted; font-size: 14px; } }
+                Action { width: 44px; text: "Compartilhar"; icon: Icons.share; clicked => { State.command("share"); } }
+                Action { width: 44px; text: State.liked ? "♥" : "♡"; clicked => { State.liked = !State.liked; } }
+            }
+            Glass { height: 300px; border-radius: 28px;
+                VerticalLayout { padding: 16px; spacing: 2px;
+                    Scrubber { label: "Progresso"; value: State.progress; height: 44px; changed(v) => { State.seek(v); } }
+                    HorizontalLayout { Text { text: State.position; color: Theme.muted; font-size: 12px; } Text { text: State.remaining; color: Theme.muted; font-size: 12px; horizontal-alignment: right; } }
+                    HorizontalLayout { Action { text: "Modo aleatório"; icon: Icons.shuffle; active: State.shuffle; clicked => { State.shuffle = !State.shuffle; } } Action { text: "Faixa anterior"; icon: Icons.previous; clicked => { State.command("previous"); } } Action { text: State.playing ? "Pausar" : "Reproduzir"; icon: State.playing ? Icons.pause : Icons.play; width: 60px; height: 60px; border-radius: 30px; bright: true; clicked => { State.command("play"); } } Action { text: "Próxima faixa"; icon: Icons.next; clicked => { State.command("next"); } } Action { text: "Repetir faixa"; icon: Icons.repeat; active: State.repeat; clicked => { State.repeat = !State.repeat; } } }
+                    Scrubber { label: "Volume"; thickness: 4px; value: State.volume; height: 44px; changed(v) => { State.volume-changed(v); } }
+                    HorizontalLayout { Action { text: "Fila"; clicked => { State.queue = true; } } Action { text: "Letra"; active: State.lyrics; clicked => { State.lyrics = !State.lyrics; } } Action { text: "Timer"; clicked => { State.command("timer"); } } Action { text: "•••"; clicked => { State.command("more"); } } }
+                    Action { text: "This phone"; clicked => { State.command("device"); } }
+                }
+            }
+        }
+    }
+}

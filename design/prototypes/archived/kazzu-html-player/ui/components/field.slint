@@ -1,0 +1,11 @@
+import { Theme } from "../theme.slint";
+export component Field inherits Rectangle {
+    in-out property <string> text;
+    in property <string> placeholder-text;
+    callback edited(string);
+    min-height: 44px; border-radius: 24px; background: #fdf6ec14;
+    border-width: 1px; border-color: Theme.accent.with-alpha(0.28);
+    TouchArea { clicked => { input.focus(); } }
+    if root.text == "" : Text { x: 16px; width: parent.width - 32px; text: root.placeholder-text; color: Theme.muted; font-size: 14px; vertical-alignment: center; }
+    input := TextInput { x: 16px; width: parent.width - 32px; height: parent.height; text <=> root.text; color: Theme.ink; font-size: 14px; vertical-alignment: center; single-line: true; edited => { root.edited(self.text); } }
+}

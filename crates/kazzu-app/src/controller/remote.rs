@@ -324,6 +324,7 @@ impl<V: View> Controller<V> {
                 self.detail_what = Some(what);
                 self.detail_album = album;
                 self.show_detail(vm);
+                self.restore_detail_scroll();
             }
             RemoteResult::DetailFailed { seq, kind } => {
                 if seq != self.detail_seq {
@@ -472,7 +473,7 @@ impl<V: View> Controller<V> {
             "playlist" => self.open_playlist(id),
             "artist" => match ytm_vm::strip_remote(id) {
                 Some(raw) => self.open_remote(RemoteRef::Artist(raw.to_owned())),
-                None => self.coming_soon("A página de artista do seu acervo"),
+                None => self.request_detail(DetailRef::Artist(id.to_owned())),
             },
             "mood" => {
                 if let Some(c) = id.strip_prefix("mood:").and_then(|i| i.parse::<usize>().ok()).and_then(|i| self.categories.get(i)).cloned() {
@@ -504,6 +505,10 @@ impl<V: View> Controller<V> {
     }
 
     fn open_remote(&mut self, what: RemoteRef) {
+        self.visit(super::DetailRoute::Catalog(what));
+    }
+
+    pub(super) fn load_remote_page(&mut self, what: RemoteRef) {
         self.detail_seq += 1;
         self.detail_what = Some(what.clone());
         self.detail_album = None;
@@ -513,9 +518,7 @@ impl<V: View> Controller<V> {
     }
 
     pub fn retry_detail(&mut self) {
-        if let Some(what) = self.detail_what.clone() {
-            self.open_remote(what);
-        }
+        self.restore_visit();
     }
 
     pub fn toggle_detail_saved(&mut self) {
@@ -535,8 +538,7 @@ impl<V: View> Controller<V> {
                 None => self.toast("Esta música não tem página de álbum.", false),
             }
         } else {
-            self.detail_seq += 1;
-            self.jobs.submit(Job::OpenDetail { seq: self.detail_seq, what: DetailRef::AlbumOfTrack(track_id.to_owned()) });
+            self.request_detail(DetailRef::AlbumOfTrack(track_id.to_owned()));
         }
     }
 

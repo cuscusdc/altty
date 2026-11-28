@@ -15,6 +15,7 @@ pub enum ThemePref {
     Auto,
     Light,
     Dark,
+    Oled,
 }
 
 /// Origem da cor de destaque.
@@ -71,6 +72,7 @@ impl StreamQualityPref {
 #[serde(default)]
 pub struct Config {
     pub glass_style: i32,
+    pub color_palette: i32,
     pub artwork_background: bool,
     pub library_view: i32,
     pub library_density: i32,
@@ -95,6 +97,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             glass_style: 1,
+            color_palette: 0,
             artwork_background: true,
             library_view: 0,
             library_density: 1,
@@ -144,7 +147,8 @@ impl Config {
     /// Corrige valores impossíveis vindos de um arquivo editado à mão (`volume = nan`, 7, -1...).
     pub fn sanitized(mut self) -> Self {
         self.volume = if self.volume.is_finite() { self.volume.clamp(0.0, 1.0) } else { 1.0 };
-        self.glass_style = self.glass_style.clamp(0, 2);
+        self.glass_style = self.glass_style.clamp(0, 3);
+        self.color_palette = self.color_palette.clamp(0, 5);
         self.library_view = self.library_view.clamp(0, 1);
         self.library_density = self.library_density.clamp(0, 2);
         self.recent_searches.truncate(Self::MAX_RECENT);
@@ -199,7 +203,7 @@ mod tests {
     fn roundtrip_and_partial_files() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("sub/config.toml");
-        let mut cfg = Config { theme: ThemePref::Light, reduce_motion: Some(true), ..Config::default() };
+        let mut cfg = Config { theme: ThemePref::Light, color_palette: 4, reduce_motion: Some(true), ..Config::default() };
         cfg.push_recent_search("aurora");
         cfg.save(&path).unwrap();
         assert_eq!(Config::load(&path).unwrap(), cfg);

@@ -1,0 +1,12 @@
+import { Theme } from "../theme.slint";
+export component Glass inherits Rectangle {
+    border-radius: Theme.card-radius;
+    background: Theme.glass ? @linear-gradient(135deg, #ffffff29, #ffffff0a 45%, #ffffff14) : Theme.card;
+    border-width: 1px;
+    border-color: #ffffff33;
+    drop-shadow-color: #00000061;
+    drop-shadow-blur: 20px;
+    drop-shadow-offset-y: 8px;
+    Rectangle { x: 12px; y: 1px; width: max(0px, parent.width - 24px); height: 1px; background: #ffffff4d; }
+    @children
+}

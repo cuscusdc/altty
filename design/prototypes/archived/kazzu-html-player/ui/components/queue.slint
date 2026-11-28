@@ -1,0 +1,13 @@
+import { State } from "../state.slint";
+import { Action } from "action.slint";
+import { TrackRow } from "track-row.slint";
+import { Glass } from "glass.slint";
+export component Queue inherits Glass {
+    background: #14111d; border-radius: 24px;
+    VerticalLayout { padding: 16px; spacing: 6px;
+        Action { text: "Fila de reprodução   ×"; clicked => { State.queue = false; } }
+        Flickable { content-width: self.width; VerticalLayout { width: parent.width; spacing: 6px;
+            for song[i] in State.songs : TrackRow { song: song; current: State.current == i; clicked => { State.select(i, true); State.queue = false; } }
+        } }
+    }
+}

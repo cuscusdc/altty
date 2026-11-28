@@ -1,0 +1,64 @@
+// Shell Android: Início próprio, telas em pilha e ilha inferior com os destinos de navegação.
+import { Theme } from "../theme/tokens.slint";
+import { Metrics } from "../theme/metrics.slint";
+import { AppState, Tab } from "../theme/app-contract.slint";
+import { Nav } from "../theme/nav-state.slint";
+import { MobileTopBar, MobileDock, MobileMiniPlayer } from "chrome.slint";
+import { MobileExplore } from "explore.slint";
+import { MobileHome } from "home.slint";
+import { MobileLibrary } from "library.slint";
+import { MobileSearch } from "search.slint";
+import { MobileSettings } from "settings.slint";
+import { MobileDetail } from "detail.slint";
+
+export component MobileShell inherits Rectangle {
+    background: transparent;
+    property <bool> on-settings: AppState.tab == Tab.settings;
+    property <string> title: AppState.tab == Tab.home || AppState.tab == Tab.explore ? "" : AppState.tab == Tab.library ? "Biblioteca" : AppState.tab == Tab.search ? "Buscar" : "Ajustes";
+    property <bool> scrolled: -Metrics.saved-scroll(AppState.tab) > 8px;
+    property <bool> on-home: AppState.tab == Tab.home || AppState.tab == Tab.explore;
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        if AppState.detail-open : MobileDetail { }
+        if !AppState.detail-open && AppState.tab == Tab.home : MobileHome { }
+        if !AppState.detail-open && AppState.tab == Tab.explore : MobileExplore { }
+        if !AppState.detail-open && AppState.tab == Tab.library : MobileLibrary { }
+        if !AppState.detail-open && AppState.tab == Tab.search : MobileSearch { }
+        if !AppState.detail-open && AppState.tab == Tab.settings : MobileSettings { }
+    }
+    if !AppState.detail-open && !root.on-home : MobileTopBar {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        title: root.title;
+        back: root.on-settings;
+        settings: !root.on-settings;
+        scrolled: root.scrolled;
+        safe-top: AppState.safe-top;
+        back-clicked => { Nav.back(); }
+    }
+    // Both rows share one fixed layout; neither row can grow into the other.
+    // O Rectangle externo com clip: true impede que o mini-player vaze para fora da ilha
+    // ou sobreponha o dock quando has-now muda.
+    if !AppState.player-open : Rectangle {
+        x: (root.width - self.width) / 2;
+        y: root.height - AppState.safe-bottom - Theme.island-margin - self.height;
+        width: min(root.width - 20px, Metrics.dock-max-w);
+        height: Metrics.dock-reserve - AppState.safe-bottom - Theme.island-margin;
+        clip: true;
+        VerticalLayout {
+            width: parent.width;
+            height: parent.height;
+            spacing: Theme.island-gap;
+            if AppState.has-now : Rectangle {
+                height: Theme.island-height;
+                MobileMiniPlayer { width: parent.width; height: parent.height; }
+            }
+            Rectangle {
+                height: Theme.island-height;
+                MobileDock { width: parent.width; height: parent.height; }
+            }
+        }
+    }
+}

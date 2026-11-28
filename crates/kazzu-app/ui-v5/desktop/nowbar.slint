@@ -1,0 +1,90 @@
+// Barra de reprodução do desktop: faixa de vidro no rodapé, com arte, transporte, tempo, volume, curtir e fila.
+// Fica sempre visível; sem faixa, mostra um estado neutro em vez de controles mentirosos.
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { AppState, Track, RepeatMode } from "../theme/app-contract.slint";
+import { Glass, Pressable, Icon, IconButton, Cover, Scrubber } from "../components/atoms.slint";
+
+export component DesktopNowBar inherits Glass {
+    in property <Track> now;
+    in property <bool> has-now: false;
+    in property <bool> playing: true;
+    in property <float> progress: 0;
+    in property <string> position: "0:00";
+    in property <string> remaining: "−0:00";
+    in property <float> volume: 1;
+    in property <bool> shuffle: false;
+    in property <RepeatMode> repeat: RepeatMode.off;
+    callback open-player();
+    callback toggle-play();
+    callback previous();
+    callback next();
+    callback seek(float);
+    callback set-volume(float);
+    callback toggle-like();
+    callback open-queue();
+    callback toggle-shuffle();
+    callback cycle-repeat();
+    height: 72px;
+    radius: 24px;
+    shadow: true;
+    accessible-role: groupbox;
+    accessible-label: "Tocando agora";
+    HorizontalLayout {
+        padding-left: Theme.s-md;
+        padding-right: Theme.s-md;
+        spacing: root.width < 900px ? Theme.s-xs : Theme.s-md;
+        Pressable {
+            width: min(root.width < 900px ? 160px : 240px, root.width * 0.26);
+            enabled: root.has-now;
+            label: root.has-now ? "Abrir o player: " + root.now.title + ", " + root.now.artist : "Nada tocando";
+            ring-radius: Theme.r-card;
+            clicked => { root.open-player(); }
+            HorizontalLayout {
+                spacing: Theme.s-sm;
+                VerticalLayout { alignment: center; Cover { source: root.now.cover; size: 48px; radius: Theme.r-thumb; } }
+                VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 1;
+                    Text { text: root.has-now ? root.now.title : "Nada tocando"; color: Theme.ink; font-size: Theme.text-md; font-weight: 600; overflow: elide; accessible-role: none; }
+                    Text { text: root.has-now ? root.now.artist : "Escolha uma música para começar"; color: Theme.ink; font-size: Theme.text-sm; overflow: elide; accessible-role: none; }
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: Theme.s-xxs;
+            VerticalLayout { alignment: center; IconButton { enabled: root.has-now; icon: Icons.shuffle; on: root.shuffle; tint: root.shuffle ? Theme.accent : Theme.ink; label: root.shuffle ? "Aleatório, ligado" : "Aleatório, desligado"; clicked => { root.toggle-shuffle(); } } }
+            VerticalLayout { alignment: center; IconButton { enabled: root.has-now; icon: Icons.prev; label: "Anterior"; clicked => { root.previous(); } } }
+            VerticalLayout {
+                alignment: center;
+                play := Pressable {
+                    width: 48px;
+                    height: 48px;
+                    enabled: root.has-now;
+                    label: root.playing ? "Pausar" : "Tocar";
+                    clicked => { root.toggle-play(); }
+                    Rectangle { border-radius: 24px; background: Theme.primary; opacity: !play.enabled ? 0.45 : parent.pressed ? 0.82 : 1; }
+                    Icon { source: root.playing ? Icons.pause : Icons.play; tint: Theme.primary-ink; size: 24px; }
+                }
+            }
+            VerticalLayout { alignment: center; IconButton { enabled: root.has-now; icon: Icons.next; label: "Próxima"; clicked => { root.next(); } } }
+            VerticalLayout { alignment: center; IconButton { enabled: root.has-now; icon: Icons.repeat; on: root.repeat != RepeatMode.off; badge: root.repeat == RepeatMode.one ? "1" : ""; tint: root.repeat != RepeatMode.off ? Theme.accent : Theme.ink; label: root.repeat == RepeatMode.off ? "Repetir, desligado" : root.repeat == RepeatMode.all ? "Repetir tudo" : "Repetir esta música"; clicked => { root.cycle-repeat(); } } }
+        }
+        HorizontalLayout {
+            spacing: Theme.s-xs;
+            horizontal-stretch: 1;
+            Text { width: 44px; text: root.position; color: Theme.ink; font-size: Theme.text-sm; horizontal-alignment: right; vertical-alignment: center; accessible-role: none; }
+            Scrubber { enabled: AppState.can-seek; media: false; value: root.progress; label: "Posição"; value-text: root.position + ", faltam " + root.remaining; seek(v) => { root.seek(v); } }
+            Text { width: 48px; text: root.remaining; color: Theme.ink; font-size: Theme.text-sm; vertical-alignment: center; accessible-role: none; }
+        }
+        HorizontalLayout {
+            spacing: Theme.s-xxs;
+            VerticalLayout { alignment: center; Icon { source: root.volume < 0.01 ? Icons.vol-mute : root.volume < 0.5 ? Icons.vol-low : Icons.vol-high; size: 20px; } }
+            Scrubber { width: root.width < 900px ? 64px : 96px; media: false; value: root.volume; label: "Volume"; value-text: Math.round(root.volume * 100) + " por cento"; seek(v) => { root.set-volume(v); } }
+        }
+        HorizontalLayout {
+            VerticalLayout { alignment: center; IconButton { enabled: root.has-now; icon: root.now.liked ? Icons.heart-fill : Icons.heart; label: root.now.liked ? "Descurtir" : "Curtir"; clicked => { root.toggle-like(); } } }
+            VerticalLayout { alignment: center; IconButton { icon: Icons.queue; label: "Abrir a fila"; clicked => { root.open-queue(); } } }
+        }
+    }
+}

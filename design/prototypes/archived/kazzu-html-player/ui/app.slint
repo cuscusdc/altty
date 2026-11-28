@@ -1,0 +1,57 @@
+import { Icons } from "icons.slint";
+import { Theme } from "theme.slint";
+import { State, Song, Setting } from "state.slint";
+export { Theme, State, Song, Setting }
+import { Inicio } from "screens/inicio.slint";
+import { Explorar } from "screens/explorar.slint";
+import { Biblioteca } from "screens/biblioteca.slint";
+import { Pesquisa } from "screens/pesquisa.slint";
+import { Configuracoes } from "screens/configuracoes.slint";
+import { Player } from "screens/player.slint";
+import { Island } from "components/island.slint";
+import { Action } from "components/action.slint";
+import { Queue } from "components/queue.slint";
+import { Toast } from "components/toast.slint";
+import { Confirmation } from "components/confirmation.slint";
+export component AppWindow inherits Window {
+    title: "kazzu · Protótipo simulado"; default-font-size: 14px; preferred-width: 420px; preferred-height: 860px; min-width: 300px; min-height: 480px; background: #0b0a11;
+    device := Rectangle {
+        width: min(420px, root.width); height: min(900px, root.height); x: (root.width - self.width) / 2; y: (root.height - self.height) / 2;
+        background: @linear-gradient(150deg, Theme.accent.with-alpha(0.18), Theme.base 45%, Theme.base); clip: true;
+        FocusScope { width: parent.width; height: parent.height;
+            init => { self.focus(); }
+            key-pressed(e) => {
+                if (e.text == Key.Escape || e.text == Key.Back) { if (State.confirm != 0) { State.confirm = 0; } else if (State.queue) { State.queue = false; } else if (State.expanded) { State.expanded = false; } else if (State.page == 4) { State.go(State.origin); } return accept; }
+                if (State.confirm != 0) { return reject; }
+                if (e.text == " ") { State.command("play"); return accept; }
+                if (e.text == "j" || e.text == "J") { State.command("previous"); return accept; }
+                if (e.text == "l" || e.text == "L") { State.command("next"); return accept; }
+                if (e.text == "s" || e.text == "S") { State.command("shuffle"); return accept; }
+                if (e.text == "r" || e.text == "R") { State.command("repeat"); return accept; }
+                if (e.text == "m" || e.text == "M") { State.command("mute"); return accept; }
+                return reject;
+            }
+            VerticalLayout { padding: 16px; spacing: 12px;
+                HorizontalLayout { height: 48px;
+                    Action { font-size: State.page == 1 ? 32px : State.page == 0 ? 22px : 18px; font-weight: 800; text: State.page == 0 ? "kazzu" : State.page == 1 ? "Explorar" : State.page == 2 ? "Biblioteca" : State.page == 3 ? "Pesquisa" : "‹ Configurações"; clicked => { if (State.page == 4) { State.go(State.origin); } } }
+                    Action { width: 44px; text: "Histórico"; icon: Icons.history; clicked => { State.command("history"); } }
+                    Action { width: 44px; text: "Configurações"; icon: Icons.settings; clicked => { State.go(4); } }
+                }
+                Flickable { content-width: self.width;
+                    VerticalLayout { width: parent.width; padding-bottom: 170px;
+                        if State.page == 0 : Inicio { }
+                        if State.page == 1 : Explorar { }
+                        if State.page == 2 : Biblioteca { }
+                        if State.page == 3 : Pesquisa { }
+                        if State.page == 4 : Configuracoes { }
+                    }
+                }
+            }
+        }
+        Island { x: 10px; y: parent.height - self.height - 10px; width: parent.width - 20px; }
+        if State.expanded : Player { width: parent.width; height: parent.height; }
+        if State.queue : Queue { width: parent.width; height: parent.height * 0.6; y: parent.height - self.height; }
+        if State.toast != "" : Toast { x: 20px; y: parent.height - 200px; width: parent.width - 40px; message: State.toast; }
+        if State.confirm != 0 : Confirmation { width: parent.width; height: parent.height; }
+    }
+}

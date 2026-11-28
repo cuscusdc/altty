@@ -1,0 +1,142 @@
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { AppState, Tab, Track } from "../theme/app-contract.slint";
+import { Nav } from "../theme/nav-state.slint";
+import { Glass, Cover, Pressable, Icon, IconButton } from "../components/atoms.slint";
+
+export component MobileTopBar inherits Rectangle {
+    in property <string> title;          // vazio = marca
+    in property <bool> back: false;
+    in property <bool> settings: true;
+    in property <bool> scrolled: false;  // conteúdo passou por baixo: vidro de verdade
+    in property <bool> shown: true;
+    in property <length> safe-top: 0px;
+    callback back-clicked();
+    height: Theme.header-h + safe-top;
+    visible: root.shown || self.opacity > 0.01;
+    opacity: root.shown ? 1 : 0;
+    animate opacity { duration: Theme.dur-short; }
+    if root.scrolled && root.shown : Glass { radius: 0px; shadow: false; }
+    if root.back : IconButton {
+        x: Theme.gutter - 12px;
+        y: root.safe-top;
+        icon: Icons.chevron-left;
+        label: "Voltar";
+        clicked => { root.back-clicked(); }
+    }
+    if !root.back && root.title == "" : Image {
+        x: Theme.gutter;
+        y: root.safe-top + 12px;
+        width: 26px * 153 / 40;
+        height: 26px;
+        source: Theme.dark ? @image-url("../assets/brand/logo-text/kazzu-texto-branco.svg") : @image-url("../assets/brand/logo-text/kazzu-texto-preto.svg");
+        accessible-role: AccessibleRole.text;
+        accessible-label: "Kazzu";
+    }
+    if !root.back && root.title != "" : Text {
+        x: Theme.gutter;
+        y: root.safe-top;
+        width: parent.width - 2 * Theme.gutter - 56px;
+        height: Theme.header-h;
+        text: root.title;
+        color: Theme.ink;
+        font-family: Theme.font-display;
+        font-size: Theme.text-xl;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    if root.back && root.title != "" : Text {
+        x: 56px;
+        y: root.safe-top;
+        width: parent.width - 56px - Theme.gutter;
+        height: Theme.header-h;
+        text: root.title;
+        color: Theme.ink;
+        font-size: Theme.text-lg;
+        font-weight: 600;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    if root.settings && !root.back : IconButton {
+        x: parent.width - Theme.gutter - 40px;
+        y: root.safe-top;
+        icon: Icons.gear;
+        tonal: true;
+        label: "Ajustes";
+        clicked => { Nav.go(Tab.settings); }
+    }
+}
+
+component IslandTab inherits Pressable {
+    in property <string> text;
+    in property <image> icon;
+    in property <bool> on;
+    label: text;
+    accessible-role: tab;
+    accessible-item-selected: on;
+    horizontal-stretch: 1;
+    Rectangle { border-radius: 24px; background: root.on ? Theme.ink.with-alpha(0.16) : transparent; }
+    VerticalLayout {
+        alignment: center;
+        spacing: 3px;
+        HorizontalLayout { alignment: center; Icon { source: root.icon; tint: Theme.ink; size: 22px; } }
+        Text { text: root.text; color: Theme.ink; font-size: 11px; font-weight: root.on ? 700 : 500; horizontal-alignment: center; }
+    }
+}
+
+export component MobileDock inherits Rectangle {
+    height: Theme.island-height;
+    accessible-role: tab-list;
+    accessible-label: "Navegação principal";
+    HorizontalLayout {
+        spacing: 10px;
+        Glass {
+            radius: Theme.island-radius;
+            horizontal-stretch: 1;
+            HorizontalLayout {
+                padding-left: 12px; padding-right: 12px; padding-top: 4px; padding-bottom: 4px;
+                IslandTab { text: "Início"; icon: Icons.home; on: AppState.tab == Tab.home; clicked => { Nav.go(Tab.home); } }
+                IslandTab { text: "Explorar"; icon: Icons.disc; on: AppState.tab == Tab.explore; clicked => { Nav.go(Tab.explore); } }
+                IslandTab { text: "Biblioteca"; icon: Icons.library; on: AppState.tab == Tab.library; clicked => { Nav.go(Tab.library); } }
+            }
+        }
+        Pressable {
+            width: Theme.island-height;
+            label: "Pesquisa";
+            accessible-item-selected: AppState.tab == Tab.search;
+            clicked => { Nav.go(Tab.search); }
+            Glass { radius: Theme.island-radius; border-color: AppState.tab == Tab.search ? Theme.accent : Theme.glass-edge-hi;
+                Rectangle { border-radius: Theme.island-radius; background: AppState.tab == Tab.search ? Theme.accent.with-alpha(0.22) : transparent; }
+                Icon { source: Icons.search; tint: AppState.tab == Tab.search ? Theme.accent : Theme.ink; size: 24px; }
+            }
+        }
+    }
+}
+
+export component MobileMiniPlayer inherits Glass {
+    radius: Theme.island-radius;
+    height: Theme.island-height;
+    accessible-role: groupbox;
+    accessible-label: "Reprodução atual";
+    HorizontalLayout {
+        padding-left: 12px; padding-right: 12px;
+        Pressable {
+            horizontal-stretch: 1;
+            label: "Abrir player de " + AppState.now.title;
+            clicked => { Nav.open-player(); }
+            HorizontalLayout {
+                spacing: Theme.s-sm;
+                VerticalLayout { alignment: center; Cover { size: 42px; source: AppState.now.cover; } }
+                VerticalLayout {
+                    alignment: center;
+                    Text { text: AppState.now.title; font-size: Theme.text-md; font-weight: 700; color: Theme.ink; overflow: elide; }
+                    Text { text: AppState.now.artist; font-size: Theme.text-sm; color: Theme.ink-2; overflow: elide; }
+                }
+            }
+        }
+        VerticalLayout { alignment: center; IconButton { icon: AppState.playing ? Icons.pause : Icons.play; label: AppState.playing ? "Pausar" : "Tocar"; clicked => { AppState.toggle-play(); } } }
+        VerticalLayout { alignment: center; IconButton { icon: Icons.next; label: "Próxima"; clicked => { AppState.next(); } } }
+    }
+}

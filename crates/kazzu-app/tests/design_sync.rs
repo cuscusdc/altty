@@ -72,7 +72,7 @@ fn platform_screens_cover_every_design_name() {
         ("MenuSheet", &["MenuSheet"]),
         ("NewPlaylistSheet", &["NewPlaylistSheet"]),
         ("SettingsScreen", &["MobileSettings", "DesktopSettings"]),
-        ("MiniPlayer", &["MobileDock", "DesktopNowBar", "DesktopCompactBar"]),
+        ("MiniPlayer", &["MobileMiniPlayer", "DesktopNowBar", "DesktopCompactBar"]),
         ("TabBar", &["MobileDock", "DesktopSidebar"]),
         ("SearchOrb", &["MobileDock", "DesktopSidebar"]),
         ("Dock", &["MobileDock", "DesktopCompactBar"]),

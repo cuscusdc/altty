@@ -1,0 +1,14 @@
+import { State } from "../state.slint";
+import { Glass } from "glass.slint";
+import { Action } from "action.slint";
+import { Theme } from "../theme.slint";
+export component Confirmation inherits Rectangle {
+    background: #000000aa;
+    TouchArea { }
+    Glass { x: 16px; width: parent.width - 32px; y: (parent.height - self.height) / 2; height: 200px; background: Theme.base;
+        VerticalLayout { padding: 18px; spacing: 12px;
+            Text { text: State.confirm == 1 ? "Deseja realmente limpar o cache de downloads offline (2.4 GB)? As músicas continuarão disponíveis para streaming." : "Limpar todo o histórico recente de pesquisas do kazzu?"; color: Theme.ink; font-size: 14px; wrap: word-wrap; }
+            HorizontalLayout { Action { text: "Cancelar"; clicked => { State.confirm = 0; } } Action { text: "Limpar"; active: true; clicked => { State.command(State.confirm == 1 ? "clear-cache" : "clear-history"); State.confirm = 0; } } }
+        }
+    }
+}

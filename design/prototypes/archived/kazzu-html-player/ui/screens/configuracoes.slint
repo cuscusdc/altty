@@ -1,0 +1,27 @@
+import { State } from "../state.slint";
+import { Theme } from "../theme.slint";
+import { Glass } from "../components/glass.slint";
+import { Action } from "../components/action.slint";
+import { Heading } from "../components/heading.slint";
+import { Field } from "../components/field.slint";
+export component Configuracoes inherits VerticalLayout {
+    spacing: 12px;
+    Field { height: 44px; placeholder-text: "Pesquisar ajustes..."; text <=> State.settings-query; edited(q) => { State.filter-settings(q); } }
+    Action { height: 74px; text: "C   cuscusdoce rael · Membro Free • Gerenciar conta"; filled: true; clicked => { State.command("profile"); } }
+    Heading { text: "Paletas Temáticas do App"; }
+    for row in 2 : HorizontalLayout { spacing: 8px;
+        for column in 3 : Action { height: 66px; text: ["Laranja Solar", "Rosa Cyber", "Ametista", "Esmeralda", "Azul Cobalto", "Obsidian Ouro"][row * 3 + column]; active: State.palette == row * 3 + column; filled: true; clicked => { State.theme(row * 3 + column); } }
+    }
+    for setting[i] in State.settings : VerticalLayout { spacing: 6px;
+        if i == 0 || setting.group != State.settings[i - 1].group : Heading { text: setting.group; font-size: 12px; color: Theme.secondary; }
+        Glass { height: 78px;
+            HorizontalLayout { padding: 12px; spacing: 8px;
+                VerticalLayout { alignment: center;
+                    Text { text: setting.title; font-size: 14px; color: Theme.ink; font-weight: 700; overflow: elide; }
+                    Text { text: setting.subtitle; font-size: 12px; color: Theme.muted; overflow: elide; }
+                }
+                Action { width: 64px; text: setting.toggle ? (setting.checked ? "Ligado" : "Desligado") : setting.value != "" ? setting.value : "›"; active: setting.toggle && setting.checked; clicked => { State.setting(i); } }
+            }
+        }
+    }
+}

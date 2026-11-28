@@ -1,0 +1,7 @@
+import { AppState } from "../theme/app-contract.slint";
+import { DiscoveryFeed } from "../components/discovery-feed.slint";
+import { PageHeading } from "../components/editorial.slint";
+
+export component DesktopHome inherits DiscoveryFeed {
+    PageHeading { title: "Início"; subtitle: AppState.source-label; }
+}

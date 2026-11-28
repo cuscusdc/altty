@@ -148,6 +148,7 @@ impl App {
             watch_frames(&window, sink.clone());
         }
         window.global::<ui::AppState>().set_glass_style(cfg.glass_style);
+        window.global::<ui::AppState>().set_color_palette(cfg.color_palette);
         window.global::<ui::AppState>().set_artwork_background(cfg.artwork_background);
         window.global::<ui::AppState>().set_library_view(cfg.library_view);
         window.global::<ui::AppState>().set_library_density(cfg.library_density);
@@ -196,7 +197,7 @@ impl App {
 const STREAM_CACHE_BYTES: u64 = 256 * 1024 * 1024;
 
 fn licenses_text() -> String {
-    "Kazzu é software livre, licenciado sob GPL-3.0.\n\n\
+    "Componentes usados no Kazzu\n\n\
      Slint, usado sob GPL-3.0: interface gráfica.\n\
      Inter (SIL OFL 1.1): fonte, incluída com o app.\n\
      Symphonia (MPL-2.0): decodificação de áudio. libopus (BSD-3-Clause): decodificador Opus.\n\
@@ -433,6 +434,7 @@ fn wire(window: &ui::AppWindow, ctrl: &Rc<RefCell<Controller<SlintView>>>) {
     s.on_play_item(cb!(ctrl, |c, kind, id| c.play_item(&kind, &id)));
 
     // fila
+    s.on_remember_focus(cb!(ctrl, |c, key| c.remember_focus(&key)));
     s.on_queue_remove(cb!(ctrl, |c, id| c.queue_remove(&id)));
     s.on_queue_jump(cb!(ctrl, |c, id| c.queue_jump(&id)));
     s.on_queue_move_up(cb!(ctrl, |c, id| c.queue_move_up(&id)));
@@ -448,6 +450,16 @@ fn wire(window: &ui::AppWindow, ctrl: &Rc<RefCell<Controller<SlintView>>>) {
     s.on_toggle_detail_saved(cb!(ctrl, |c| c.toggle_detail_saved()));
     s.on_goto_album(cb!(ctrl, |c, id| c.goto_album(&id)));
     s.on_goto_artist(cb!(ctrl, |c, id| c.goto_artist(&id)));
+    use crate::worker::PlaylistEdit;
+    s.on_rename_playlist(cb!(ctrl, |c, name| c.edit_playlist(PlaylistEdit::Rename(name.to_string()))));
+    s.on_delete_playlist(cb!(ctrl, |c| c.edit_playlist(PlaylistEdit::Delete)));
+    s.on_remove_playlist_entry(cb!(ctrl, |c, i, id| if let Ok(index) = usize::try_from(i) {
+        c.edit_playlist(PlaylistEdit::Remove { index, track: id.to_string() });
+    }));
+    s.on_move_playlist_entry_up(cb!(ctrl, |c, i, id| if let Ok(index) = usize::try_from(i) {
+        c.edit_playlist(PlaylistEdit::MoveUp { index, track: id.to_string() });
+    }));
+    s.on_library_order_changed(cb!(ctrl, |c, descending| c.library_order(descending)));
     s.on_create_playlist_named(cb!(ctrl, |c, name, track| c.create_playlist(&name, &track)));
     s.on_add_to_playlist(cb!(ctrl, |c, track, playlist| c.add_to_playlist(&track, &playlist)));
     s.on_add_folder(cb!(ctrl, |c| c.add_folder()));
@@ -466,12 +478,14 @@ fn wire(window: &ui::AppWindow, ctrl: &Rc<RefCell<Controller<SlintView>>>) {
 
     // configurações
     s.on_settings_match(|query, words| settings_match(&query, &words));
+    s.on_palette_changed(cb!(ctrl, |c, palette| c.set_color_palette(palette)));
     s.on_visual_style_changed(cb!(ctrl, |c, style, artwork| c.set_visual_style(style, artwork)));
     s.on_library_layout_changed(cb!(ctrl, |c, view, density| c.set_library_layout(view, density)));
     s.on_theme_mode_changed(cb!(ctrl, |c, mode| c.set_theme(match mode {
         ui::ThemeMode::Auto => ThemePref::Auto,
         ui::ThemeMode::Light => ThemePref::Light,
         ui::ThemeMode::Dark => ThemePref::Dark,
+        ui::ThemeMode::Oled => ThemePref::Oled,
     })));
     s.on_stream_quality_changed(cb!(ctrl, |c, i| c.set_stream_quality(StreamQualityPref::from_index(i))));
     s.on_autoplay_radio_changed(cb!(ctrl, |c, on| c.set_autoplay_radio(on)));

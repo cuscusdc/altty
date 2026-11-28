@@ -365,7 +365,7 @@ fn first_run_scans_and_fills_home_library_and_settings() {
     let h = harness();
     let r = h.rec.borrow();
     assert_eq!(r.recents.len(), 4);
-    assert_eq!(r.collections.iter().map(|(id, _)| id.as_str()).collect::<Vec<_>>(), ["downloads", "liked", "albums", "playlists"]);
+    assert_eq!(r.collections.iter().map(|(id, _)| id.as_str()).collect::<Vec<_>>(), ["history", "liked", "albums", "playlists"]);
     assert_eq!(r.collections[2].1, "2 álbuns");
     assert_eq!(r.collections[1].1, "0 músicas");
     let (settings, providers) = r.settings.clone().unwrap();
@@ -1411,7 +1411,7 @@ fn visual_preferences_survive_restart_and_clamp_invalid_style() {
     let saved = Config::load(&h._dir.path().join("config.toml")).unwrap();
     assert_eq!((saved.glass_style, saved.artwork_background), (2, false));
     h.ctrl.set_visual_style(99, true);
-    assert_eq!((h.ctrl.config().glass_style, h.ctrl.config().artwork_background), (2, true));
+    assert_eq!((h.ctrl.config().glass_style, h.ctrl.config().artwork_background), (3, true));
 }
 
 #[test]
@@ -1421,4 +1421,48 @@ fn settings_search_ignores_case_accents_and_extra_spaces() {
     assert!(settings_match("reproducao", "Reprodução qualidade fila"));
     assert!(settings_match("", "qualquer seção"));
     assert!(!settings_match("volume", "aparência tema vidro"));
+}
+
+#[test]
+fn back_restores_the_album_and_its_playable_tracks_across_sections() {
+    let mut h = harness();
+    let db = kazzu_library::Library::open(h._dir.path().join("data")).unwrap();
+    let album = db.albums().unwrap().into_iter().find(|album| album.title == "Aurora").unwrap();
+    h.ctrl.navigate(NavTab::Library);
+    h.ctrl.open_album(&album.id.0.to_string());
+    h.pump_until("álbum local", |r| r.detail.as_ref().is_some_and(|(name, tracks)| name == "Aurora" && tracks.len() == 3));
+    h.ctrl.open_collection("liked");
+    h.pump_until("segunda página", |r| r.detail.as_ref().is_some_and(|(name, _)| name == "Curtidos"));
+    h.ctrl.navigate(NavTab::Search);
+    h.ctrl.navigate(NavTab::Library);
+    h.ctrl.detail_closed();
+    h.pump_until("retorno ao álbum", |r| r.detail.as_ref().is_some_and(|(name, tracks)| name == "Aurora" && tracks.len() == 3));
+    h.ctrl.play_all(false);
+    h.pump_until("contexto de reprodução restaurado", |r| r.playback.origin == "Aurora");
+}
+
+#[test]
+fn playlist_editor_persists_name_order_and_removal_and_rejects_stale_indices() {
+    use kazzu_app::worker::PlaylistEdit;
+    let mut h = harness();
+    let db = kazzu_library::Library::open(h._dir.path().join("data")).unwrap();
+    let tracks: Vec<_> = db.recently_added(2).unwrap().into_iter().map(|t| t.id.0.to_string()).collect();
+    h.ctrl.create_playlist("Inicial", &tracks[0]);
+    h.pump_until("playlist criada", |r| r.playlists == ["Inicial"]);
+    let id = db.playlists().unwrap()[0].id.0.to_string();
+    h.ctrl.add_to_playlist(&tracks[1], &id);
+    h.ctrl.open_playlist(&id);
+    h.pump_until("duas faixas", |r| r.detail_vm.as_ref().is_some_and(|d| d.tracks.len() == 2));
+    h.ctrl.edit_playlist(PlaylistEdit::MoveUp { index: 1, track: tracks[1].clone() });
+    h.pump_until("nova ordem", |r| r.detail_vm.as_ref().is_some_and(|d| d.tracks.first().is_some_and(|t| t.id == tracks[1])));
+    h.ctrl.edit_playlist(PlaylistEdit::Remove { index: 0, track: tracks[0].clone() });
+    h.pump_until("índice antigo recusado", |r| r.toasts.iter().any(|(message, _)| message.contains("lista mudou")));
+    h.ctrl.edit_playlist(PlaylistEdit::Remove { index: 0, track: tracks[1].clone() });
+    h.pump_until("remoção", |r| r.detail_vm.as_ref().is_some_and(|d| d.tracks.len() == 1));
+    h.ctrl.edit_playlist(PlaylistEdit::Rename("Final".into()));
+    h.pump_until("renomeada", |r| r.playlists == ["Final"]);
+    h.pump_until("nome no detalhe", |r| r.detail_vm.as_ref().is_some_and(|d| d.title == "Final"));
+    h.ctrl.edit_playlist(PlaylistEdit::Delete);
+    h.pump_until("exclusão", |r| r.playlists.is_empty() && !r.detail_open);
+    assert!(db.playlists().unwrap().is_empty());
 }

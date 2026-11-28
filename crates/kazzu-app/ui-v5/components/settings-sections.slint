@@ -1,0 +1,230 @@
+import { Glass } from "atoms.slint";
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { Metrics } from "../theme/metrics.slint";
+import { AppState, Tab, ThemeMode } from "../theme/app-contract.slint";
+import { Pressable, Button, TextButton, IconButton, Switch, Tag, Group, GroupItem, SearchField, Scrubber } from "atoms.slint";
+import { SettingsGroupHead, SettingsChoice } from "settings-controls.slint";
+import { PageHeading } from "editorial.slint";
+import { Screen, Gutters, Narrow } from "shared.slint";
+
+export global SettingsIndex {
+    out property <[string]> categories: ["Geral", "Reprodução", "Aparência", "Fontes e biblioteca", "Privacidade", "Atalhos", "Sobre", "Áudio Hi-Res", "Qualidade gráfica", "Armazenamento", "Downloads", "Acessibilidade"];
+    out property <[string]> keywords: [
+        "geral biblioteca visualização grade lista tamanho capas organização densidade pequenas médias grandes",
+        "reprodução audio som qualidade streaming original alta econômica volume fila automático radio aleatorio repetir saída equalizador crossfade normalização continuar músicas parecidas processamento",
+        "aparência paletas solar rosa cyber ametista esmeralda cobalto ouro tema claro escuro oled automático acabamento vidro glass suave equilibrado cristal transparência reduzir movimento animação capa fundo atmosfera",
+        "fontes biblioteca local pasta musica youtube spotify provedor serviços downloads offline adicionar remover procurar músicas novo",
+        "privacidade histórico buscas dados sem telemetria diagnóstico relatar problema apagar reprodução aparelho",
+        "atalhos teclado espaço tocar reproduzir pausar anterior próxima volume voltar escape esc setas avançar segundos ajustar",
+        "sobre versão licença licenças software livre créditos",
+        "áudio hi-res lossless profundidade sample rate bitrate codec saída detalhes",
+        "qualidade gráfica econômico hardware vidro blur equilibrado alto máximo desempenho",
+        "armazenamento local diretórios pastas reescanear reindexação arquivos caminho",
+        "downloads baixar transferências offline",
+        "acessibilidade reduzir movimento animação transparência contraste"
+    ];
+    public function choose(i: int) {
+        if (i >= 0) { AppState.settings-query = ""; }
+        AppState.settings-section = i;
+        Metrics.reset-scroll(Tab.settings);
+    }
+}
+
+export component SettingsSections inherits VerticalLayout {
+    spacing: Theme.s-xl;
+    property <bool> confirm-clear;
+    property <bool> show-licenses;
+    function matches(i: int, words: string) -> bool {
+        return (AppState.settings-section == -1 || AppState.settings-section == i || AppState.settings-query != "") && AppState.settings-match(AppState.settings-query, words);
+    }
+    if root.matches(0, SettingsIndex.keywords[0]) : VerticalLayout {
+        SettingsGroupHead { text: "Geral"; }
+        Gutters {
+            Group {
+                SettingsChoice { separator: false; title: "Visualização da biblioteca"; options: ["Grade", "Lista"]; current: AppState.library-view; changed(i) => { AppState.library-view = i; AppState.library-layout-changed(i, AppState.library-density); } }
+                SettingsChoice { title: "Tamanho das capas"; options: ["Pequenas", "Médias", "Grandes"]; current: AppState.library-density; changed(i) => { AppState.library-density = i; AppState.library-layout-changed(AppState.library-view, i); } }
+            }
+        }
+    }
+    if root.matches(1, SettingsIndex.keywords[1]) : VerticalLayout {
+        SettingsGroupHead { text: "Reprodução"; }
+        Gutters {
+            Group {
+                SettingsChoice { separator: false; title: "Qualidade do streaming"; options: ["Original", "Alta", "Econômica"]; current: AppState.stream-quality; changed(i) => { AppState.stream-quality = i; AppState.stream-quality-changed(i); } }
+                GroupItem {
+                    title: "Volume";
+                    note: Math.round(AppState.volume * 100) + "%";
+                    VerticalLayout { alignment: center; Scrubber { width: 100px; media: false; value: AppState.volume; label: "Volume"; seek(v) => { AppState.set-volume(v); } } }
+                }
+                GroupItem { title: "Processamento de áudio"; note: "Equalizador, crossfade e normalização ainda não estão disponíveis no motor do Kazzu."; }
+                GroupItem {
+                    title: "Continuar com músicas parecidas";
+                    note: "Quando a fila acabar.";
+                    VerticalLayout { alignment: center; Switch { checked <=> AppState.autoplay-radio; label: "Continuar com músicas parecidas"; toggled(v) => { AppState.autoplay-radio-changed(v); } } }
+                }
+            }
+        }
+    }
+    if root.matches(2, SettingsIndex.keywords[2]) : VerticalLayout {
+        SettingsGroupHead { text: "Aparência"; }
+        Gutters {
+            Group {
+                SettingsChoice {
+                    separator: false;
+                    title: "Tema";
+                    options: ["Automático", "Claro", "Escuro", "OLED"];
+                    current: AppState.theme-mode == ThemeMode.auto ? 0 : AppState.theme-mode == ThemeMode.light ? 1 : AppState.theme-mode == ThemeMode.dark ? 2 : 3;
+                    changed(i) => { AppState.theme-mode = i == 0 ? ThemeMode.auto : i == 1 ? ThemeMode.light : i == 2 ? ThemeMode.dark : ThemeMode.oled; AppState.theme-mode-changed(AppState.theme-mode); }
+                }
+                GroupItem {
+                    title: "Paleta do app";
+                    note: ["Laranja Solar", "Rosa Cyber", "Ametista", "Esmeralda", "Azul Cobalto", "Obsidian Ouro"][AppState.color-palette];
+                }
+                Rectangle {
+                    height: 152px;
+                    for name[i] in ["Laranja Solar", "Rosa Cyber", "Ametista", "Esmeralda", "Azul Cobalto", "Obsidian Ouro"] : Pressable {
+                        x: 12px + mod(i, 3) * ((parent.width - 24px) / 3);
+                        y: floor(i / 3) * 76px;
+                        width: (parent.width - 24px) / 3 - 8px; height: 68px;
+                        label: "Paleta " + name;
+                        accessible-item-selected: AppState.color-palette == i;
+                        clicked => { AppState.color-palette = i; AppState.palette-changed(i); }
+                        Glass { radius: 14px; shadow: false; border-width: AppState.color-palette == i ? 2px : 1px; border-color: AppState.color-palette == i ? Theme.ink : Theme.rule;
+                            VerticalLayout { padding: 8px; spacing: 6px;
+                                Rectangle { height: 20px; border-radius: 10px; background: [Theme.palette-solar, Theme.palette-cyber, Theme.palette-ametista, Theme.palette-esmeralda, Theme.palette-cobalto, Theme.palette-ouro][i]; }
+                                Text { text: name; color: Theme.ink; font-size: 11px; font-weight: 600; horizontal-alignment: center; overflow: elide; }
+                            }
+                        }
+                    }
+                }
+                GroupItem {
+                    title: "Atmosfera da capa";
+                    note: "Usa a arte da música como fundo das telas.";
+                    VerticalLayout { alignment: center; Switch { checked <=> AppState.artwork-background; label: "Atmosfera da capa"; toggled(v) => { AppState.visual-style-changed(AppState.glass-style, v); } } }
+                }
+            }
+        }
+    }
+    if root.matches(3, SettingsIndex.keywords[3]) : VerticalLayout {
+        SettingsGroupHead { text: "Fontes de música"; }
+        Gutters {
+            Button { text: "Importar coleções"; has-icon: true; icon: Icons.user; clicked => { AppState.account-open = true; } }
+        }
+        Gutters {
+            Group {
+                for p in AppState.providers : GroupItem { separator: false; has-icon: true; icon: Icons.cloud; title: p.name; note: p.status-label; }
+            }
+        }
+    }
+    if root.matches(4, SettingsIndex.keywords[4]) : VerticalLayout {
+        SettingsGroupHead { text: "Privacidade"; }
+        Gutters {
+            Group {
+                GroupItem { separator: false; has-icon: true; icon: Icons.shield; title: "Sem telemetria"; note: "O Kazzu não envia telemetria."; }
+                Pressable {
+                    height: 72px;
+                    ring-radius: Theme.r-group;
+                    label: root.confirm-clear ? "Confirmar: apagar o histórico" : "Apagar histórico";
+                    clicked => { if (root.confirm-clear) { root.confirm-clear = false; AppState.clear-history(); } else { root.confirm-clear = true; } }
+                    GroupItem { has-icon: true; icon: Icons.trash; title: root.confirm-clear ? "Toque de novo para apagar" : "Apagar histórico"; note: root.confirm-clear ? "Não dá para desfazer." : "Buscas e reprodução deste aparelho."; chevron: !root.confirm-clear; }
+                }
+                if root.confirm-clear : TextButton { text: "Cancelar"; clicked => { root.confirm-clear = false; } }
+                Pressable {
+                    height: 72px;
+                    ring-radius: Theme.r-group;
+                    label: "Relatar um problema";
+                    clicked => { AppState.report-problem(); }
+                    GroupItem { has-icon: true; icon: Icons.info; title: "Relatar um problema"; note: "Gera um arquivo aqui. Você decide se envia."; chevron: true; }
+                }
+            }
+        }
+    }
+    if root.matches(5, SettingsIndex.keywords[5]) : VerticalLayout {
+        SettingsGroupHead { text: "Atalhos de teclado"; }
+        Gutters { Group {
+            GroupItem { separator: false; title: "Reproduzir / pausar"; value: "Espaço"; }
+            GroupItem { title: "Avançar / voltar 5 segundos"; value: "← / →"; }
+            GroupItem { title: "Ajustar volume"; value: "↑ / ↓"; }
+            GroupItem { title: "Abrir ou fechar o player"; value: "F"; }
+            GroupItem { title: "Ir para a busca"; value: "Ctrl+F / Ctrl+K"; }
+            GroupItem { title: "Ir para Início / Biblioteca / Busca"; value: "Ctrl+1 / 2 / 3"; }
+            GroupItem { title: "Abrir Ajustes"; value: "Ctrl+,"; }
+            GroupItem { title: "Fechar ou voltar"; value: "Esc"; }
+        } }
+    }
+    if root.matches(6, SettingsIndex.keywords[6]) : VerticalLayout {
+        SettingsGroupHead { text: "Sobre"; }
+        Gutters {
+            Group {
+                GroupItem { separator: false; has-icon: true; icon: Icons.info; title: AppState.version-label; note: "Informações e componentes deste aplicativo."; VerticalLayout { alignment: center; TextButton { text: root.show-licenses ? "Ocultar" : "Licenças"; ink: Theme.ink; width: 96px; clicked => { root.show-licenses = !root.show-licenses; } } } }
+                if root.show-licenses : Rectangle {
+                    height: lic.preferred-height + 2 * Theme.s-md;
+                    lic := Text { x: Theme.s-md; y: Theme.s-md; width: parent.width - 2 * Theme.s-md; text: AppState.licenses-text != "" ? AppState.licenses-text : "Licenças de terceiros: veja o arquivo LICENSE do projeto."; color: Theme.ink-2; font-size: Theme.text-sm; wrap: word-wrap; accessible-role: AccessibleRole.text; }
+                }
+            }
+        }
+    }
+    if root.matches(7, SettingsIndex.keywords[7]) : VerticalLayout {
+        SettingsGroupHead { text: "Áudio Hi-Res"; }
+        Gutters { Group {
+            GroupItem { title: "Saída atual"; note: AppState.output-name; }
+            GroupItem { title: "Formato em reprodução"; note: AppState.has-now && AppState.now-source-line != "" ? AppState.now-source-line : "Disponível durante a reprodução de uma faixa com formato informado."; }
+            if AppState.output-note != "" : GroupItem { title: "Processamento"; note: AppState.output-note; }
+        } }
+    }
+    if root.matches(8, SettingsIndex.keywords[8]) : VerticalLayout {
+        SettingsGroupHead { text: "Qualidade gráfica"; }
+        Gutters { Group {
+                SettingsChoice { title: "Qualidade gráfica"; options: ["Econômico", "Equilibrado", "Alto", "Máximo"]; current: AppState.glass-style; changed(i) => { AppState.glass-style = i; AppState.visual-style-changed(i, AppState.artwork-background); } }
+        } }
+    }
+    if root.matches(9, SettingsIndex.keywords[9]) : VerticalLayout {
+        SettingsGroupHead { text: "Armazenamento"; }
+        Gutters { Group {
+                for f in AppState.folders : GroupItem {
+                    title: f;
+                    VerticalLayout { alignment: center; IconButton { icon: Icons.trash; label: "Remover a pasta " + f; clicked => { AppState.remove-folder(f); } } }
+                }
+                Pressable {
+                    height: 56px;
+                    ring-radius: Theme.r-group;
+                    label: "Adicionar pasta";
+                    clicked => { AppState.folder-open = true; }
+                    GroupItem { has-icon: true; icon: Icons.plus; title: "Adicionar pasta"; chevron: true; }
+                }
+                if AppState.folders.length > 0 : Pressable {
+                    height: 56px;
+                    enabled: !AppState.scanning;
+                    ring-radius: Theme.r-group;
+                    label: "Procurar músicas de novo";
+                    clicked => { AppState.rescan(); }
+                    GroupItem { has-icon: true; icon: Icons.refresh; title: "Procurar músicas de novo"; note: AppState.scanning ? AppState.scan-label : ""; dimmed: AppState.scanning; chevron: true; }
+                }
+        } }
+    }
+    if root.matches(10, SettingsIndex.keywords[10]) : VerticalLayout {
+        SettingsGroupHead { text: "Downloads"; }
+        Gutters { Group {
+            GroupItem { title: "Transferência para uso offline"; note: "O serviço de downloads está indisponível. Arquivos em pastas indexadas podem ser ouvidos offline."; }
+        } }
+    }
+    if root.matches(11, SettingsIndex.keywords[11]) : VerticalLayout {
+        SettingsGroupHead { text: "Acessibilidade"; }
+        Gutters { Group {
+                GroupItem {
+                    title: "Reduzir transparência";
+                    note: "Troca o vidro por superfícies sólidas.";
+                    VerticalLayout { alignment: center; Switch { checked <=> Theme.reduce-transparency; label: "Reduzir transparência"; toggled(v) => { AppState.reduce-transparency-changed(v); } } }
+                }
+                GroupItem {
+                    title: "Reduzir movimento";
+                    note: "Tira os deslocamentos das transições.";
+                    VerticalLayout { alignment: center; Switch { checked <=> Theme.reduce-motion; label: "Reduzir movimento"; toggled(v) => { AppState.reduce-motion-changed(v); } } }
+                }
+        } }
+    }
+    if AppState.settings-query != "" && !root.matches(0, SettingsIndex.keywords[0]) && !root.matches(1, SettingsIndex.keywords[1]) && !root.matches(2, SettingsIndex.keywords[2]) && !root.matches(3, SettingsIndex.keywords[3]) && !root.matches(4, SettingsIndex.keywords[4]) && !root.matches(5, SettingsIndex.keywords[5]) && !root.matches(6, SettingsIndex.keywords[6]) && !root.matches(7, SettingsIndex.keywords[7]) && !root.matches(8, SettingsIndex.keywords[8]) && !root.matches(9, SettingsIndex.keywords[9]) && !root.matches(10, SettingsIndex.keywords[10]) && !root.matches(11, SettingsIndex.keywords[11]) : Gutters {
+        Group { GroupItem { separator: false; title: "Nenhuma configuração encontrada"; note: "Tente tema, qualidade, biblioteca ou atalhos."; } }
+    }
+}

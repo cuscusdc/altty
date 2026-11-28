@@ -1,0 +1,136 @@
+import { Demo, SettingRow } from "data.slint";
+import { UI } from "state.slint";
+import { Header, SearchField } from "browse.slint";
+import { Ink, Glass, Row, Scrubber } from "components.slint";
+
+component Setting inherits Row {
+    in property <SettingRow> item;
+    in property <bool> summary;
+    private property <int> radio: root.item.radio-index;
+    private property <int> toggle: root.item.toggle-index;
+
+    title: root.item.title;
+    sub: root.item.sub;
+    glyph: root.item.glyph;
+    tag: root.item.tag;
+    detail: !root.summary ? "" :
+        root.radio == 0 ? ["320k", "Hi-Res", "160k", "Auto"][UI.radios[0]] :
+        root.radio == 1 ? ["Alta", "Padrão", "Automático"][UI.radios[1]] :
+        root.radio == 3 ? "\{UI.radios[3] * 2}s" : root.item.detail;
+    enabled: !root.item.disabled;
+    interactive: root.item.kind == "action" || root.item.kind == "radio";
+    has-toggle: root.toggle >= 0;
+    checked-toggle: root.toggle >= 0 && UI.toggles[root.toggle];
+    checked: root.item.kind == "radio" && root.radio >= 0 && UI.radios[root.radio] == root.item.choice;
+    chevron: root.item.kind == "action";
+    activated => {
+        if (root.item.kind == "radio") { UI.radios[root.radio] = root.item.choice; }
+        else { UI.setting-action(root.item.action, root.item.target); }
+    }
+    toggled => { UI.toggles[root.toggle] = !UI.toggles[root.toggle]; }
+}
+
+component Eyebrow inherits Ink {
+    color: UI.palette.muted;
+    font-weight: 800;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+}
+
+export component Settings inherits VerticalLayout {
+    Header { title: "Configurações"; back: true; }
+    Rectangle { height: 12px; }
+    SearchField { value <=> UI.settings-query; hint: "Buscar nas configurações"; }
+    for group in Demo.settings-groups : VerticalLayout {
+        // Match the entire group only for the heading. Each row filters independently.
+        private property <bool> any: matches-row(0) || matches-row(1) || matches-row(2) || matches-row(3)
+            || matches-row(4) || matches-row(5) || matches-row(6) || matches-row(7) || matches-row(8)
+            || matches-row(9) || matches-row(10);
+        pure function matches-row(index: int) -> bool {
+            return index < group.rows.length && UI.matches(group.rows[index].title + " " + group.rows[index].sub, UI.settings-query);
+        }
+        if any : VerticalLayout {
+            padding-top: 12px;
+            if !group.title.is-empty : Eyebrow {
+                text: group.title.to-uppercase();
+                height: 24px;
+                vertical-alignment: center;
+            }
+            for item[index] in group.rows : VerticalLayout {
+                if matches-row(index) : VerticalLayout {
+                    padding-bottom: 3px;
+                    Setting { item: item; summary: true; }
+                }
+            }
+        }
+    }
+    if UI.settings-query.is-empty : Ink {
+        text: "kazzu · v1.4.2\nCódigo aberto · Licença MIT";
+        color: UI.palette.muted;
+        font-size: 12px;
+        horizontal-alignment: center;
+        height: 50px;
+    }
+}
+
+export component SettingsPage inherits VerticalLayout {
+    private property <int> index: clamp(UI.page, 0, Demo.settings-pages.length - 1);
+    spacing: 6px;
+    Header { title: Demo.settings-pages[root.index].title; back: true; }
+    Rectangle { height: 8px; }
+    for item in Demo.settings-pages[root.index].rows : VerticalLayout {
+        if item.kind == "heading" : Eyebrow { text: item.title.to-uppercase(); height: 28px; vertical-alignment: center; }
+        if item.kind != "heading" : Setting { item: item; }
+    }
+}
+
+export component Appearance inherits VerticalLayout {
+    spacing: 8px;
+    Header { title: "Aparência"; back: true; }
+    Ink { text: "Material You: as cores seguem a capa da música."; color: UI.palette.muted; wrap: word-wrap; overflow: clip; }
+    Rectangle {
+        height: 146px;
+        background: UI.palette.card;
+        border-radius: UI.card-radius;
+        Eyebrow { x: 14px; y: 12px; width: parent.width - 28px; text: "ESQUEMA ATUAL"; }
+        HorizontalLayout {
+            x: 14px; y: 37px; width: parent.width - 28px; height: 84px; spacing: 5px;
+            for tone in [UI.palette.accent, UI.palette.secondary, UI.palette.selected, UI.palette.high] : Rectangle {
+                horizontal-stretch: 1;
+                border-radius: 14px;
+                background: tone;
+            }
+        }
+        Glass {
+            x: 9px; y: 83px; width: parent.width - 18px; height: 52px; radius: 17px;
+            Ink { text: "Prévia de vidro"; font-weight: 750; horizontal-alignment: center; vertical-alignment: center; }
+        }
+    }
+    VerticalLayout {
+        spacing: 2px;
+        for label[index] in ["Cor da capa (You)", "Tema escuro", "Formas expressivas", "Animações expressivas"] : Row {
+            title: label; has-toggle: true; checked-toggle: UI.toggles[index]; interactive: false;
+            toggled => { UI.toggles[index] = !UI.toggles[index]; }
+        }
+    }
+    Eyebrow { text: "VIDRO E TEXTURA"; height: 24px; vertical-alignment: bottom; }
+    for control[index] in Demo.glass-controls : Rectangle {
+        height: 79px;
+        background: UI.palette.card;
+        border-radius: UI.tile-radius;
+        VerticalLayout {
+            padding-left: 13px; padding-right: 13px; padding-top: 9px; spacing: 3px;
+            HorizontalLayout {
+                spacing: 9px;
+                Ink { text: control.title; font-weight: 750; font-size: 15px; horizontal-stretch: 1; }
+                Ink { text: "\{round(UI.glass[index])}\{control.unit}"; color: UI.palette.muted; }
+            }
+            Ink { text: control.sub; color: UI.palette.muted; font-size: 12px; }
+            Scrubber {
+                label: control.title; height: 30px;
+                value: (UI.glass[index] - control.minimum) / (control.maximum - control.minimum);
+                changed(fraction) => { UI.glass[index] = round(control.minimum + fraction * (control.maximum - control.minimum)); }
+            }
+        }
+    }
+}

@@ -1,0 +1,54 @@
+import { Theme } from "../theme/tokens.slint";
+import { Metrics } from "../theme/metrics.slint";
+import { AppState, Tab, LoadState } from "../theme/app-contract.slint";
+import { Icons } from "../theme/icons.slint";
+import { Glass, Pressable, SectionHeader, Tile, TrackRow, StateCard, Banner } from "atoms.slint";
+import { Screen, Rail, Rows, Gutters, SkeletonRows } from "shared.slint";
+
+export component ExploreFeed inherits Rectangle {
+    property <int> columns: root.width < 600px ? 2 : 4;
+    property <length> card-width: max(0px, (root.width - 2 * Theme.gutter - (root.columns - 1) * 12px) / root.columns);
+    Screen {
+        tab: Tab.explore;
+        VerticalLayout {
+            padding-top: AppState.safe-top + Theme.s-xl;
+            padding-bottom: Metrics.reserve;
+            spacing: Theme.s-lg; alignment: start;
+            @children
+            if AppState.explore-state == LoadState.loading : SkeletonRows { count: 4; }
+            if AppState.explore-state == LoadState.error || AppState.explore-state == LoadState.offline : Gutters {
+                StateCard { icon: Icons.cloud-off; title: "Não foi possível atualizar a descoberta"; text: AppState.explore-error-text; primary: "Tentar de novo"; primary-clicked => { AppState.retry-explore(); } }
+            }
+            if AppState.moods.length > 0 : Rectangle {
+                height: ceil(AppState.moods.length / root.columns) * 106px;
+                for mood[i] in AppState.moods : Pressable {
+                    x: Theme.gutter + mod(i, root.columns) * (root.card-width + 12px);
+                    y: floor(i / root.columns) * 106px;
+                    width: root.card-width; height: 94px;
+                    label: mood.title; focus-key: "explore/mood/" + mood.id;
+                    clicked => { AppState.open-item(mood.kind, mood.id); }
+                    Glass { radius: 18px; shadow: false;
+                        Rectangle { width: parent.width * 0.32; height: parent.height; background: mood.tint.alpha > 0 ? mood.tint : Theme.accent.with-alpha(0.35); }
+                        Image { x: parent.width * 0.32; width: parent.width * 0.68; height: parent.height; source: mood.cover; image-fit: cover; }
+                        Rectangle { background: Theme.media-scrim; }
+                        Text { x: 12px; y: 12px; width: parent.width - 24px; text: mood.title; color: Theme.media-ink; font-size: 14px; font-weight: 700; wrap: word-wrap; }
+                        Text { x: 12px; y: parent.height - 32px; width: parent.width - 24px; text: mood.subtitle; color: Theme.media-ink; font-size: 12px; horizontal-alignment: right; overflow: elide; }
+                    }
+                }
+            }
+            if AppState.new-releases.length > 0 : VerticalLayout {
+                SectionHeader { title: "Lançamentos"; }
+                Rail { card-h: 210px; label: "Lançamentos";
+                    for album in AppState.new-releases : Tile { size: 145px; cover: album.cover; title: album.title; subtitle: album.artist; clicked => { AppState.open-album(album.id); } }
+                }
+            }
+            if AppState.trending.length > 0 : VerticalLayout {
+                SectionHeader { title: "Em alta"; }
+                Rows { for track in AppState.trending : TrackRow { t: track; clicked => { AppState.play-track(track.id); } more-clicked => { AppState.menu-track = track; AppState.menu-open = true; } } }
+            }
+            if AppState.explore-state == LoadState.ready && AppState.moods.length == 0 && AppState.new-releases.length == 0 && AppState.trending.length == 0 : Gutters {
+                StateCard { icon: Icons.disc; title: "Explore novas músicas"; text: "Atualize o catálogo para encontrar lançamentos e estilos."; primary: "Atualizar"; primary-clicked => { AppState.retry-explore(); } }
+            }
+        }
+    }
+}

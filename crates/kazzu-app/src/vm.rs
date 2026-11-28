@@ -157,6 +157,7 @@ pub enum DetailKindVm {
 
 #[derive(Clone, Default)]
 pub struct DetailVm {
+    pub editable_playlist: String,
     pub description: String,
     pub related: Vec<HighlightVm>,
     pub kind: DetailKindVm,

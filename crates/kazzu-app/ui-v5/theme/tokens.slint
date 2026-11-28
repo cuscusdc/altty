@@ -1,0 +1,126 @@
+// Tokens da v4. GERADO por design/v4/tools/gen_tokens.py a partir de design/v4/tokens.json: não edite à mão.
+// Slint 1.19. Tudo o que é cor, medida ou tempo na UI vem deste global.
+import "../fonts/Inter-Regular.ttf";
+import "../fonts/Inter-SemiBold.ttf";
+import "../fonts/Inter-Bold.ttf";
+import "../fonts/InterDisplay-Bold.ttf";
+
+export global Theme {
+    // ---- ambiente (o Rust escreve) ----
+    in-out property <bool> dark: true;
+    in-out property <bool> oled: false;
+    in-out property <int> quality: 1;
+    in-out property <bool> reduce-transparency: false;   // Ajustes ou sistema
+    in-out property <bool> reduce-motion: false;
+    in-out property <bool> blur-supported: true;          // false no renderer software
+    in-out property <length> window-w: 390px;
+    out property <bool> glass-on: quality > 0 && blur-supported && !reduce-transparency;
+    out property <bool> compact: window-w < 600px;
+    out property <bool> wide: window-w >= 1100px;
+    out property <length> gutter: window-w < 368px ? 16px : window-w < 600px ? 20px : 32px;
+
+    // ---- cor ----
+    in-out property <int> palette: 0;
+    out property <color> palette-solar: #ff6b00;
+    out property <color> palette-cyber: #ff3377;
+    out property <color> palette-ametista: #9d4edd;
+    out property <color> palette-esmeralda: #10b981;
+    out property <color> palette-cobalto: #3a86ff;
+    out property <color> palette-ouro: #e0a96d;
+    in-out property <color> accent-primary: [#ff6b00, #ff3377, #9d4edd, #10b981, #3a86ff, #e0a96d][clamp(palette, 0, 5)];
+    in-out property <color> accent-secondary: [#ffa858, #ff7fa8, #c77dff, #00f5d4, #00b4d8, #ffd166][clamp(palette, 0, 5)];
+    in-out property <color> palette-base: [#120a05, #160710, #11071c, #041410, #070e1c, #0a0a0c][clamp(palette, 0, 5)];
+    in-out property <color> accent-light: [#a33e00, #b50d49, #7122a9, #047657, #1d58b0, #83501d][clamp(palette, 0, 5)];
+    out property <color> glass-fill-hi: dark ? #ffffff29 : #ffffffcc;
+    out property <color> glass-fill-mid: dark ? #ffffff0a : #ffffff66;
+    out property <color> glass-fill-lo: dark ? #ffffff14 : #ffffff99;
+    out property <length> island-height: 58px;
+    out property <length> island-radius: 22px;
+    out property <length> island-gap: 12px;
+    out property <length> island-margin: 10px;
+    out property <color> paper: oled ? #000000 : dark ? palette-base : #f3f4f6;   // fundo da página
+    out property <color> paper-2: dark ? #16171a : #fcfdfe;   // superfície elevada: listas agrupadas, ladrilhos sem capa, sólido do vidro
+    out property <color> paper-3: dark ? #25262a : #e5e6e9;   // preenchimento de controle, pressionado, esqueleto
+    out property <color> ink: dark ? #fdf6ec : #0f1217;   // texto e ícones principais
+    out property <color> ink-2: dark ? #fdf6ecc2 : #4d5057;   // texto secundário (4,5:1 sobre paper, paper-2 e paper-3)
+    out property <color> muted: dark ? #fdf6ec94 : #696c72;   // ícones inativos, texto de ajuda, bordas de campo (3:1)
+    out property <color> rule: dark ? #2b2d30 : #d8d9dc;   // fios de 1 px
+    out property <color> accent: dark ? accent-primary : accent-light;   // Brasa: estado (tocando, curtido, ligado), links, foco
+    out property <color> accent-ink: dark ? #1a0a06 : #fffaf5;   // texto sobre o acento
+    out property <color> focus: dark ? accent-secondary : accent-light;   // anel de foco, 2 px
+    out property <color> error: dark ? #f97770 : #b7191c;   // erro, sempre com ícone e texto
+    out property <color> success: dark ? #68ca80 : #146d34;   // confirmação pontual
+    out property <color> bubble: dark ? #595b5f : #fcfdfe;   // bolha opaca do item ativo dentro do vidro (aba, segmento)
+    out property <color> primary: dark ? #f2f3f6 : #0f1217;   // botão principal preenchido (= ink)
+    out property <color> primary-ink: dark ? #0a0b0e : #fbfcfd;   // texto do botão principal
+
+    // ---- vidro ----
+    out property <color> glass-tint: dark ? #343539bd : #fbfcfd8a;   // cromo: barra, busca, mini-player, cabeçalho recolhido, botões sobre capa
+    out property <color> glass-tint-sheet: dark ? #313336c2 : #f9fafb9e;   // folhas (menu, playlists)
+    out property <color> glass-solid: dark ? #16171a : #fcfdfe;   // Reduzir transparência e renderer sem desfoque
+    out property <color> glass-edge-hi: dark ? #ffffff75 : #ffffffe6;   // fio de luz, topo
+    out property <color> glass-edge-lo: dark ? #ffffff1a : #0f121714;   // fio de luz, base
+    out property <color> glass-sheen: dark ? #ffffff24 : #ffffff8c;   // brilho no terço superior (some no meio)
+    out property <color> glass-shadow: dark ? #00000180 : #0f121729;   // sombra do painel
+    out property <length> glass-blur: quality == 1 ? 12px : quality == 2 ? 24px : 32px;
+    out property <length> glass-blur-sheet: quality == 1 ? 16px : quality == 2 ? 28px : 40px;
+    out property <length> glass-blur-console: 24px;
+
+    // ---- sobre capas e no player (igual nos dois temas) ----
+    out property <color> media-ink: #f9fafc;
+    out property <color> media-plate: #0c0d0f99;
+    out property <color> media-console: #08090b;
+    out property <color> media-scrim: #0303044c;
+    out property <color> media-well: #0303044c;
+    out property <color> media-track: #ffffff42;
+    out property <color> media-edge-hi: #ffffff57;
+    out property <color> media-edge-lo: #ffffff0f;
+    out property <color> media-accent: accent-secondary;
+    out property <color> media-shadow: #00000166;
+    out property <float> media-dim-min: 0.24;
+    out property <float> media-dim-max: 0.64;
+
+    // ---- tipo (Inter; pesos 400, 600, 700) ----
+    out property <string> font: "Inter";
+    out property <string> font-display: "Inter Display";
+    out property <length> text-xs: 12px;   // rótulo de aba, selo (linha 16)
+    out property <length> text-sm: 13px;   // meta, legenda (linha 18)
+    out property <length> text-md: 15px;   // linha secundária, botão (linha 20)
+    out property <length> text-lg: 17px;   // corpo, título de linha (linha 22)
+    out property <length> text-xl: 22px;   // título de seção, título de folha (linha 28)
+    out property <length> text-xxl: 28px;   // título do player em telas largas (linha 34)
+    out property <length> text-xxxl: 34px;   // título grande (linha 40)
+
+    // ---- espaço, raio, tamanho ----
+    out property <length> s-xxxs: 2px;
+    out property <length> s-xxs: 4px;
+    out property <length> s-xs: 8px;
+    out property <length> s-sm: 12px;
+    out property <length> s-md: 16px;
+    out property <length> s-lg: 20px;
+    out property <length> s-xl: 24px;
+    out property <length> s-xxl: 32px;
+    out property <length> s-xxxl: 48px;
+    out property <length> s-xxxxl: 64px;
+    out property <length> r-thumb: 8px;
+    out property <length> r-cover: 12px;
+    out property <length> r-group: 14px;
+    out property <length> r-plate: 16px;
+    out property <length> r-card: 22px;
+    out property <length> r-sheet: 32px;
+    out property <length> r-pill: 999px;
+    out property <length> tap: 48px;
+    out property <length> row-h: 64px;
+    out property <length> bar-h: 64px;
+    out property <length> orb: 64px;
+    out property <length> mini-h: 60px;
+    out property <length> header-h: 48px;
+    out property <length> control-h: 48px;
+    out property <length> control-s-h: 36px;
+
+    // ---- movimento (com Reduzir movimento os deslocamentos somem; fica só o esmaecer curto) ----
+    out property <duration> dur-micro: 120ms;
+    out property <duration> dur-short: reduce-motion ? 120ms : 220ms;
+    out property <duration> dur-long: reduce-motion ? 120ms : 420ms;
+    // curva de chegada, tipo mola sem ressalto: cubic-bezier(0.2, 0.9, 0.2, 1)
+}

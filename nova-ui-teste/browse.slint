@@ -1,0 +1,581 @@
+import { ScrollView } from "std-widgets.slint";
+import { Demo, Tile } from "data.slint";
+import { UI, Screen } from "state.slint";
+import { Ink, Icon, Glass, Action, Pill, Artwork, Section, Row, Vinyl } from "components.slint";
+
+export component Header inherits VerticalLayout {
+    in property <string> title;
+    in property <bool> back;
+    spacing: 6px;
+    HorizontalLayout {
+        height: root.back ? 48px : 78px;
+        spacing: 8px;
+        if root.back : Action {
+            glyph: @image-url("assets/back.svg"); title: "Voltar";
+            fill: UI.palette.ink.with-alpha(0.10);
+            activated => { UI.back(); }
+        }
+        if !root.back : VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            HorizontalLayout {
+                height: 44px;
+                spacing: 8px;
+                alignment: start;
+                accessible-role: image;
+                accessible-label: "Kazzu";
+                Rectangle {
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 12px;
+                    background: UI.palette.high.with-alpha(0.72);
+                    border-width: 1px;
+                    border-color: UI.palette.ink.with-alpha(0.11);
+                    Image {
+                        width: 36px;
+                        height: 36px;
+                        source: UI.dark ? @image-url("assets/kazzu-icone-branco.svg") : @image-url("assets/kazzu-icone-preto.svg");
+                        image-fit: contain;
+                    }
+                }
+                Image {
+                    width: 82px;
+                    height: 30px;
+                    source: UI.dark ? @image-url("assets/kazzu-texto-branco.svg") : @image-url("assets/kazzu-texto-preto.svg");
+                    image-fit: contain;
+                }
+            }
+            Ink {
+                text: root.title;
+                color: UI.palette.ink.with-alpha(0.92);
+                font-size: 26px;
+                font-weight: 800;
+            }
+        }
+        if root.back : Rectangle { horizontal-stretch: 1; }
+        Glass {
+            width: root.back ? 44px : 89px;
+            height: 44px;
+            radius: 22px;
+            HorizontalLayout {
+                alignment: center;
+                if !root.back : Action {
+                    width: 44px; size: 36px; glyph: @image-url("assets/chart.svg"); title: "Replay";
+                    activated => { UI.navigate(Screen.replay, 0); }
+                }
+                Rectangle {
+                    width: 44px;
+                    height: 44px;
+                    accessible-role: button;
+                    accessible-label: "Configurações";
+                    accessible-action-default => { UI.navigate(Screen.settings, 0); }
+                    Rectangle {
+                        width: 36px; height: 36px; border-radius: 18px;
+                        background: UI.palette.accent;
+                        Ink { text: "C"; color: UI.palette.on-accent; font-size: 16px; font-weight: 800; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    TouchArea { clicked => { UI.navigate(Screen.settings, 0); } }
+                }
+            }
+        }
+    }
+    if root.back : Ink {
+        text: root.title;
+        font-size: clamp(30px, root.width * 0.105, 44px);
+        font-weight: 800;
+        letter-spacing: -1.7px;
+        wrap: word-wrap;
+        overflow: clip;
+    }
+}
+
+export component SearchField inherits Rectangle {
+    in-out property <string> value;
+    in property <string> hint;
+    min-height: 48px;
+    background: UI.palette.card;
+    border-width: 1px;
+    border-color: UI.palette.ink.with-alpha(0.10);
+    border-radius: 14px;
+    Rectangle {
+        x: 13px; width: 21px; height: parent.height;
+        Icon { source: @image-url("assets/search.svg"); tint: UI.palette.muted; width: 19px; height: 19px; }
+    }
+    Ink {
+        x: 43px; width: parent.width - 51px; height: parent.height;
+        visible: root.value.is-empty && input.preedit-text.is-empty;
+        text: root.hint; color: UI.palette.muted; vertical-alignment: center;
+        accessible-role: none;
+    }
+    input := TextInput {
+        x: 43px; y: 0; width: parent.width - (root.value.is-empty ? 51px : 91px); height: parent.height;
+        text <=> root.value;
+        color: UI.palette.ink; font-size: 14px;
+        selection-background-color: UI.palette.accent;
+        selection-foreground-color: UI.palette.on-accent;
+        vertical-alignment: center;
+        accessible-role: text-input;
+        accessible-label: root.hint;
+        accessible-value <=> root.value;
+    }
+    if !root.value.is-empty : Action {
+        x: parent.width - 44px; width: 44px;
+        glyph: @image-url("assets/close.svg"); title: "Limpar campo"; size: 32px; glyph-size: 16px;
+        activated => { root.value = ""; input.focus(); }
+    }
+}
+
+component DiscRail inherits ScrollView {
+    in property <[Tile]> tiles;
+    in property <bool> music;
+    height: 201px;
+    content-width: 474px;
+    content-height: self.height;
+    horizontal-scrollbar-policy: always-off;
+    vertical-scrollbar-policy: always-off;
+    HorizontalLayout {
+        x: 0;
+        y: 0;
+        width: 474px;
+        alignment: start;
+        spacing: 12px;
+        for entry[i] in 3 : Rectangle {
+            property <Tile> item: root.tiles[i];
+            width: 150px;
+            height: 199px;
+            accessible-role: button;
+            accessible-label: root.music ? Demo.tracks[i].title : self.item.title;
+            accessible-action-default => { root.choose(i); }
+            VerticalLayout {
+                spacing: 4px;
+                alignment: start;
+                Artwork {
+                    height: 150px;
+                    art: root.music ? Demo.tracks[i].cover : item.cover;
+                    tone: item.tone;
+                    glyph: item.glyph;
+                }
+                Ink { text: root.music ? Demo.tracks[i].title : item.title; font-weight: 800; }
+                Ink { text: root.music ? Demo.tracks[i].artist + " • " + Demo.tracks[i].album : item.sub; color: UI.palette.muted; font-size: 12px; }
+            }
+            TouchArea { clicked => { root.choose(i); } }
+        }
+    }
+
+    function choose(index: int) {
+        if (root.music) { UI.play(index); } else { UI.soon(); }
+    }
+}
+
+component Pager inherits HorizontalLayout {
+    in property <int> page;
+    callback move(int);
+    alignment: end;
+    height: 48px;
+    if root.page > 0 : Action {
+        glyph: @image-url("assets/back.svg"); title: "Anterior"; fill: UI.palette.card;
+        activated => { root.move(-1); }
+    }
+    Action {
+        glyph: @image-url("assets/chev.svg"); title: "Próximo"; fill: UI.palette.card;
+        activated => { root.move(1); }
+    }
+}
+
+component PageSlide inherits Rectangle {
+    in property <int> page;
+    private property <int> previous;
+    private property <int> direction: 1;
+    private property <bool> arriving: true;
+    init => { self.previous = self.page; }
+    changed page => {
+        self.direction = self.page >= self.previous ? 1 : -1;
+        self.previous = self.page;
+        self.arriving = !UI.motion;
+    }
+    Timer { running: !root.arriving; interval: 14ms; triggered => { root.arriving = true; } }
+    Rectangle {
+        x: root.arriving ? 0px : 18px * root.direction;
+        opacity: root.arriving ? 1 : 0.28;
+        animate x, opacity { duration: root.arriving && UI.motion ? 290ms : 0ms; easing: ease-out; }
+        @children
+    }
+}
+
+export component Home inherits VerticalLayout {
+    spacing: 10px;
+    Header { title: "Início"; }
+    Flickable {
+        height: 44px;
+        content-width: max(root.width, 298px);
+        content-height: self.height;
+        HorizontalLayout {
+            x: 0; width: 298px; spacing: 6px; alignment: start;
+            for chip[i] in ["Tudo", "Playlists", "Músicas", "Podcasts"] : Pill {
+                title: chip; selected: i == 0; height: 32px; side-padding: root.width < 330px ? 9px : 12px;
+                activated => { if (i > 0) { UI.soon(); } }
+            }
+        }
+    }
+    Section { title: "Suas playlists"; link: "Ver tudo"; activated => { UI.navigate(Screen.library, 0); } }
+    Rectangle {
+        height: 184px;
+        for cell[i] in 6 : Rectangle {
+            property <Tile> tile: i < 3 ? Demo.playlists[i] : Demo.suggested[i - 3];
+            x: mod(i, 2) * (parent.width + 8px) / 2;
+            y: floor(i / 2) * 64px;
+            width: (parent.width - 8px) / 2;
+            height: 56px;
+            border-radius: UI.tile-radius;
+            background: tap.pressed ? UI.palette.high : UI.palette.card.with-alpha(0.88);
+            clip: true;
+            accessible-role: button;
+            accessible-label: self.tile.title;
+            accessible-action-default => { UI.soon(); }
+            Artwork { x: 0; width: 56px; height: 56px; tone: tile.tone; glyph: tile.glyph; border-radius: 0px; }
+            Ink { x: 64px; width: parent.width - 72px; text: tile.title; vertical-alignment: center; height: parent.height; font-weight: 750; wrap: word-wrap; }
+            tap := TouchArea { clicked => { UI.soon(); } }
+        }
+    }
+    Rectangle { height: 4px; }
+    Section { title: "Escolha rápida"; link: "Ver tudo"; activated => { UI.navigate(Screen.explore, 0); } }
+    Rectangle {
+        height: self.width;
+        for tile[i] in 9 : Rectangle {
+            property <string> name: i < 8 ? Demo.tracks[i].title : "Aleatório";
+            x: mod(i, 3) * (parent.width + 10px) / 3;
+            y: floor(i / 3) * (self.width + 10px);
+            width: (parent.width - 20px) / 3;
+            height: self.width;
+            border-radius: UI.tile-radius;
+            background: UI.palette.card;
+            accessible-role: button;
+            accessible-label: self.name;
+            accessible-action-default => { if (i < 8) { UI.play(i); } else { UI.random-track(); } }
+            if i < 8 : Artwork { art: Demo.tracks[i].cover; }
+            if i == 8 : Icon { y: parent.height * 0.25; width: 32px; height: 32px; source: @image-url("assets/shuffle.svg"); }
+            Rectangle {
+                x: 6px; y: parent.height - 29px;
+                width: parent.width - 12px; height: 23px;
+                border-radius: 12px; background: #00000099;
+                Ink { x: 6px; width: parent.width - 12px; color: white; text: name; font-size: 12px; font-weight: 750; horizontal-alignment: center; vertical-alignment: center; }
+            }
+            TouchArea { clicked => { if (i < 8) { UI.play(i); } else { UI.random-track(); } } }
+        }
+    }
+    Rectangle { height: 4px; }
+    Section { title: "Artistas"; }
+    PageSlide {
+        page: UI.artist-page;
+        height: (root.width - 24px) / 3 + 41px;
+        HorizontalLayout {
+            spacing: 12px;
+            for artist in 3 : Rectangle {
+                property <Tile> item: Demo.artists[mod(UI.artist-page * 3 + artist, Demo.artists.length)];
+                horizontal-stretch: 1;
+                accessible-role: button;
+                accessible-label: self.item.title;
+                accessible-action-default => { UI.soon(); }
+                VerticalLayout {
+                    alignment: start;
+                    spacing: 3px;
+                    Artwork { height: self.width; art: item.cover; tone: item.tone; glyph: item.glyph; border-radius: self.width / 2; }
+                    Ink { text: item.title; font-weight: 800; }
+                    Ink { text: item.sub; color: UI.palette.muted; font-size: 12px; }
+                }
+                TouchArea { clicked => { UI.soon(); } }
+            }
+        }
+    }
+    Pager { page: UI.artist-page; move(dir) => { UI.artist-page += dir; } }
+}
+
+component Turntable inherits Rectangle {
+    height: 312px;
+    private property <int> selected: UI.discovery-index;
+    private property <bool> on: UI.placed-record >= 0 && UI.track-index == UI.placed-record && UI.playing;
+    private property <bool> in-flight: UI.record-phase == 2 || UI.record-phase == 4;
+    private property <length> platter-x: (root.width - 230px) / 2 + 20px;
+
+    Rectangle {
+        x: 0; y: 0; width: parent.width; height: 111px; clip: true;
+        for track[i] in Demo.tracks : Rectangle {
+            property <bool> centered: i == root.selected;
+            property <length> offset: (i - root.selected) * 146px;
+            x: (parent.width - self.width) / 2 + self.offset;
+            width: self.centered ? 140px : 115px;
+            height: self.centered ? 100px : 82px;
+            opacity: self.centered ? 1 : 0.50;
+            animate x, width, height, opacity { duration: UI.motion ? 300ms : 0ms; easing: ease-out; }
+            if (UI.placed-record != i && !(UI.record-phase == 2 && UI.pending-record == i)) : Vinyl {
+                x: parent.width - self.width + (UI.record-phase == 1 && UI.pending-record == i ? 37px : 0px);
+                width: parent.height * 0.92;
+                height: self.width;
+                art: track.cover;
+                animate x { duration: 440ms; easing: ease-in-out; }
+            }
+            Artwork { x: 0; width: parent.height; height: self.width; art: track.cover; border-radius: 10px; }
+            accessible-role: button;
+            accessible-label: track.title + ", " + track.artist;
+            accessible-action-default => { UI.select-record(i); }
+            TouchArea { clicked => { UI.select-record(i); } }
+        }
+        drag := TouchArea {
+            property <length> start;
+            changed pressed => {
+                if (self.pressed) { self.start = self.mouse-x; }
+                else if (abs(self.mouse-x - self.start) > 30px && UI.record-phase == 0) {
+                    UI.discovery-index = clamp(UI.discovery-index + (self.mouse-x < self.start ? 1 : -1), 0, Demo.tracks.length - 1);
+                }
+            }
+            clicked => {
+                if (abs(self.mouse-x - self.start) <= 30px) {
+                    UI.select-record(clamp(UI.discovery-index + round((self.mouse-x - self.width / 2) / 146px), 0, Demo.tracks.length - 1));
+                }
+            }
+        }
+    }
+    Ink { y: 117px; width: parent.width; text: Demo.tracks[root.selected].title; font-size: 16px; font-weight: 800; horizontal-alignment: center; }
+    Ink { y: 140px; width: parent.width; text: Demo.tracks[root.selected].artist; color: UI.palette.muted; horizontal-alignment: center; }
+    Rectangle {
+        y: 165px; width: 230px; height: 150px;
+        border-radius: 18px; background: #18181d;
+        drop-shadow-color: #00000065; drop-shadow-blur: 14px; drop-shadow-offset-y: 8px;
+        Rectangle {
+            x: 0; y: 0; width: parent.width; height: 142px; border-radius: 18px;
+            background: @linear-gradient(160deg, #53535e, #232329);
+            border-width: 1px; border-color: #d4d4de45;
+            Rectangle {
+                x: 16px; y: 18px; width: 100px; height: 100px;
+                border-radius: 50px; background: @linear-gradient(135deg, #c6c6d2, #292933, #9ea0a9, #42424b);
+                for mark in 48 : Rectangle {
+                    width: 96px; height: 2px; transform-rotation: mark * 3.75deg;
+                    Rectangle { x: 0; width: 3px; height: 2px; background: #25252b; }
+                    Rectangle { x: parent.width - 3px; width: 3px; height: 2px; background: #25252b; }
+                }
+                Rectangle {
+                    width: 91px; height: 91px; border-radius: 46px; background: #17171d;
+                    for ring in 7 : Rectangle {
+                        width: parent.width - ring * 9px - 5px; height: self.width; border-radius: self.width / 2;
+                        border-width: 1px; border-color: #ffffff14;
+                    }
+                }
+                if UI.placed-record >= 0 && UI.record-phase != 4 : Vinyl {
+                    width: 92px; height: 92px; art: Demo.tracks[max(0, UI.placed-record)].cover; turns: UI.platter-spin;
+                }
+                Rectangle { width: 8px; height: 8px; border-radius: 4px; background: @linear-gradient(135deg, #ffffff, #666673); }
+                TouchArea { clicked => { root.toggle(); } }
+            }
+            Rectangle { x: 153px; y: 90px; width: 10px; height: 14px; border-radius: 3px; background: #1a1a20; }
+            Rectangle {
+                x: 151px; y: 30px; width: 98px; height: 18px;
+                transform-origin: { x: 9px, y: 9px };
+                transform-rotation: root.on ? 137deg : 85deg;
+                animate transform-rotation { duration: UI.motion ? 700ms : 0ms; easing: ease-in-out; }
+                Rectangle { x: 0; width: 84px; height: 4px; border-radius: 2px; background: @linear-gradient(0deg, #666675, #dbdbe6, #747483); }
+                Rectangle { x: 78px; width: 14px; height: 10px; border-radius: 3px; background: #17171d; border-width: 1px; border-color: #6a6a76; }
+            }
+            Rectangle { x: 149px; y: 28px; width: 22px; height: 22px; border-radius: 11px; background: @linear-gradient(135deg, #e1e1eb, #555563, #aaaabc); }
+            Rectangle { x: 200px; y: 66px; width: 6px; height: 48px; border-radius: 3px; background: #151518; Rectangle { width: 15px; height: 8px; border-radius: 2px; background: #9999a2; } }
+            Rectangle { x: 147px; y: 124px; width: 5px; height: 5px; border-radius: 3px; background: root.on ? #4cff8a : #5a1d1d; }
+            Action { x: 107px; y: 100px; title: "Tocar ou pausar o disco"; glyph: root.on ? @image-url("assets/pause.svg") : @image-url("assets/play.svg"); size: 18px; glyph-size: 9px; fill: #1a1a20; ink: white; activated => { root.toggle(); } }
+            Ink { x: 175px; y: 123px; text: "33⅓"; color: #dddde1; font-size: 10px; }
+        }
+    }
+
+    // The same flying record travels in an arc in both directions.
+    Rectangle {
+        property <float> travel: UI.record-phase == 2 || UI.record-phase == 3 ? 1 : 0;
+        property <length> start-x: (root.width - 140px) / 2 + 85px;
+        x: self.start-x + (root.platter-x - self.start-x) * self.travel;
+        y: 10px + 177px * self.travel - 96px * self.travel * (1 - self.travel);
+        width: 92px; height: 92px;
+        visible: root.in-flight;
+        transform-scale: 1 + 0.16 * self.travel * (1 - self.travel);
+        animate travel {
+            duration: UI.record-phase == 2 ? 720ms : (UI.record-phase == 4 ? 640ms : 0ms);
+            easing: cubic-bezier(0.45, 0.05, 0.2, 1);
+        }
+        Vinyl {
+            art: Demo.tracks[max(0, UI.record-phase >= 3 ? UI.placed-record : UI.pending-record)].cover;
+            turns: parent.travel;
+        }
+    }
+
+    function toggle() {
+        if (UI.placed-record >= 0 && UI.record-phase == 0) {
+            if (UI.track-index == UI.placed-record) { UI.playing = !UI.playing; }
+            else { UI.play(UI.placed-record); }
+        }
+    }
+}
+
+export component Explore inherits VerticalLayout {
+    private property <bool> show-turntable;
+    spacing: 11px;
+    Header { title: "Explorar"; }
+    Section { title: "Músicas sugeridas"; }
+    PageSlide {
+        page: UI.suggest-page;
+        height: 168px;
+        for slot in 6 : Rectangle {
+            property <int> song: mod(UI.suggest-page * 6 + slot + 3, Demo.tracks.length);
+            property <image> cover: Demo.tracks[self.song].cover;
+            property <string> song-title: Demo.tracks[self.song].title;
+            x: mod(slot, 2) * (parent.width + 10px) / 2;
+            y: floor(slot / 2) * 60px;
+            width: (parent.width - 10px) / 2;
+            height: 48px;
+            border-radius: UI.tile-radius;
+            clip: true;
+            background: touch.pressed ? UI.palette.high : UI.palette.card.with-alpha(0.88);
+            accessible-role: button;
+            accessible-label: self.song-title;
+            accessible-action-default => { UI.play(song); }
+            Artwork { x: 0; width: 48px; height: 48px; art: cover; border-radius: 0px; }
+            VerticalLayout {
+                x: 54px; width: parent.width - 60px;
+                spacing: 2px; alignment: center;
+                Ink { text: song-title; font-size: 13px; font-weight: 750; }
+                Ink { text: Demo.tracks[song].artist; color: UI.palette.muted; font-size: 11px; }
+            }
+            touch := TouchArea { clicked => { UI.play(song); } }
+        }
+    }
+    Pager { page: UI.suggest-page; move(dir) => { UI.suggest-page += dir; } }
+    Rectangle {
+        preferred-height: feature.preferred-height;
+        border-radius: UI.card-radius;
+        background: UI.palette.card;
+        clip: true;
+        feature := VerticalLayout {
+            alignment: start;
+            Row {
+                title: "Toca-discos";
+                sub: "Escolha um álbum para tocar em vinil";
+                glyph: @image-url("assets/music.svg");
+                detail: root.show-turntable ? "Recolher" : "Abrir";
+                chevron: false;
+                activated => { root.show-turntable = !root.show-turntable; }
+            }
+            if root.show-turntable : VerticalLayout {
+                padding-top: 12px;
+                padding-bottom: 14px;
+                Turntable {}
+            }
+        }
+    }
+    Section { title: "Playlists sugeridas"; }
+    DiscRail { tiles: Demo.suggested; }
+    Section { title: "Categorias"; }
+    Rectangle {
+        height: 172px + 5 * 160px;
+        for category[i] in Demo.categories : Rectangle {
+            x: i == 0 ? 0px : mod(i - 1, 2) * (parent.width + 10px) / 2;
+            y: i == 0 ? 0px : 182px + floor((i - 1) / 2) * 160px;
+            width: i == 0 ? parent.width : (parent.width - 10px) / 2;
+            height: i == 0 ? 172px : 150px;
+            border-radius: UI.tile-radius;
+            background: category.tone;
+            clip: true;
+            Rectangle { y: parent.height * 0.48; height: parent.height * 0.52; background: category.tone.darker(0.28); }
+            Artwork {
+                x: parent.width * 0.59; y: parent.height * 0.47;
+                width: min(116px, parent.width * 0.44); height: self.width;
+                art: Demo.tracks[category.track-index].cover; border-radius: 10px; transform-rotation: 15deg;
+            }
+            Ink { x: 13px; y: 13px; width: parent.width - 26px; text: category.title; color: white; font-size: 16px; font-weight: 800; wrap: word-wrap; }
+            accessible-role: button;
+            accessible-label: category.title;
+            accessible-action-default => { UI.play(category.track-index); }
+            TouchArea { clicked => { UI.play(category.track-index); } }
+        }
+    }
+}
+
+export component Library inherits VerticalLayout {
+    spacing: 10px;
+    Header { title: "Biblioteca"; }
+    Section { title: "Continue ouvindo"; link: "Histórico"; activated => { UI.soon(); } }
+    DiscRail { music: true; }
+    VerticalLayout {
+        spacing: 2px;
+        Row { title: "Downloads"; glyph: @image-url("assets/download.svg"); activated => { UI.soon(); } }
+        Row { title: "Música local"; glyph: @image-url("assets/folder.svg"); activated => { UI.soon(); } }
+        Row { title: "Nova playlist"; glyph: @image-url("assets/plus.svg"); activated => { UI.soon(); } }
+    }
+    Rectangle { height: 4px; }
+    Section { title: "Playlists"; link: "Ver tudo"; activated => { UI.soon(); } }
+    DiscRail { tiles: Demo.playlists; }
+}
+
+export component Replay inherits VerticalLayout {
+    spacing: 11px;
+    Header { title: "Replay"; back: true; }
+    Ink { text: ["Esta semana", "Este mês", "Este ano", "Todo o tempo"][UI.replay-period]; color: UI.palette.muted; font-size: 16px; }
+    Rectangle {
+        height: 42px; border-radius: 14px; background: UI.palette.card;
+        HorizontalLayout {
+            padding: 4px; spacing: 3px;
+            for period[i] in ["Semanal", "Mensal", "Anual", "Sempre"] : Pill {
+                title: period; selected: i == UI.replay-period; inverse: true; horizontal-stretch: 1; side-padding: 7px;
+                activated => { UI.replay-period = i; }
+            }
+        }
+    }
+    Rectangle {
+        height: 206px; border-radius: UI.card-radius;
+        background: @linear-gradient(145deg, UI.palette.selected, UI.palette.high);
+        VerticalLayout {
+            padding: 18px; spacing: 4px;
+            Ink { text: "SUA EXPERIÊNCIA DE ESCUTA"; font-size: 11px; font-weight: 800; letter-spacing: 1.4px; }
+            Rectangle { vertical-stretch: 1; }
+            Ink { text: "694"; font-size: 52px; font-weight: 800; }
+            Ink { text: "MINUTOS OUVIDOS"; font-size: 11px; font-weight: 800; letter-spacing: 1.4px; }
+            Rectangle { vertical-stretch: 1; }
+            Ink { text: "cuscusdoce rael"; font-size: 15px; font-weight: 800; }
+            Ink { text: "170 reproduções · Todo o tempo"; font-size: 12px; color: UI.palette.muted; }
+        }
+    }
+    Row { title: "Tocar seu Replay"; glyph: @image-url("assets/play.svg"); selected: true; activated => { UI.random-track(); } }
+    Section { title: "Músicas mais tocadas"; }
+    for track[i] in Demo.replay : HorizontalLayout {
+        spacing: 8px;
+        Ink { width: 20px; text: "\{i + 1}"; color: i == 0 ? #e5352b : UI.palette.muted; font-weight: 800; vertical-alignment: center; }
+        Row { title: track.title; sub: track.sub; detail: "\{track.plays}"; art: track.cover; chevron: false; activated => { UI.soon(); } }
+    }
+}
+
+export component Search inherits VerticalLayout {
+    pure function matches-track(index: int) -> bool {
+        return UI.matches(Demo.tracks[index].title + " " + Demo.tracks[index].artist + " " + Demo.tracks[index].album, UI.query);
+    }
+    private property <bool> any-result: matches-track(0) || matches-track(1) || matches-track(2) || matches-track(3)
+        || matches-track(4) || matches-track(5) || matches-track(6) || matches-track(7);
+    SearchField { value <=> UI.query; hint: "Artistas, músicas ou letras..."; }
+    Rectangle { height: 7px; }
+    HorizontalLayout {
+        height: 42px;
+        spacing: 7px; alignment: start;
+        for source[i] in ["YouTube", "Biblioteca"] : Pill {
+            title: source; selected: i == UI.search-source;
+            activated => { UI.search-source = i; }
+        }
+    }
+    Section {
+        title: UI.query.is-empty ? "Pesquisas recentes" : "Resultados";
+        link: UI.recent && UI.query.is-empty ? "Limpar" : "";
+        activated => { UI.clear-search(); }
+    }
+    for track[i] in Demo.tracks : VerticalLayout {
+        if (UI.query.is-empty ? (UI.recent && i < 2) : matches-track(i)) : VerticalLayout {
+            padding-top: 6px;
+            Row {
+                art: track.cover; title: track.title; sub: track.artist + " • " + track.album;
+                activated => { UI.play(i); }
+            }
+        }
+    }
+    if UI.query.is-empty && !UI.recent : Ink { text: "Nenhuma pesquisa recente"; color: UI.palette.muted; }
+    if !UI.query.is-empty && !root.any-result : Ink { text: "Nenhum resultado"; color: UI.palette.muted; }
+}

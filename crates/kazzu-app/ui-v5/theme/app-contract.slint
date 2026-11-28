@@ -1,0 +1,315 @@
+// Contrato entre a UI (Slint) e o kazzu-app (Rust), v4 (vidro sobre capas, YouTube Music padrão).
+// A UI só LÊ estas propriedades e CHAMA estes callbacks. Nomes em inglês (código); textos visíveis em pt-BR vêm
+// prontos do Rust (ex.: count-label "214 músicas"). Mudanças da v4 (design/v4/SLINT_SPEC.md §6): `backdrop` ganhou
+// outro formato, entraram `backdrop-wide`, `player-dim`, `mini-dim` e `now-source-line`; saíram o acento da capa,
+// os chips do Início e `search-ideas`. Ver docs/UI_NOTES.md.
+
+export enum Tab { home, explore, library, search, settings }
+export enum RepeatMode { off, all, one }
+// idle: campo vazio | results | empty: sem resultado | loading | error: provedor não respondeu | offline
+export enum SearchState { idle, results, empty, loading, error, offline }
+export enum ThemeMode { auto, light, dark, oled }
+// tracks: lista de faixas (álbum, playlist, curtidas, gênero) | albums: grade de álbuns | artist: faixas + álbuns
+export enum DetailKind { tracks, albums, artist }
+// estado de carregamento de uma tela de conteúdo (Início, Explorar, detalhe)
+export enum LoadState { loading, ready, empty, error, offline }
+
+export struct Track {
+    id: string,
+    title: string,
+    artist: string,
+    album: string,
+    cover: image,
+    duration-label: string,   // "3:21"
+    codec: string,            // "FLAC" | "WAV" | "OPUS" | "MP3" ...
+    detail: string,           // "24/96" (curto, para o selo da lista)
+    detail-long: string,      // "24-bit/96 kHz" (selo do player)
+    hires: bool,              // true se >= 24 bits (selo usa o acento)
+    source: string,           // "" = local; "YouTube Music", "Spotify"...
+    liked: bool,
+    playing: bool,            // linha atual (mostra barras e título em acento)
+    why: string,              // motivo da sugestão ("Em alta hoje"); "" = nenhum
+}
+
+export struct Album { id: string, title: string, artist: string, cover: image }
+// `kind`: "album" | "playlist" | "artist" | "mood" | "shuffle" | "liked" (diz o que `open-item`/`play-item` abrem).
+// `caption` e `tint` não são mais usados pela UI (v4: humores neutros, prateleiras com nomes próprios).
+export struct Highlight { id: string, kind: string, caption: string, title: string, subtitle: string, cover: image, tint: color }
+export struct Artist { id: string, name: string, subtitle: string, cover: image }
+export struct Playlist { id: string, name: string, count-label: string, covers: [image] }   // até 4 capas
+// `soon`: cartão "Em breve" (Baixados).
+export struct Collection { id: string, title: string, count-label: string, covers: [image], soon: bool }
+export struct OutputDevice { id: string, name: string, active: bool }
+export struct FolderChoice { name: string, path: string }
+export struct ProviderRow { id: string, name: string, status-label: string, connected: bool, available: bool }
+
+// Fronteira opcional. Preenchida apenas por um adaptador que também registre os callbacks.
+export enum LyricsState { unavailable, loading, ready, empty, failed }
+export struct LyricsLine { text: string, time-label: string }
+export struct OptionalServices {
+    youtube-login: bool,
+    manage-session: bool,
+    lyrics: bool,
+    audio-devices: bool,
+    equalizer: bool,
+    sleep-timer: bool,
+    downloads: bool,
+}
+
+export global AppState {
+    // ---- plataforma (o Rust define na criação da janela: Android = true) ----------------------
+    in property <bool> mobile: false;
+    // ---- navegação (estado de tela vive no Slint; o Rust só escuta) ---------------------------
+    in-out property <Tab> tab: Tab.home;
+    in-out property <bool> player-open: false;
+    in-out property <bool> queue-open: false;
+    in-out property <bool> account-open: false;
+    in-out property <bool> folder-open: false;
+    in-out property <bool> mobile-lyrics-open: false;
+    // Folhas contextuais (nível 3). `menu-track` é uma cópia da linha que abriu o menu.
+    in-out property <bool> menu-open: false;
+    in-out property <Track> menu-track;
+    in-out property <bool> playlist-sheet-open: false;      // "Adicionar à playlist"
+    in-out property <string> playlist-sheet-track: "";      // id da faixa a adicionar
+    in-out property <bool> new-playlist-open: false;        // "Nova playlist"
+    in-out property <string> new-playlist-track: "";        // se não vazio, a nova playlist já recebe esta faixa
+    callback navigate(Tab);
+    callback open-player();
+    callback close-player();
+
+    // ---- áreas seguras e ambiente (o AppWindow copia Window.safe-area-inset-* para cá; a gallery pode forçar valores; px lógicos) ----------------------------------
+    in-out property <length> safe-top: 0px;
+    in-out property <length> safe-bottom: 0px;
+    in-out property <length> safe-left: 0px;
+    in-out property <length> safe-right: 0px;
+    in property <OptionalServices> services;
+    in property <LyricsState> lyrics-state;
+    in property <[LyricsLine]> lyrics-lines;
+    in property <int> lyrics-active-line: -1;
+    in property <string> lyrics-error;
+    in property <string> session-label;
+    callback request-lyrics(string);
+    callback begin-youtube-login();
+    callback end-session();
+    in property <bool> catalog-available;
+    in property <bool> online: true;                        // false: barra "Sem conexão" nas telas de rede
+
+    // ---- reprodução --------------------------------------------------------------------------
+    in property <Track> now;
+    in property <bool> has-now: false;
+    in property <bool> playing: false;
+    in property <float> progress: 0.0;             // 0..1
+    in property <string> position-label: "0:00";
+    in property <string> remaining-label: "−0:00";
+    in property <float> volume: 1.0;               // 0..1
+    in property <bool> shuffle: false;
+    in property <RepeatMode> repeat: RepeatMode.off;
+    in property <string> output-name: "Padrão do sistema";
+    in property <string> output-note: "";          // "Original, sem equalizador" ou "Reamostrado de 96 para 48 kHz"
+    in property <bool> bit-perfect: true;
+    in property <string> now-origin: "";           // "Mix Foco" (de onde a fila veio; o Rust já manda sem "Tocando de")
+    in property <string> now-source: "";           // "Do YouTube Music" | "Neste aparelho"
+    in property <string> quality-label: "";        // "OPUS 160 kbps" (selo do player)
+    in property <image> now-art;                   // capa grande da faixa atual (player); `now.cover` é a miniatura
+    in property <image> backdrop;                  // 192×464 (Rust): capa, capa espelhada e os 80 px do topo, desfoque σ3, saturação ×1,2 (atrás do console do player)
+    in property <image> backdrop-wide;             // 96×96 muito desfocada (σ9, saturação ×1,35): tinge o mini-player e fica atrás do player em janelas largas
+    in property <float> player-dim: 0.64;          // escurecimento do console do player, 0,24 a 0,64 (regra em art.rs::glass_dims)
+    in property <float> mini-dim: 0.7;             // escurecimento do mini-player, 0,30 a 0,70
+    in property <string> now-source-line: "";      // "YouTube Music, OPUS 160 kbps" | "Neste aparelho, FLAC 24/96"
+    in property <bool> player-loading: false;      // buffering / resolvendo
+    in property <string> player-error: "";         // "" = sem erro
+    in property <string> player-error-action: "Tentar de novo";
+    in property <string> sleep-timer-label: "Timer";
+    callback toggle-play();
+    callback next();
+    callback previous();
+    callback seek(float);                          // 0..1, ao soltar
+    callback seek-relative(int);                   // segundos (+/-)
+    callback set-volume(float);
+    callback volume-step(int);                     // +1 / -1 (passos de 5%)
+    callback toggle-shuffle();
+    callback cycle-repeat();
+    callback toggle-like(string);                  // track id
+    callback play-track(string);
+                   // clique numa linha: a lista de origem vira a fila
+    callback retry-track();
+    in property <bool> can-seek: false;
+    in-out property <bool> audio-info-open: false;
+    callback open-lyrics();                        // Em breve (toast honesto)
+    callback open-output-picker();                 // Em breve
+    callback set-sleep-timer(int);                 // Em breve
+
+    // ---- Início (YouTube Music) ---------------------------------------------------------------
+    in property <LoadState> home-state: LoadState.loading;
+    in property <bool> home-stale: false;           // erro, mas há conteúdo em cache: mostra faixa de aviso
+    in property <string> home-error-title: "";
+    in property <string> home-error-text: "";
+    in property <string> source-label: "";          // "Do YouTube Music" (tag das seções)
+    in property <bool> first-run-banner: false;     // aviso "O YouTube Music já está ativo"
+    in property <[Highlight]> highlights;           // "Continue por aqui"
+    in property <[Track]> quick-picks;              // "Escolhas rápidas" (com `why`)
+    in property <[Highlight]> mixes;                // "Mixes para você"
+    in property <[Album]> albums;                   // "Álbuns em destaque"
+    in property <[Track]> recents;                  // locais recentes (Início offline, Biblioteca)
+    callback dismiss-first-run-banner();
+    callback retry-home();
+    callback play-random-shortcut();
+    callback mobile-feature(string);
+    callback open-item(string, string);             // kind, id: abre álbum/playlist/artista/humor
+    callback play-item(string, string);             // kind, id: toca na hora (botão do destaque)
+
+    // ---- Explorar -----------------------------------------------------------------------------
+    in property <LoadState> explore-state: LoadState.loading;
+    in property <string> explore-error-text: "";
+    in property <[Album]> new-releases;
+    in property <[Highlight]> moods;                // humores e gêneros (kind "mood")
+    in property <[Track]> trending;                 // "Em alta"
+    callback retry-explore();
+
+    in-out property <int> library-view: 0;
+    in-out property <int> library-density: 1;
+    in-out property <bool> library-descending;
+    callback library-order-changed(bool);
+    in-out property <int> library-category: 0;
+    callback library-layout-changed(int, int);
+
+    // ---- Biblioteca ---------------------------------------------------------------------------
+    in property <[Collection]> collections;         // sempre 4: baixados, curtidos, álbuns, playlists
+    in property <[Album]> library-albums;
+    in property <[Artist]> library-artists;
+    in property <[Playlist]> playlists;
+    in property <bool> has-library: false;          // há pastas e músicas indexadas
+    in property <bool> scanning: false;
+    in property <float> scan-progress: 0.0;         // 0..1 (negativo = indeterminado)
+    in property <string> scan-label: "";
+    in property <[string]> folders;
+    in property <string> listening-summary: "";
+    in property <string> library-summary: "";       // "3 pastas, 1.284 músicas"
+    in property <bool> loading: true;               // primeira consulta da biblioteca local
+    callback open-collection(string);
+    callback open-album(string);
+    callback open-playlist(string);
+    callback create-playlist-named(string, string); // nome, id da faixa a adicionar ("" = nenhuma)
+    callback add-to-playlist(string, string);       // track id, playlist id
+    callback add-folder();
+    callback add-named-folder(string);
+    callback browse-folders(string);
+    in-out property <bool> folder-listing-pending: false;
+    in-out property <string> folder-current: "";
+    in-out property <string> folder-parent: "";
+    in-out property <string> folder-list-error: "";
+    in property <[FolderChoice]> folder-children;
+    callback import-account(string, string);
+    callback remove-folder(string);
+    callback rescan();
+
+    // ---- Detalhe: álbum, artista, playlist, coleção, humor ------------------------------------
+    in-out property <bool> detail-open: false;
+    in property <DetailKind> detail-kind: DetailKind.tracks;
+    in property <LoadState> detail-state: LoadState.ready;
+    in property <string> detail-description;
+    in property <[Highlight]> detail-related;
+    in property <string> detail-title: "";
+    in property <string> detail-subtitle: "";
+    in property <image> detail-cover;
+    in property <string> detail-source: "";         // "Do YouTube Music" ou ""
+    in property <string> detail-empty-text: "";
+    in property <string> detail-error-text: "";
+    in property <bool> detail-saved: false;         // álbum/playlist salvo na biblioteca (Curtir do cabeçalho)
+    in property <bool> detail-can-save: false;
+    in property <bool> detail-can-play: true;
+    in property <[Track]> detail-tracks;
+    in property <[Album]> detail-albums;
+    callback close-detail();
+    callback retry-detail();
+    callback play-all();                           // toca o detalhe aberto, na ordem
+    callback shuffle-all();                        // idem, embaralhado
+    callback toggle-detail-saved();
+
+    // ---- Busca --------------------------------------------------------------------------------
+    in-out property <string> search-text: "";
+    in-out property <int> search-kind: 0;           // 0 tudo, 1 músicas, 2 álbuns, 3 artistas, 4 playlists
+    in property <SearchState> search-state: SearchState.idle;
+    in property <string> search-empty-text: "";     // "Nada para “xyz”."
+    in property <string> search-error-text: "";
+    in property <[string]> recent-searches;
+    in property <[string]> search-suggestions;
+    in property <bool> search-has-best: false;
+    in property <Highlight> search-best;            // "Melhor resultado" (kind diz o que abre)
+    in property <[Track]> search-songs;
+    in property <[Album]> search-albums;
+    in property <[Artist]> search-artists;
+    in property <[Highlight]> search-playlists;
+    callback search(string);                        // a cada edição; o Rust faz o debounce (≈250 ms)
+    callback search-kind-changed(int);
+    in-out property <int> search-source: 0;
+    callback search-source-changed(int);
+    callback remove-recent-search(string);
+    callback clear-recent-searches();
+    callback recognize-ambient();                   // botão "reconhecer pelo som": Em breve (toast honesto)
+
+    // ---- Fila ---------------------------------------------------------------------------------
+    in property <[Track]> queue;
+    in property <string> queue-summary: "";         // "A seguir, 6 músicas, 24 min"
+    in property <string> queue-more-label: "";      // "e mais 1.900 músicas"
+    in property <string> queue-note: "";            // "Quando a fila acabar, o Kazzu continua com…" ("" = sem nota)
+    // As três recebem o `id` da faixa da linha (não o índice: a fila muda por baixo, com próximas ainda resolvendo).
+    callback queue-remove(string);
+    callback queue-jump(string);
+    callback queue-move-up(string);
+    in-out property <string> focus-return;
+    callback remember-focus(string);
+    callback queue-clear();
+    in property <string> editable-playlist;
+    in-out property <bool> edit-playlist-open;
+    in property <bool> import-pending;
+    in property <string> import-status;
+    callback rename-playlist(string);
+    callback delete-playlist();
+    callback remove-playlist-entry(int, string);
+    callback move-playlist-entry-up(int, string);
+
+    // ---- Menus das linhas e do player ---------------------------------------------------------
+    callback play-next(string);                     // track id
+    callback enqueue(string);                       // track id
+    callback download-track(string);                // Em breve
+    callback goto-album(string);                    // track id → abre o álbum da faixa
+    callback goto-artist(string);                   // track id → abre o artista da faixa
+
+    // ---- Aviso temporário (toast). `toast-seq` muda a cada aviso, mesmo repetido -------------
+    in property <string> toast-text: "";
+    in property <bool> toast-error: false;
+    in property <string> toast-action-label: "";    // "Desfazer" | "Tentar de novo" | ""
+    in property <int> toast-seq: 0;
+    callback toast-action();
+    callback dismiss-toast();
+
+    in-out property <int> settings-section: 0;
+    in-out property <string> settings-query;
+    in-out property <int> glass-style: 1;
+    in-out property <bool> artwork-background: true;
+    in-out property <int> color-palette: 0;
+    callback palette-changed(int);
+    callback visual-style-changed(int, bool);
+    pure callback settings-match(string, string) -> bool;
+    // ---- Configurações ------------------------------------------------------------------------
+    in-out property <ThemeMode> theme-mode: ThemeMode.dark;
+    in-out property <int> stream-quality: 0;        // 0 Original, 1 Alta, 2 Baixa
+    in-out property <bool> autoplay-radio: true;    // "Continuar com músicas parecidas"
+    in property <bool> perf-offer: false;           // oferta "Deixar mais leve?" (quadros lentos)
+    in property <[ProviderRow]> providers;
+    in property <[OutputDevice]> outputs;
+    in property <string> version-label: "Kazzu 0.1.0";
+    in property <string> licenses-text: "";
+    callback theme-mode-changed(ThemeMode);
+    callback stream-quality-changed(int);
+    callback autoplay-radio-changed(bool);
+    callback reduce-transparency-changed(bool);     // o Rust também escreve Theme.reduce-transparency
+    callback reduce-motion-changed(bool);           // idem Theme.reduce-motion
+    callback perf-offer-accept();
+    callback perf-offer-dismiss();
+    callback clear-history();
+    callback report-problem();                      // gera arquivo local; nada é enviado
+    callback connect-provider(string);              // Em breve
+    // "Sem telemetria" é uma constante: não há propriedade nem callback (não pode ser alterada).
+}

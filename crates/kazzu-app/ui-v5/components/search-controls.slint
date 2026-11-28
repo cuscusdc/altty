@@ -1,0 +1,35 @@
+import { Theme } from "../theme/tokens.slint";
+import { AppState } from "../theme/app-contract.slint";
+import { Icons } from "../theme/icons.slint";
+import { Gutters } from "shared.slint";
+import { Pressable, Icon, IconButton, Segmented } from "atoms.slint";
+
+export component TermRow inherits Pressable {
+    in property <string> term;
+    in property <image> icon;
+    in property <bool> removable: false;
+    in property <bool> separator: true;
+    callback remove();
+    height: Theme.row-h;
+    ring-radius: Theme.r-thumb;
+    label: "Buscar " + term;
+    HorizontalLayout {
+        spacing: Theme.s-sm;
+        Rectangle { width: 48px; Icon { source: root.icon; tint: Theme.ink-2; } }
+        Rectangle {
+            if root.separator : Rectangle { x: 0; y: 0; width: parent.width - 12px; height: 1px; background: Theme.rule; }
+            HorizontalLayout {
+                Text { text: root.term; color: Theme.ink; font-size: Theme.text-lg; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; accessible-role: none; }
+                if root.removable : VerticalLayout { alignment: center; IconButton { icon: Icons.close; label: "Tirar " + root.term + " das buscas recentes"; clicked => { root.remove(); } } }
+            }
+        }
+    }
+}
+
+export component SourcePicker inherits Gutters {
+                Segmented {
+                    options: ["Tudo", "YouTube", "Biblioteca"];
+                    current: AppState.search-source;
+                    changed(source) => { AppState.search-source = source; if (source == 2 && AppState.search-kind > 2) { AppState.search-kind = 0; AppState.search-kind-changed(0); } AppState.search-source-changed(source); }
+                }
+            }

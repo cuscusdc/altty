@@ -1,0 +1,126 @@
+import { Theme } from "../theme/tokens.slint";
+import { Icons } from "../theme/icons.slint";
+import { AppState, RepeatMode } from "../theme/app-contract.slint";
+import { Nav } from "../theme/nav-state.slint";
+import { Glass, MediaGlass, MediaIconButton, Cover, Pressable, Icon, IconButton, TextButton, Scrubber, Spinner } from "../components/atoms.slint";
+
+export component PlayerConsole inherits VerticalLayout {
+    in property <length> pad-x: Theme.s-xl;
+    in property <length> pad-top: Theme.s-xl + Theme.s-xs;
+    in property <length> pad-bottom: Theme.s-lg;
+    padding-left: root.pad-x;
+    padding-right: root.pad-x;
+    padding-top: root.pad-top;
+    padding-bottom: root.pad-bottom;
+    alignment: space-between;
+    // título, artista, curtir. Todo texto do console é branco puro: a hierarquia vem do tamanho e do peso.
+    HorizontalLayout {
+        spacing: Theme.s-sm;
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            Text { text: AppState.now.title; color: Theme.media-ink; font-family: Theme.font-display; font-size: Theme.compact ? Theme.text-xl : Theme.text-xxl; font-weight: 700; letter-spacing: -0.44px; overflow: elide; accessible-role: AccessibleRole.text; }
+            if root.height >= 320px : Pressable { height: 48px; label: "Abrir artista: " + AppState.now.artist; clicked => { Nav.close-player(); AppState.goto-artist(AppState.now.id); }
+                Text { x: 0; width: parent.width; text: AppState.now.artist; color: Theme.media-ink; font-size: Theme.text-lg; vertical-alignment: center; overflow: elide; }
+            }
+            if root.height >= 390px && AppState.now.album != "" : Pressable { height: 48px; label: "Abrir álbum: " + AppState.now.album; clicked => { Nav.close-player(); AppState.goto-album(AppState.now.id); }
+                Text { x: 0; width: parent.width; text: AppState.now.album; color: Theme.media-ink; font-size: Theme.text-sm; vertical-alignment: center; overflow: elide; }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            IconButton {
+                icon: AppState.now.liked ? Icons.heart-fill : Icons.heart;
+                tint: AppState.now.liked ? Theme.media-accent : Theme.media-ink;
+                media: true;
+                ring-color: Theme.media-ink;
+                label: AppState.now.liked ? "Descurtir" : "Curtir";
+                clicked => { AppState.toggle-like(AppState.now.id); }
+            }
+        }
+    }
+    // erro: uma linha com a ação, entre o título e a posição
+    if AppState.player-error != "" : VerticalLayout {
+        spacing: Theme.s-xxs;
+        Text { text: AppState.player-error; color: Theme.media-ink; font-size: Theme.text-md; font-weight: 600; wrap: word-wrap; accessible-role: AccessibleRole.text; accessible-live-region: AccessibleLiveness.polite; }
+        HorizontalLayout {
+            alignment: start;
+            spacing: Theme.s-sm;
+            TextButton { text: AppState.player-error-action; ink: Theme.media-ink; ring-color: Theme.media-ink; width: 140px; clicked => { AppState.retry-track(); } }
+            TextButton { text: "Pular"; ink: Theme.media-ink; ring-color: Theme.media-ink; width: 80px; clicked => { AppState.next(); } }
+        }
+    }
+    MediaGlass {
+        radius: 28px;
+        horizontal-stretch: 1;
+        vertical-stretch: 1;
+        VerticalLayout {
+            padding: 12px;
+            spacing: 2px;
+            // posição: tempo decorrido, de onde vem e em que formato, tempo que falta
+            VerticalLayout {
+                // o desenho da barra é fino; o toque tem os 48 (a linha ultrapassa 8 para cima e para baixo da faixa de 32)
+                Rectangle {
+                    height: 32px;
+                    Scrubber {
+                        y: -8px;
+                        height: 48px;
+                        enabled: AppState.can-seek; value: AppState.progress;
+                        label: "Posição";
+                        value-text: AppState.position-label + ", faltam " + AppState.remaining-label;
+                        seek(v) => { AppState.seek(v); }
+                    }
+                }
+                HorizontalLayout {
+                    height: 24px;
+                    spacing: Theme.s-xs;
+                    Text { width: 44px; text: AppState.position-label; color: Theme.media-ink; font-size: Theme.text-sm; vertical-alignment: center; accessible-role: none; }
+                    Text { text: AppState.now-source-line; color: Theme.media-ink; font-size: Theme.text-xs; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; accessible-label: AppState.now-source-line + (AppState.output-note != "" ? ". " + AppState.output-note : ""); }
+                    Text { width: 48px; text: AppState.now.duration-label != "" ? AppState.now.duration-label : AppState.remaining-label; color: Theme.media-ink; font-size: Theme.text-sm; horizontal-alignment: right; vertical-alignment: center; accessible-role: none; }
+                }
+            }
+            HorizontalLayout {
+                alignment: space-between;
+                VerticalLayout { alignment: center; IconButton { icon: Icons.shuffle; tint: Theme.media-ink; media: true; on: AppState.shuffle; label: AppState.shuffle ? "Aleatório, ligado" : "Aleatório, desligado"; ring-color: Theme.media-ink; clicked => { AppState.toggle-shuffle(); } } }
+                VerticalLayout { alignment: center; IconButton { width: 56px; height: 56px; visual: 56px; icon: Icons.prev; icon-size: 36px; tint: Theme.media-ink; media: true; label: "Anterior"; ring-color: Theme.media-ink; clicked => { AppState.previous(); } } }
+                Pressable {
+                    width: 72px;
+                    height: 72px;
+                    label: AppState.player-loading ? "Carregando" : AppState.playing ? "Pausar" : "Tocar";
+                    ring-color: Theme.media-ink;
+                    clicked => { AppState.toggle-play(); }
+                    Rectangle { border-radius: 36px; background: Theme.media-ink; opacity: parent.pressed ? 0.85 : 1; }
+                    if !AppState.player-loading : Icon { source: AppState.playing ? Icons.pause : Icons.play; tint: Theme.media-console; size: 32px; }
+                    if AppState.player-loading : Rectangle { Spinner { tint: Theme.media-console; size: 32px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; } }
+                }
+                VerticalLayout { alignment: center; IconButton { width: 56px; height: 56px; visual: 56px; icon: Icons.next; icon-size: 36px; tint: Theme.media-ink; media: true; label: "Próxima"; ring-color: Theme.media-ink; clicked => { AppState.next(); } } }
+                VerticalLayout {
+                    alignment: center;
+                    IconButton {
+                        icon: Icons.repeat;
+                        tint: Theme.media-ink;
+                        media: true;
+                        on: AppState.repeat != RepeatMode.off;
+                        badge: AppState.repeat == RepeatMode.one ? "1" : "";
+                        label: AppState.repeat == RepeatMode.off ? "Repetir, desligado" : AppState.repeat == RepeatMode.all ? "Repetir tudo" : "Repetir esta música";
+                        ring-color: Theme.media-ink;
+                        clicked => { AppState.cycle-repeat(); }
+                    }
+                }
+            }
+            if root.height >= 300px : HorizontalLayout {
+                spacing: Theme.s-sm;
+                Icon { source: Icons.vol-low; tint: Theme.media-ink; size: 20px; }
+                Scrubber { height: 48px; value: AppState.volume; label: "Volume"; value-text: Math.round(AppState.volume * 100) + " por cento"; seek(v) => { AppState.set-volume(v); } }
+                Icon { source: Icons.vol-high; tint: Theme.media-ink; size: 20px; }
+            }
+            HorizontalLayout {
+                spacing: Theme.s-sm;
+                Text { text: AppState.output-name; color: Theme.media-ink; font-size: Theme.text-sm; horizontal-stretch: 1; vertical-alignment: center; overflow: elide; }
+                if AppState.services.lyrics : IconButton { icon: Icons.lyrics; media: true; tint: Theme.media-ink; label: "Letra"; clicked => { AppState.mobile-lyrics-open = true; } }
+                TextButton { text: "Informações"; ink: Theme.media-ink; width: 104px; clicked => { AppState.audio-info-open = true; } }
+                IconButton { icon: Icons.queue; media: true; tint: Theme.media-ink; label: "Editar fila"; clicked => { AppState.queue-open = true; } }
+            }
+        }
+    }
+}

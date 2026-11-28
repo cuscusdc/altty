@@ -1,0 +1,14 @@
+import { DiscoveryFeed } from "../components/discovery-feed.slint";
+import { AppState, Tab } from "../theme/app-contract.slint";
+import { Theme } from "../theme/tokens.slint";
+import { Nav } from "../theme/nav-state.slint";
+import { Icons } from "../theme/icons.slint";
+import { IconButton } from "../components/atoms.slint";
+
+export component MobileHome inherits DiscoveryFeed {
+    HorizontalLayout {
+        padding-left: Theme.gutter; padding-right: Theme.gutter;
+        Text { text: "Início"; color: Theme.ink; font-family: Theme.font-display; font-size: Theme.text-xxl; font-weight: 700; horizontal-stretch: 1; vertical-alignment: center; }
+        IconButton { icon: Icons.gear; tonal: true; label: "Ajustes"; clicked => { Nav.go(Tab.settings); } }
+    }
+}

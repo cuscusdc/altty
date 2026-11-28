@@ -1,35 +1,50 @@
-//! Kazzu: interface desktop (Slint) do player de música.
+//! Kazzu: interface Slint do player de música.
 //!
-//! - `controller`: lógica (motor de áudio + biblioteca + YouTube Music + tela), sem janela;
-//! - `catalog`/`remote`/`covers`/`ytm_vm`: provedores remotos (rede fora da thread de UI) e seus view-models;
-//! - `view`/`vm`: fronteira com a tela e dados prontos para ela;
-//! - `slint_view`/`app`: ligação com o Slint (única parte que depende da janela);
-//! - `worker`: biblioteca, scan e capas fora da thread de UI.
+//! No Android a LIB (cdylib do NativeActivity) usa apenas `ui` (interface mobile v6) e `android`.
+//! No desktop a árvore completa de controladores/view-models continua disponível.
 
-pub mod accent;
-mod accounts;
-#[cfg(target_os = "android")]
-pub mod android;
-pub mod app;
-pub mod art;
-pub mod catalog;
-pub mod config;
-pub mod controller;
-pub mod covers;
-#[cfg(feature = "demo")]
-pub mod demo;
-pub mod format;
-pub mod lru;
-pub mod platform;
-pub mod slint_view;
-pub mod snapshot;
-pub mod view;
-pub mod vm;
-pub mod remote;
-pub mod worker;
-pub mod ytm_vm;
-
-/// Tipos gerados a partir de `ui/app.slint`.
 pub mod ui {
     slint::include_modules!();
 }
+
+#[cfg(target_os = "android")]
+pub mod android;
+
+#[cfg(not(target_os = "android"))]
+pub mod accent;
+#[cfg(not(target_os = "android"))]
+mod accounts;
+#[cfg(not(target_os = "android"))]
+pub mod app;
+#[cfg(not(target_os = "android"))]
+pub mod art;
+#[cfg(not(target_os = "android"))]
+pub mod catalog;
+#[cfg(not(target_os = "android"))]
+pub mod config;
+#[cfg(not(target_os = "android"))]
+pub mod controller;
+#[cfg(not(target_os = "android"))]
+pub mod covers;
+#[cfg(all(not(target_os = "android"), feature = "demo"))]
+pub mod demo;
+#[cfg(not(target_os = "android"))]
+pub mod format;
+#[cfg(not(target_os = "android"))]
+pub mod lru;
+#[cfg(not(target_os = "android"))]
+pub mod platform;
+#[cfg(not(target_os = "android"))]
+pub mod slint_view;
+#[cfg(not(target_os = "android"))]
+pub mod snapshot;
+#[cfg(not(target_os = "android"))]
+pub mod view;
+#[cfg(not(target_os = "android"))]
+pub mod vm;
+#[cfg(not(target_os = "android"))]
+pub mod remote;
+#[cfg(not(target_os = "android"))]
+pub mod worker;
+#[cfg(not(target_os = "android"))]
+pub mod ytm_vm;
